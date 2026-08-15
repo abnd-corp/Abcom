@@ -3,8 +3,32 @@ use eframe::egui;
 use super::composer;
 use super::AbcomApp;
 
+/// Nombre de colonnes de la grille d'emojis.
+const PICKER_COLS: f32 = 8.0;
+/// Nombre de rangées visibles avant défilement.
+const PICKER_ROWS: f32 = 7.0;
+/// Côté d'une case de la grille.
+const PICKER_CELL: f32 = 36.0;
+/// Écart entre deux cases.
+const PICKER_GAP: f32 = 3.0;
+/// Hauteur de la rangée de catégories, séparateur compris.
+const PICKER_HEADER: f32 = 24.0 + 12.0;
+
 /// Encombrement de la grille d'emojis, hors cadre de la popup.
-pub(crate) const PICKER_SIZE: egui::Vec2 = egui::vec2(310.0, 340.0);
+///
+/// Déduit de la grille au lieu d'être posé à côté d'elle : les deux étaient
+/// écrits en dur et avaient fini par diverger — la popup réservait 340 points
+/// de hauteur pour un contenu qui en occupait 306, d'où une bande morte sous la
+/// dernière rangée, et rien ne garantissait que huit colonnes tiennent dans la
+/// largeur annoncée.
+pub(crate) const PICKER_SIZE: egui::Vec2 = egui::vec2(
+    PICKER_COLS * PICKER_CELL + (PICKER_COLS - 1.0) * PICKER_GAP,
+    PICKER_HEADER + PICKER_ROWS * PICKER_CELL + (PICKER_ROWS - 1.0) * PICKER_GAP,
+);
+
+/// Hauteur de la zone défilante : tout ce que la popup n'a pas donné à la
+/// rangée de catégories.
+const PICKER_GRID_HEIGHT: f32 = PICKER_SIZE.y - PICKER_HEADER;
 
 /// Marge conservée entre la popup et le bord de la fenêtre.
 const SCREEN_MARGIN: f32 = 8.0;
@@ -115,16 +139,19 @@ pub(crate) fn show_emoji_grid(
     let slice = &crate::emoji_registry::EMOJI_DATA[start..end.min(total)];
 
     egui::ScrollArea::vertical()
-        .max_height(270.0)
-        .min_scrolled_height(270.0)
+        .max_height(PICKER_GRID_HEIGHT)
+        .min_scrolled_height(PICKER_GRID_HEIGHT)
+        .max_width(PICKER_SIZE.x)
         .auto_shrink([false, false])
         .show(ui, |ui| {
             egui::Grid::new("emoji_grid")
-                .spacing([3.0, 3.0])
+                .spacing([PICKER_GAP, PICKER_GAP])
                 .show(ui, |ui| {
                     for (offset, (ch, _)) in slice.iter().enumerate() {
-                        let (cell_rect, cell_resp) =
-                            ui.allocate_exact_size(egui::vec2(36.0, 36.0), egui::Sense::click());
+                        let (cell_rect, cell_resp) = ui.allocate_exact_size(
+                            egui::Vec2::splat(PICKER_CELL),
+                            egui::Sense::click(),
+                        );
                         if cell_resp.hovered() {
                             ui.painter().rect_filled(
                                 cell_rect,
@@ -149,7 +176,7 @@ pub(crate) fn show_emoji_grid(
                         if cell_resp.on_hover_text(*ch).clicked() {
                             on_pick(ch);
                         }
-                        if (offset + 1) % 8 == 0 {
+                        if (offset + 1) % (PICKER_COLS as usize) == 0 {
                             ui.end_row();
                         }
                     }

@@ -364,7 +364,22 @@ impl AbcomApp {
                                             false,
                                             paint_send_icon,
                                         );
-                                        if send_btn.clicked() {
+                                        // Entrée insère une ligne dans le
+                                        // composeur : un bouton qui a le focus
+                                        // ne doit pas la détourner en envoi.
+                                        // egui active un bouton focalisé sur
+                                        // Entrée comme sur Espace ; il suffit
+                                        // qu'un clic ait laissé le focus sur
+                                        // celui-ci — après une pièce jointe,
+                                        // par exemple — pour que la touche
+                                        // envoie au lieu d'aller à la ligne.
+                                        // Espace garde son rôle d'activation,
+                                        // et Cmd/Ctrl+Entrée reste l'envoi.
+                                        let plain_enter = ui.input(|i| {
+                                            i.key_pressed(egui::Key::Enter)
+                                                && !(i.modifiers.command || i.modifiers.ctrl)
+                                        });
+                                        if send_btn.clicked() && !plain_enter {
                                             pressed_enter = true;
                                         }
 

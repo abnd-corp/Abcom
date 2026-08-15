@@ -60,13 +60,15 @@ fn popup_opens_below_the_button_when_there_is_room() {
 }
 
 /// Régression : le picker des réactions s'ouvrait toujours sous le « + ». Sur
-/// un message du bas de la conversation — le cas courant — ses 340 px
-/// sortaient de la fenêtre et la grille arrivait tronquée.
+/// un message du bas de la conversation — le cas courant — sa hauteur sortait
+/// de la fenêtre et la grille arrivait tronquée.
 #[test]
 fn popup_flips_above_the_button_when_it_would_overflow() {
     let pos = popup_pos(screen(), button_at(120.0, 620.0), PICKER_SIZE);
-    // 620 - 6 (écart) - 340 (hauteur).
-    assert_eq!(pos.y, 274.0);
+    // Haut du bouton, moins l'écart, moins la hauteur de la popup. La hauteur
+    // est prise à la constante, jamais recopiée : c'est en la recopiant que la
+    // taille annoncée du picker avait fini par diverger de sa grille.
+    assert_eq!(pos.y, 620.0 - 6.0 - PICKER_SIZE.y);
     assert!(pos.y >= 8.0);
 }
 

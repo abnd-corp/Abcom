@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use eframe::egui;
 use tokio::sync::mpsc;
 
-use super::{AbcomApp, UiRuntimeChannels};
+use super::{i18n, AbcomApp, UiLanguage, UiRuntimeChannels};
 use crate::app::AppState;
 use crate::network::secure::TrustStore;
 
@@ -235,5 +235,70 @@ fn read_receipts_are_swept_without_switching_conversation() {
     assert!(
         send_rx.try_recv().is_err(),
         "et ne pas être réémis au passage suivant"
+    );
+}
+
+/// Entrée insère une nouvelle ligne, l'envoi passe par Cmd/Ctrl+Entrée. egui
+/// active pourtant un bouton qui a le focus sur Entrée comme sur Espace : il
+/// suffisait qu'un clic ait laissé le focus sur « Envoyer » — au retour d'un
+/// sélecteur de fichiers, par exemple — pour que la touche envoie le message au
+/// lieu d'aller à la ligne.
+#[test]
+fn enter_on_the_focused_send_button_goes_to_the_line_instead_of_sending() {
+    let mut app = test_app();
+    let (send_tx, mut send_rx) = mpsc::channel(16);
+    app.net.send_tx = send_tx;
+    {
+        let mut s = app.state.lock().unwrap();
+        s.add_peer("alice".into(), "127.0.0.1:9000".parse().unwrap());
+        s.selected_conversation = Some("alice".into());
+    }
+    app.composer.text = "bonjour".to_string();
+    app.composer.cursor_char = app.composer.text.chars().count();
+
+    let ready = std::cell::Cell::new(false);
+    let mut harness = egui_kittest::Harness::builder()
+        .with_size(egui::vec2(700.0, 340.0))
+        .build_ui(move |root| {
+            if !ready.get() {
+                // Les familles grasse et italique ne sont liées qu'ici : sans
+                // elles, le premier nom d'auteur peint fait paniquer epaint.
+                root.ctx().set_fonts(crate::ui::build_fonts());
+                ready.set(true);
+                return;
+            }
+            {
+                let s = app.state.lock().unwrap();
+                app.sidebar_cache.refresh(&s);
+                app.chat_cache
+                    .refresh(&s, app.ui_language, &app.emoji.map, true);
+            }
+            app.show_sidebar_panel(root);
+            let _ = app.show_input_bar(root);
+            app.show_central_panel(root);
+        });
+    for _ in 0..3 {
+        harness.step();
+    }
+
+    use egui_kittest::kittest::Queryable as _;
+    harness
+        .get_by_label(i18n::ENVOYER.get(UiLanguage::French))
+        .focus();
+    harness.step();
+    harness.key_press(egui::Key::Enter);
+    harness.step();
+    harness.step();
+    assert!(
+        send_rx.try_recv().is_err(),
+        "Entrée seule sur le bouton focalisé doit aller à la ligne, pas envoyer"
+    );
+
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::Enter);
+    harness.step();
+    harness.step();
+    assert!(
+        send_rx.try_recv().is_ok(),
+        "Cmd+Entrée doit continuer d'envoyer, focus ou pas"
     );
 }

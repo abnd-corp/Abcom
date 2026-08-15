@@ -815,6 +815,10 @@ impl AbcomApp {
                             self.composer.pending_attachments.push(path);
                         }
                     }
+                    // Le sélecteur a laissé le focus au bouton qui l'a ouvert :
+                    // sans cela, la frappe suivante — un retour à la ligne, par
+                    // exemple — ne va pas dans le composeur.
+                    self.composer.has_focus = true;
                     self.last_notification = Some(label.to_string());
                     self.notification_time = std::time::Instant::now();
                 }
@@ -1064,6 +1068,7 @@ impl eframe::App for AbcomApp {
                     self.composer.pending_attachments.push(path);
                 }
             }
+            self.composer.has_focus = true;
             self.last_notification = Some(added.to_string());
             self.notification_time = std::time::Instant::now();
         }
