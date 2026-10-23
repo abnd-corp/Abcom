@@ -2,6 +2,8 @@
 
 Merci de passer par ici avant d'ouvrir une PR — les règles tiennent en une page.
 
+Les règles communes à toute l'organisation sont dans la [charte Abnd](https://github.com/abnd-corp/gouvernance/blob/main/CHARTE.md).
+
 ## Mise en place
 
 ```bash
