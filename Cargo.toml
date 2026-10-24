@@ -12,7 +12,7 @@ description = "P2P LAN chat with automatic peer discovery and native GUI"
 # l'onglet Licence de l'application affiche : AGPL-3.0. `MIT` déclaré ici
 # jusqu'au 8 août 2026 était une incohérence, pas une double licence.
 license = "AGPL-3.0-or-later"
-repository = "https://github.com/Abend-core/abcom"
+repository = "https://github.com/abnd-corp/Abcom"
 
 [[bin]]
 name = "abcom"
