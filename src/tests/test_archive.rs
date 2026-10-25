@@ -20,7 +20,7 @@ fn zip_dir_to_path_contains_entries() {
     let file = std::fs::File::open(&archive_path).unwrap();
     let mut archive = zip::ZipArchive::new(file).unwrap();
     let names: Vec<String> = (0..archive.len())
-        .map(|i| archive.by_index(i).unwrap().name().to_string())
+        .map(|i| archive.by_index(i).unwrap().name().unwrap().to_string())
         .collect();
     assert!(names.iter().any(|n| n == "projet/README.md"));
     assert!(names.iter().any(|n| n == "projet/src/main.rs"));
