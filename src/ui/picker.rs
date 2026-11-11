@@ -36,6 +36,8 @@ pub(crate) enum PickerOutcome {
     Export(PathBuf),
     /// Image de profil choisie.
     Avatar(PathBuf),
+    /// Fichier de police choisi.
+    Font(PathBuf),
 }
 
 /// Présente un sélecteur et rend son résultat par `tx`, sans rien bloquer.

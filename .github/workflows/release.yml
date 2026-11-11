@@ -42,7 +42,7 @@ jobs:
 
       - name: Dépendances système (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev libgtk-3-dev libayatana-appindicator3-dev libxdo-dev
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -87,7 +87,7 @@ jobs:
           # Une préversion (`-beta`, `-rc`) n'est pas publiée comme « latest ».
           prerelease: ${{ contains(inputs.tag || github.ref_name, '-') }}
           body: |
-            Voir [CHANGELOG.md](https://github.com/Abend-core/abcom/blob/main/CHANGELOG.md).
+            Voir [CHANGELOG.md](https://github.com/abnd-corp/Abcom/blob/main/CHANGELOG.md).
 
             ⚠️ Le binaire macOS n'est pas signé : au premier lancement, autoriser
             l'application dans Réglages → Confidentialité et sécurité.

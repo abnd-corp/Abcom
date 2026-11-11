@@ -1,64 +1,41 @@
-# Abcom
+[English](README.md) · **Français**
 
-[![CI — dev](https://github.com/abnd-corp/abcom/actions/workflows/ci-dev.yml/badge.svg?branch=dev)](https://github.com/abnd-corp/abcom/actions/workflows/ci-dev.yml)
-[![CI — main](https://github.com/abnd-corp/abcom/actions/workflows/ci-main.yml/badge.svg?branch=main)](https://github.com/abnd-corp/abcom/actions/workflows/ci-main.yml)
-[![Licence AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-blue.svg)](LICENSE)
+# Abcom — messagerie chiffrée sur réseau local
 
-[English](README.md) · Français
+[![CI](https://github.com/abnd-corp/Abcom/actions/workflows/ci-dev.yml/badge.svg?branch=dev)](https://github.com/abnd-corp/Abcom/actions/workflows/ci-dev.yml)
+[![Licence : AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-blue.svg)](LICENSE)
 
-Messagerie instantanée pour réseau local, écrite en Rust. Les machines d'un même LAN se découvrent automatiquement et échangent messages, fichiers et médias en pair-à-pair, sans serveur, sans compte, sans connexion Internet. Tout le trafic est chiffré de bout en bout (Noise XX) et l'historique est stocké localement en SQLite.
+Abcom relie les ordinateurs d'un même réseau local pour discuter en privé, en groupe et partager des fichiers. Il fonctionne sans serveur ni compte, avec des connexions chiffrées en pair-à-pair et un historique conservé sur votre ordinateur.
 
-Interface graphique native (egui), pensée pour tourner en permanence : la fenêtre se replie dans la barre de menus / zone de notification, l'application reste joignable et consomme quasiment rien au repos.
+Écrit en Rust, avec une interface native egui pour macOS, Windows et Linux.
 
-## Fonctionnalités
-
-- **Conversations** : fil public « Tous », messages privés, salons de groupe avec gestion des membres
-- **Messages riches** : Markdown, emojis (picker + `:shortcodes:`), réactions, réponses citées, indicateur de frappe
-- **Accusés** : livraison (✓✓ gris) et lecture (✓✓ bleu) en privé, avec retransmission automatique
-- **Fichiers et médias** : envoi de fichiers et dossiers jusqu'à 2 Gio, acceptation explicite du destinataire au-delà de 50 Mo, vignettes et visionneuse
-- **GIF, mèmes, stickers** : sélecteur Klipy intégré
-- **Sécurité** : identité X25519 par machine, chiffrement Noise XX, épinglage des clés (TOFU), passphrase de salon optionnelle
-- **Résident** : fermeture = repli dans le tray, notifications système, badge non-lus, lancement automatique à l'ouverture de session
-- **Bilingue** : interface FR/EN, thème clair/sombre
-- **Hors ligne** : un message écrit à un pair absent part automatiquement à sa reconnexion
-- **Local-first** : export texte d'une conversation et compaction de la base depuis Paramètres
+- Découverte automatique des pairs ; conversations privées et salons.
+- Markdown, emojis, réactions, réponses et transferts jusqu'à 2 Gio.
+- Notifications système, mode résident et réglage des thèmes, textes et polices.
+- La messagerie locale fonctionne hors ligne. Les GIF et le catalogue de polices en ligne, activable sur accord, utilisent Internet.
 
 ## Démarrage rapide
 
-```bash
-# Une fois après le clone : active le hook pre-commit (cargo fmt)
-git config core.hooksPath .githooks
+Installer [Rust](https://rustup.rs/), puis :
 
-# Lancer
-cargo run --release -- <pseudo>
-
-# Tester le P2P en local : deux instances sur la même machine
-ABCOM_INSTANCE=1 cargo run --release -- alice   # terminal 1
-ABCOM_INSTANCE=2 cargo run --release -- bob     # terminal 2
-# ou : make run2  (raccourci de scripts/run-multi.sh)
+```sh
+git clone https://github.com/abnd-corp/Abcom.git
+cd Abcom
+cargo run --release -- alice
 ```
 
-Installation par plateforme (Linux/systemd, Windows, Docker) : voir [docs/06-installation.md](docs/06-installation.md).
+Lancer Abcom sur un autre ordinateur du même réseau avec un nom différent. Sous Linux, installer les [paquets système](docs/06-installation.md#dépendances-système-sous-linux) nécessaires à la compilation.
+
+Pour essayer deux instances locales sur macOS ou Linux : `make run2`.
 
 ## Documentation
 
-| Document | Contenu |
-|---|---|
-| [01 — Présentation](docs/01-presentation.md) | Ce qu'est Abcom, comment ça marche, décisions fondatrices, vocabulaire |
-| [02 — Architecture](docs/02-architecture.md) | Modules, threads, flux d'événements, rendu et caches UI |
-| [03 — Réseau et sécurité](docs/03-reseau-et-securite.md) | Découverte, protocole, chiffrement, modèle de menace |
-| [04 — Stockage](docs/04-stockage.md) | Base SQLite, schéma, médias, fichiers de données |
-| [05 — Fonctionnalités](docs/05-fonctionnalites.md) | Comportement détaillé : conversations, groupes, accusés, médias, tray |
-| [06 — Installation](docs/06-installation.md) | Linux, macOS, Windows, Docker, variables d'environnement |
-| [07 — Développement](docs/07-developpement.md) | Build, tests, CI, workflow Git, dépendances et licences |
-| [08 — Historique et audits](docs/08-historique-et-audits.md) | Phases du projet, audits menés, résultats mesurés |
-| [09 — Limites et pistes](docs/09-limites-et-pistes.md) | Limites connues et travaux envisagés |
-| [10 — Cahier de tests](docs/10-cahier-de-tests.md) | Tests manuels : fonctionnalités, régressions, spécificités par OS |
+[Installation](docs/06-installation.md) · [Guide utilisateur](docs/05-fonctionnalites.md) · [Dépannage et FAQ](docs/11-depannage.md) · [Toute la documentation](docs/README.fr.md)
 
-Pour contribuer : [CONTRIBUTING.md](CONTRIBUTING.md) (barrière verte, conventions, workflow Git). Le suivi au fil de l'eau est dans [CHANGELOG.md](CHANGELOG.md). Les documents historiques (audits et plans exécutés, ADR, anciennes versions) sont conservés tels quels dans [old/](old/), indexés par [old/README.md](old/README.md).
+**Logiciel en bêta.** La vérification d'identité au premier contact et le stockage local non chiffré sont expliqués dans le [guide de sécurité](docs/03-reseau-et-securite.md). Consulter les [limites connues](docs/09-limites-et-pistes.md) et le [changelog](CHANGELOG.md) avant un déploiement.
 
-## État du projet
+## Contribuer et licence
 
-Version **1.0.0-beta.1**, sous licence **AGPL-3.0**. 329 tests automatisés — dont un scénario P2P headless externe et un rendu headless de toute l'interface — et CI GitHub Actions sur Linux, macOS et Windows, avec MSRV, `cargo audit`, `cargo deny` et mesure de couverture.
+Commencer par le [guide de développement](docs/07-developpement.md) et les [règles de contribution](CONTRIBUTING.md). Signaler les problèmes reproductibles dans les [issues GitHub](https://github.com/abnd-corp/Abcom/issues).
 
-Ce qui reste ouvert est listé dans [docs/09 — Limites et pistes](docs/09-limites-et-pistes.md).
+Sous licence [GNU AGPL v3](LICENSE). Les ressources embarquées gardent leurs propres licences ; voir les [crédits](docs/07-developpement.md#ressources-embarquées).

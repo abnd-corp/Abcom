@@ -13,18 +13,24 @@ use crate::message::{
 use crate::platform::tray;
 use crate::util::MutexExt;
 
+mod appearance;
+mod appearance_tab;
 mod avatar;
 mod chat_panel;
+mod colors;
 pub mod composer;
+mod custom_themes;
 mod dialog;
 mod emoji_picker;
 mod events;
+mod fonts;
 mod gif_picker;
 mod group_modal;
 mod i18n;
 mod input_bar;
 mod markdown;
 mod media;
+mod online_fonts;
 mod outbound;
 mod picker;
 mod reactions;
@@ -34,6 +40,7 @@ mod sidebar;
 mod snapshot;
 mod sound;
 mod theme;
+mod themes;
 
 /// Nombre de messages affichés au départ et pas de chargement du fenêtrage
 /// façon Discord (le fil charge 100 messages de plus en remontant).
@@ -71,6 +78,7 @@ pub(crate) enum UiLanguage {
 pub(crate) enum SettingsTab {
     Profile,
     General,
+    Appearance,
     Storage,
     Credits,
     License,
@@ -328,7 +336,26 @@ pub(crate) struct AbcomApp {
     pub(crate) ui_language: UiLanguage,
     /// Préférence de thème : egui suit le système et détecte ses changements
     /// en cours d'exécution, ce que notre détection au démarrage ne faisait pas.
-    pub(crate) theme_preference: egui::ThemePreference,
+    /// Apparence choisie, appliquée au contexte à chaque changement.
+    pub(crate) appearance: appearance::Appearance,
+    /// Dernière apparence appliquée au contexte (`None` avant la première image).
+    applied_appearance: Option<(appearance::Appearance, u64, u64, bool)>,
+    /// Polices importées par l'utilisateur.
+    pub(crate) fonts: fonts::FontStore,
+    /// Remplace le sélecteur natif de fichier de police (tests) : `None` ouvre la feuille native.
+    pub(crate) font_picker: Option<Box<dyn FnMut() -> Option<PathBuf>>>,
+    /// Zone qui attend un fichier de police : sélecteur à ouvrir à la frame suivante.
+    pub(crate) pending_font_pick: Option<appearance_tab::FontZone>,
+    /// Zone pour laquelle un sélecteur est ouvert.
+    font_pick_zone: Option<appearance_tab::FontZone>,
+    /// Catalogue de polices en ligne (désactivé tant que l'utilisateur ne l'a pas autorisé).
+    pub(crate) online: online_fonts::OnlineFonts,
+    /// État de l'onglet Apparence des Paramètres.
+    pub(crate) appearance_ui: appearance_tab::AppearanceUi,
+    /// Thèmes personnels, lus dans le dossier des données.
+    pub(crate) themes: custom_themes::ThemeStore,
+    /// Dernière apparence écrite dans les préférences.
+    persisted_appearance: appearance::Appearance,
     /// Dernière ventilation de l'occupation disque (onglet Stockage).
     /// `None` tant que le calcul, qui parcourt des dossiers, n'a pas répondu.
     pub(crate) storage_usage: Option<crate::app::usage::Usage>,
@@ -429,17 +456,33 @@ impl AbcomApp {
         let (alias_to_char, aliases) = emoji_picker::build_emoji_shortcode_index(&characters);
         let (picker_tx, picker_rx) = std::sync::mpsc::channel();
         // Préférences persistées (table kv).
-        let (notif_preview, autostart_enabled, retention_days, purge_includes_images) = {
+        let (
+            notif_preview,
+            autostart_enabled,
+            retention_days,
+            purge_includes_images,
+            saved_appearance,
+            themes_dir,
+        ) = {
             let s = state.lock_safe();
             (
                 s.pref_bool("notif_preview", true),
                 s.pref_bool("autostart", false),
                 s.retention_days(),
                 s.purge_includes_images(),
+                appearance::Appearance::from_pref(s.pref_str(appearance::Appearance::PREF_KEY)),
+                s.media_dir()
+                    .parent()
+                    .map(|data| data.join("themes"))
+                    .unwrap_or_else(|| PathBuf::from("themes")),
             )
         };
+        let themes = custom_themes::ThemeStore::load(&themes_dir);
+        let fonts = fonts::FontStore::load(&themes_dir.with_file_name("fonts"));
+        let mut saved_appearance = saved_appearance;
+        let theme_missing = saved_appearance.drop_missing_custom(&themes);
 
-        Self {
+        let mut app = Self {
             state,
             identity_fingerprint,
             psk_active,
@@ -520,7 +563,16 @@ impl AbcomApp {
             muted_conversations: std::collections::HashSet::new(),
             pending_picker: 0,
             ui_language: UiLanguage::French,
-            theme_preference: egui::ThemePreference::System,
+            appearance: saved_appearance.clone(),
+            applied_appearance: None,
+            fonts,
+            font_picker: None,
+            pending_font_pick: None,
+            font_pick_zone: None,
+            online: online_fonts::OnlineFonts::real(),
+            themes,
+            appearance_ui: appearance_tab::AppearanceUi::default(),
+            persisted_appearance: saved_appearance,
             storage_usage: None,
             purge_preview: None,
             storage_scan_pending: false,
@@ -562,12 +614,140 @@ impl AbcomApp {
             read_receipts_sent: std::collections::HashMap::new(),
             picker_tx,
             picker_rx,
+        };
+        if theme_missing {
+            app.notify(app.t(i18n::THEME_PERSONNEL_INTROUVABLE));
         }
+        app
     }
 
     /// Libellé du catalogue dans la langue active.
     pub(crate) fn t(&self, entry: i18n::Entry) -> &'static str {
         entry.get(self.ui_language)
+    }
+
+    /// Rafraîchit les caches dérivés si l'état a changé (génération) — sinon la
+    /// frame se rend sans reprendre le verrou ni rien re-dériver.
+    pub(crate) fn refresh_caches(&mut self, ctx: &egui::Context) {
+        {
+            let theme = theme::current(ctx);
+            let s = self.state.lock_safe();
+            self.sidebar_cache.refresh(&s);
+            let rebuilt = self.chat_cache.refresh(
+                &s,
+                self.ui_language,
+                &self.emoji.map,
+                ctx.theme() == egui::Theme::Dark,
+                &theme,
+            );
+            drop(s);
+            if let Some(conv_changed) = rebuilt {
+                if conv_changed {
+                    self.chat_visible_count = CHAT_WINDOW_STEP;
+                    self.chat_prepend_fix = None;
+                }
+                // Les GIFs sortis du fil (changement de conversation ou
+                // expiration du ring-buffer) libèrent leurs frames décodées.
+                for url in self
+                    .media
+                    .known_gif_urls
+                    .difference(&self.chat_cache.gif_urls)
+                {
+                    ctx.forget_image(url);
+                }
+                self.media.known_gif_urls = self.chat_cache.gif_urls.clone();
+            }
+        }
+    }
+
+    /// Panneaux, fenêtres et surcouches de l'application, dans l'ordre imposé par egui.
+    pub(crate) fn show_app(&mut self, root: &mut egui::Ui) {
+        let ctx = root.ctx().clone();
+        let ctx = &ctx;
+
+        // Avant les panneaux : une combinaison consommée ici ne sera pas
+        // réinterprétée par un widget dans la même frame.
+        self.handle_shortcuts(ctx);
+        self.submit_search();
+
+        // Ordre imposé par egui : panneaux latéraux, puis bas, puis central.
+        self.show_sidebar_panel(root);
+        let (emoji_btn_clicked, gif_btn_clicked) = self.show_input_bar(root);
+        self.show_notification(ctx);
+        self.show_emoji_picker_window(ctx, emoji_btn_clicked);
+        self.show_gif_picker_window(ctx, gif_btn_clicked);
+        self.render_group_modal(ctx);
+        self.render_group_manage_modal(ctx);
+        self.show_central_panel(root);
+        self.show_reaction_emoji_picker(ctx);
+        self.render_settings(ctx);
+        self.show_media_viewer(ctx);
+        self.show_search(ctx);
+
+        // Repaint de repli : les événements réseau réveillent déjà l'UI
+        // (cf. notify.rs), il ne reste à couvrir que les états transitoires
+        // à expiration temporelle. Au repos : une frame toutes les 5 s
+        // (nettoyage des pairs inactifs), soit un CPU/GPU quasi nul.
+        let fallback = if self.last_notification.is_some() || self.highlight_message.is_some() {
+            Duration::from_millis(500) // expiration notification / flash de surlignage
+        } else if self.typing_active {
+            Duration::from_secs(1) // expiration de l'indicateur « écrit… »
+        } else if !self.window_focused {
+            Duration::from_secs(30) // visible en arrière-plan : quasi dormant
+        } else {
+            Duration::from_secs(5) // tick periodic_tasks
+        };
+        ctx.request_repaint_after(fallback);
+    }
+
+    /// Applique l'apparence au contexte quand elle a changé, puis l'enregistre.
+    ///
+    /// L'écriture attend que le bouton de la souris soit relâché : un curseur
+    /// qu'on fait glisser change l'apparence à chaque image, et la base n'a pas
+    /// à garder chaque valeur intermédiaire.
+    pub(crate) fn sync_appearance(&mut self, ctx: &egui::Context) {
+        self.online_poll();
+        if !self.appearance.online_fonts_allowed && self.online.download.is_some() {
+            self.online_cancel();
+        }
+        if self.appearance.drop_missing_custom(&self.themes) {
+            self.notify(self.t(i18n::THEME_PERSONNEL_INTROUVABLE));
+        }
+        let previews = self.appearance_ui.previews;
+        let key = (
+            self.appearance.clone(),
+            self.themes.revision,
+            self.fonts.revision,
+            previews,
+        );
+        if self.applied_appearance.as_ref() != Some(&key) {
+            let failed = appearance::apply_appearance(
+                ctx,
+                &self.appearance,
+                &self.themes,
+                &self.fonts,
+                previews,
+            );
+            if failed > 0 {
+                self.notify(self.t(i18n::POLICE_INDISPONIBLE));
+            }
+            self.applied_appearance = Some(key);
+            // Les styles posés en cours d'image ne valent qu'à la suivante.
+            ctx.request_repaint();
+        }
+        let dragging = ctx.input(|input| input.pointer.any_down());
+        if !dragging && self.themes.has_unsaved() {
+            if let Err(err) = self.themes.flush() {
+                tracing::warn!("thèmes non enregistrés : {err}");
+                self.notify(self.t(i18n::THEME_NON_ENREGISTRE));
+            }
+        }
+        if !dragging && self.persisted_appearance != self.appearance {
+            self.state
+                .lock_safe()
+                .set_pref(appearance::Appearance::PREF_KEY, &self.appearance.to_pref());
+            self.persisted_appearance = self.appearance.clone();
+        }
     }
 
     /// Sauvegarde le texte courant dans les drafts pour la conversation active
@@ -815,6 +995,10 @@ impl AbcomApp {
                             self.composer.pending_attachments.push(path);
                         }
                     }
+                    // Le sélecteur a laissé le focus au bouton qui l'a ouvert :
+                    // sans cela, la frappe suivante — un retour à la ligne, par
+                    // exemple — ne va pas dans le composeur.
+                    self.composer.has_focus = true;
                     self.last_notification = Some(label.to_string());
                     self.notification_time = std::time::Instant::now();
                 }
@@ -822,6 +1006,11 @@ impl AbcomApp {
                     // Pas de notification ici : l'écriture est asynchrone et son
                     // verdict revient par `AppEvent::ConversationExported`.
                     self.state.lock_safe().export_selected_conversation(path);
+                }
+                picker::PickerOutcome::Font(path) => {
+                    if let Some(zone) = self.font_pick_zone.take() {
+                        self.import_font_file(zone, &path);
+                    }
                 }
                 picker::PickerOutcome::Avatar(path) => {
                     match avatar::load_normalized_avatar(&path) {
@@ -962,37 +1151,9 @@ impl eframe::App for AbcomApp {
             return;
         }
 
-        ctx.set_theme(self.theme_preference);
+        self.sync_appearance(ctx);
 
-        // Rafraîchit les caches dérivés si l'état a changé (génération) —
-        // sinon la frame se rend sans reprendre le verrou ni rien re-dériver.
-        {
-            let s = self.state.lock_safe();
-            self.sidebar_cache.refresh(&s);
-            let rebuilt = self.chat_cache.refresh(
-                &s,
-                self.ui_language,
-                &self.emoji.map,
-                ctx.theme() == egui::Theme::Dark,
-            );
-            drop(s);
-            if let Some(conv_changed) = rebuilt {
-                if conv_changed {
-                    self.chat_visible_count = CHAT_WINDOW_STEP;
-                    self.chat_prepend_fix = None;
-                }
-                // Les GIFs sortis du fil (changement de conversation ou
-                // expiration du ring-buffer) libèrent leurs frames décodées.
-                for url in self
-                    .media
-                    .known_gif_urls
-                    .difference(&self.chat_cache.gif_urls)
-                {
-                    ctx.forget_image(url);
-                }
-                self.media.known_gif_urls = self.chat_cache.gif_urls.clone();
-            }
-        }
+        self.refresh_caches(ctx);
 
         // Flash barre des tâches si message non lu — réinitialisé une seule fois
         // quand la fenêtre reprend le focus (pas d'envoi répété en boucle).
@@ -1064,6 +1225,7 @@ impl eframe::App for AbcomApp {
                     self.composer.pending_attachments.push(path);
                 }
             }
+            self.composer.has_focus = true;
             self.last_notification = Some(added.to_string());
             self.notification_time = std::time::Instant::now();
         }
@@ -1090,6 +1252,23 @@ impl eframe::App for AbcomApp {
             });
         }
 
+        // Sélection d'un fichier de police : même feuille asynchrone, jamais bloquante.
+        if let Some(zone) = self.pending_font_pick.take() {
+            if !picker::is_open() {
+                self.font_pick_zone = Some(zone);
+                let dialog = rfd::AsyncFileDialog::new()
+                    .set_parent(frame)
+                    .set_title(self.t(i18n::CHOISIR_UNE_POLICE))
+                    .add_filter("Polices", &["ttf", "otf", "ttc", "woff", "woff2"])
+                    .pick_file();
+                picker::spawn(self.picker_tx.clone(), ctx.clone(), async move {
+                    Some(picker::PickerOutcome::Font(
+                        dialog.await?.path().to_path_buf(),
+                    ))
+                });
+            }
+        }
+
         // Sélection de l'image de profil.
         if std::mem::take(&mut self.pending_avatar_pick) && !picker::is_open() {
             let dialog = rfd::AsyncFileDialog::new()
@@ -1104,39 +1283,7 @@ impl eframe::App for AbcomApp {
             });
         }
 
-        // Avant les panneaux : une combinaison consommée ici ne sera pas
-        // réinterprétée par un widget dans la même frame.
-        self.handle_shortcuts(ctx);
-        self.submit_search();
-
-        // Ordre imposé par egui : panneaux latéraux, puis bas, puis central.
-        self.show_sidebar_panel(root);
-        let (emoji_btn_clicked, gif_btn_clicked) = self.show_input_bar(root);
-        self.show_notification(ctx);
-        self.show_emoji_picker_window(ctx, emoji_btn_clicked);
-        self.show_gif_picker_window(ctx, gif_btn_clicked);
-        self.render_group_modal(ctx);
-        self.render_group_manage_modal(ctx);
-        self.show_central_panel(root);
-        self.show_reaction_emoji_picker(ctx);
-        self.render_settings(ctx);
-        self.show_media_viewer(ctx);
-        self.show_search(ctx);
-
-        // Repaint de repli : les événements réseau réveillent déjà l'UI
-        // (cf. notify.rs), il ne reste à couvrir que les états transitoires
-        // à expiration temporelle. Au repos : une frame toutes les 5 s
-        // (nettoyage des pairs inactifs), soit un CPU/GPU quasi nul.
-        let fallback = if self.last_notification.is_some() || self.highlight_message.is_some() {
-            Duration::from_millis(500) // expiration notification / flash de surlignage
-        } else if self.typing_active {
-            Duration::from_secs(1) // expiration de l'indicateur « écrit… »
-        } else if !self.window_focused {
-            Duration::from_secs(30) // visible en arrière-plan : quasi dormant
-        } else {
-            Duration::from_secs(5) // tick periodic_tasks
-        };
-        ctx.request_repaint_after(fallback);
+        self.show_app(root);
     }
 
     /// Flush final du stockage : attend que toutes les écritures en file
@@ -1188,43 +1335,134 @@ fn arm_shutdown_watchdog() {
     }
 }
 
-/// Nom de la famille de police en gras enregistrée dans egui (Inter Bold).
-/// egui ne synthétise pas le gras : on charge une vraie police pour les noms.
+/// Nom de la famille grasse de l'interface enregistrée dans egui.
+/// egui ne synthétise pas le gras : on charge une vraie police.
 pub(crate) const BOLD_FAMILY: &str = "bold";
 
-/// Chaîne de polices, dans l'ordre de consultation :
-/// `Noto Sans`, `Noto Sans Symbols 2`, `Inter`, `Unifont`, puis les polices par
-/// défaut d'egui — dont ses deux polices d'emoji — en dernier recours.
+/// Noto Color Emoji est absente des chaînes de repli : ses glyphes sont des images CBDT qu'egui ne
+/// sait pas rasteriser, elle captait les codets emoji sans en dessiner aucun. Les
+/// emoji des messages passent de toute façon par le registre PNG (`EmojiTextures`).
+/// Unifont ferme la marche : son rendu tramé ne sert que là où le choix est entre
+/// « moche » et « rien », ce qui évite les carrés vides sur du texte non latin.
+/// Polices de tête d'une famille : (normale, grasse, italique).
 ///
-/// Inter y figure parce qu'elle est déjà embarquée pour les noms d'auteur et
-/// qu'elle dessine les flèches `→ ← ↑ ↓`, qu'aucune des deux Noto ne porte :
-/// sans elle, elles retombaient sur le rendu tramé d'Unifont.
-///
-/// Noto Color Emoji en a été retirée après essai : ses glyphes sont des images
-/// CBDT, qu'egui ne sait pas rasteriser. Placée dans la chaîne, elle capte tous
-/// les codets emoji et n'en dessine aucun — `☑`, `✔`, `😀`, `❤️` disparaissaient
-/// purement et simplement, alors que les polices d'emoji d'egui les rendaient
-/// très bien en monochrome. Les emoji des messages, eux, passent de toute façon
-/// par le registre PNG (cf. `EmojiTextures`), en couleur.
-///
-/// Chaque police n'est interrogée que pour ce que les précédentes ne savent
-/// pas dessiner. Sans cette chaîne, tout caractère hors du latin s'affichait en
-/// carré vide : une phrase collée en chinois, en japonais ou en coréen était
-/// illisible d'un bout à l'autre. Unifont ferme la marche — son rendu tramé ne
-/// sert donc que là où le choix est entre « moche » et « rien ».
-const FONT_CHAIN: [&str; 4] = ["noto-sans", "noto-symbols2", "inter-bold", "unifont"];
+/// Noto Sans garde Inter Bold pour le gras et reste droite en italique (egui
+/// penche alors le bitmap) ; elle ne dessine pas les flèches `→ ← ↑ ↓`, qu'Inter
+/// Bold prête donc en repli. Inter a ses trois coupes.
+fn font_cuts(kind: theme::FontKind) -> (&'static str, &'static str, Option<&'static str>) {
+    match kind {
+        theme::FontKind::NotoSans => ("noto-sans", "inter-bold", None),
+        theme::FontKind::Inter => ("inter", "inter-semibold", Some("inter-italic")),
+    }
+}
 
-/// Définitions de polices : la chaîne ci-dessus en tête des familles standard,
-/// et Inter Bold (OFL) sous la famille [`BOLD_FAMILY`] pour les noms d'auteur —
-/// egui ne synthétise pas le gras.
-fn build_fonts() -> egui::FontDefinitions {
-    let mut fonts = egui::FontDefinitions::default();
+/// Chaîne d'une famille : sa police de tête, puis ce qu'elle ne sait pas dessiner.
+///
+/// Noto Sans ne dessine pas les flèches `→ ← ↑ ↓` : Inter Bold les prête, avant
+/// qu'Unifont ne les trame. Inter les porte elle-même.
+fn family_chain(head: &str, kind: theme::FontKind) -> Vec<String> {
+    let names: &[&str] = match kind {
+        theme::FontKind::NotoSans => &["noto-sans", "noto-symbols2", "inter-bold", "unifont"],
+        theme::FontKind::Inter => &["inter", "noto-symbols2", "unifont"],
+    };
+    std::iter::once(head)
+        .chain(names.iter().copied().filter(|name| *name != head))
+        .map(str::to_owned)
+        .collect()
+}
+
+/// Police d'aperçu : une famille egui à part, pour écrire un nom dans sa propre police.
+pub(crate) struct PreviewFont {
+    pub(crate) family: String,
+    pub(crate) files: Vec<Arc<Vec<u8>>>,
+}
+
+/// Nom de la famille egui d'aperçu d'une police.
+pub(crate) fn preview_family(key: &str) -> egui::FontFamily {
+    egui::FontFamily::Name(format!("preview-{key}").into())
+}
+
+/// Chaînes (normale, grasse, italique) d'une zone ; les polices décodées y sont
+/// enregistrées sous `zone`-r0, `zone`-b0…
+fn zone_chains(
+    plan: &fonts::FontPlan,
+    zone: &str,
+    definitions: &mut egui::FontDefinitions,
+) -> (Vec<String>, Vec<String>, Vec<String>) {
+    match plan {
+        fonts::FontPlan::Theme(kind) => {
+            let (regular, bold, italic) = font_cuts(*kind);
+            (
+                family_chain(regular, *kind),
+                family_chain(bold, *kind),
+                family_chain(italic.unwrap_or(regular), *kind),
+            )
+        }
+        fonts::FontPlan::Files { font, .. } => {
+            let mut register = |prefix: &str, files: &[Arc<Vec<u8>>]| -> Vec<String> {
+                files
+                    .iter()
+                    .enumerate()
+                    .map(|(n, bytes)| {
+                        let name = format!("{zone}-{prefix}{n}");
+                        definitions.font_data.insert(
+                            name.clone(),
+                            Arc::new(egui::FontData::from_owned(bytes.as_ref().clone())),
+                        );
+                        name
+                    })
+                    .collect()
+            };
+            let regular = register("r", &font.regular);
+            let bold = register("b", &font.bold);
+            let fallback = family_chain("noto-sans", theme::FontKind::NotoSans);
+            let join = |head: Vec<String>, tail: &[String]| -> Vec<String> {
+                let mut chain = head;
+                for name in tail {
+                    if !chain.contains(name) {
+                        chain.push(name.clone());
+                    }
+                }
+                chain
+            };
+            let bold_head = if bold.is_empty() {
+                vec!["inter-bold".to_owned()]
+            } else {
+                bold
+            };
+            let regular_chain = join(regular.clone(), &fallback);
+            (
+                regular_chain.clone(),
+                join(join(bold_head, &regular), &fallback),
+                regular_chain,
+            )
+        }
+    }
+}
+
+/// Définitions de polices : une famille pour l'interface (la proportionnelle
+/// d'egui, avec sa version grasse) et une pour les conversations (normale,
+/// grasse, italique), chacune sur la police choisie pour sa zone.
+fn build_fonts(plans: &fonts::FontPlans, previews: &[PreviewFont]) -> egui::FontDefinitions {
+    let mut definitions = egui::FontDefinitions::default();
     let mut embed = |name: &str, bytes: &'static [u8]| {
-        fonts.font_data.insert(
+        definitions.font_data.insert(
             name.to_owned(),
             Arc::new(egui::FontData::from_static(bytes)),
         );
     };
+    embed(
+        "inter",
+        include_bytes!("../../assets/fonts/Inter-Regular.ttf"),
+    );
+    embed(
+        "inter-semibold",
+        include_bytes!("../../assets/fonts/Inter-SemiBold.ttf"),
+    );
+    embed(
+        "inter-italic",
+        include_bytes!("../../assets/fonts/Inter-Italic.ttf"),
+    );
     embed(
         "inter-bold",
         include_bytes!("../../assets/fonts/Inter-Bold.ttf"),
@@ -1239,36 +1477,51 @@ fn build_fonts() -> egui::FontDefinitions {
     );
     embed("unifont", include_bytes!("../../assets/fonts/Unifont.otf"));
 
-    // Les noms d'auteur méritent le même repli que le reste : un pseudo en
-    // cyrillique ou en japonais ne doit pas se réduire à des carrés.
-    fonts.families.insert(
-        egui::FontFamily::Name(BOLD_FAMILY.into()),
-        std::iter::once("inter-bold".to_owned())
-            .chain(
-                FONT_CHAIN
-                    .iter()
-                    .filter(|name| **name != "inter-bold")
-                    .map(|name| (*name).to_owned()),
-            )
-            .collect(),
-    );
-    // Proportionnel : Noto Sans devient la police de texte. Monospace : Hack
+    let named = |name: &str| egui::FontFamily::Name(name.into());
+    let (ui_regular, ui_bold, _) = zone_chains(&plans.ui, "ui", &mut definitions);
+    let (msg_regular, msg_bold, msg_italic) = zone_chains(&plans.msg, "msg", &mut definitions);
+    definitions.families.insert(named(BOLD_FAMILY), ui_bold);
+    definitions
+        .families
+        .insert(named(theme::MSG_FAMILY), msg_regular);
+    definitions
+        .families
+        .insert(named(theme::MSG_BOLD_FAMILY), msg_bold);
+    definitions
+        .families
+        .insert(named(theme::MSG_ITALIC_FAMILY), msg_italic);
+    // Proportionnel : la police de l'interface passe en tête. Monospace : Hack
     // reste en tête, la chaîne ne sert qu'en repli.
-    for (family, prepend) in [
-        (egui::FontFamily::Proportional, true),
-        (egui::FontFamily::Monospace, false),
-    ] {
-        let existing = fonts.families.entry(family).or_default();
-        let chain = FONT_CHAIN.iter().map(|name| (*name).to_owned());
-        if prepend {
-            let defaults = std::mem::take(existing);
-            existing.extend(chain);
-            existing.extend(defaults);
-        } else {
-            existing.extend(chain);
+    let proportional = definitions
+        .families
+        .entry(egui::FontFamily::Proportional)
+        .or_default();
+    let defaults = std::mem::take(proportional);
+    proportional.extend(ui_regular.iter().cloned());
+    proportional.extend(defaults);
+    definitions
+        .families
+        .entry(egui::FontFamily::Monospace)
+        .or_default()
+        .extend(ui_regular);
+
+    let fallback = family_chain("noto-sans", theme::FontKind::NotoSans);
+    for preview in previews {
+        let mut chain = Vec::new();
+        for (n, bytes) in preview.files.iter().enumerate() {
+            let name = format!("preview-{}-{n}", preview.family);
+            definitions.font_data.insert(
+                name.clone(),
+                Arc::new(egui::FontData::from_owned(bytes.as_ref().clone())),
+            );
+            chain.push(name);
         }
+        chain.extend(fallback.iter().cloned());
+        definitions
+            .families
+            .insert(preview_family(&preview.family), chain);
     }
-    fonts
+    definitions
 }
 
 fn app_icon_data() -> Option<egui::IconData> {
@@ -1348,7 +1601,11 @@ pub fn run(
             // Publie le contexte egui vers les tâches de fond : chaque
             // événement relayé peut désormais réveiller la boucle de rendu.
             let _ = ui_ctx.set(cc.egui_ctx.clone());
-            cc.egui_ctx.set_fonts(build_fonts());
+            appearance::apply(
+                &cc.egui_ctx,
+                themes::BuiltinTheme::Classic,
+                &appearance::TextSettings::default(),
+            );
             // Loaders d'images egui_extras : HTTP (récupération depuis le CDN
             // Klipy) + décodage GIF/WebP animés pour les vignettes et le fil.
             egui_extras::install_image_loaders(&cc.egui_ctx);
@@ -1488,3 +1745,11 @@ mod app_tests;
 #[cfg(test)]
 #[path = "../tests/test_ui_fonts.rs"]
 mod font_tests;
+
+#[cfg(test)]
+#[path = "../tests/test_ui_appearance_e2e.rs"]
+mod appearance_e2e_tests;
+
+#[cfg(test)]
+#[path = "../tests/test_ui_appearance_matrix.rs"]
+mod appearance_matrix_tests;

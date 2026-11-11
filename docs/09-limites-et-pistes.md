@@ -1,6 +1,8 @@
 # 09 — Limites connues et pistes
 
-Inventaire honnête de ce que l'application ne fait pas (ou fait imparfaitement), avec les pistes envisagées. Chaque limite listée est **assumée** : elle résulte d'un arbitrage documenté, pas d'un oubli.
+[English](en/09-limitations.md) · **Français** · [Documentation](README.fr.md)
+
+Inventaire honnête de ce que l'application ne fait pas (ou fait imparfaitement), avec les pistes envisagées. Les pistes ne sont pas des engagements de livraison ; les anomalies constatées et les avis de dépendances sont aussi suivis ici.
 
 ## Sécurité
 
@@ -32,28 +34,44 @@ Inventaire honnête de ce que l'application ne fait pas (ou fait imparfaitement)
 
 | Limite | Détail | Piste |
 |---|---|---|
-| Pas de binaire musl statique | `wgpu` charge le pilote Vulkan par `dlopen`, impossible dans un binaire musl statique ; GTK et ALSA ajoutent la même contrainte. La compilation **dynamique** contre musl (Alpine) fonctionne | Aucune : lever la limite supposerait d'abandonner l'interface graphique |
+| Pas de binaire musl statique pris en charge | La pile graphique et les pilotes utilisent des bibliothèques dynamiques ; Alpine suit la voie musl dynamique | Valider les bibliothèques et pilotes de la cible |
 | Pas de bundle macOS | Binaire nu : les notifications sont attribuées au terminal | Bundle `.app` (`com.abend.abcom`) via cargo-bundle/cargo-packager, à la première release |
 | Pas d'installateur Windows complet | Le script PowerShell installe et crée les raccourcis, sans MSI | Package MSI ou ZIP signé |
-| Tray Linux dépendant du shell | Nécessite StatusNotifier/AppIndicator (KDE, XFCE ok ; GNOME avec extension) ; sans tray, la croix quitte normalement (repli sûr) | — |
+| Tray Linux dépendant du shell | Nécessite D-Bus et StatusNotifierItem (GNOME peut demander une extension) ; une icône peut attendre le watcher ; si la création échoue, fermer quitte | — |
 | Tray Windows/Linux non testés en réel | Implémentés mais l'environnement de dev est macOS | Passe manuelle §13 du [cahier de tests](10-cahier-de-tests.md) sur machines cibles |
 
 ## Dette identifiée, non résorbée
 
-Constats de l'audit d'exploitation des dépendances (archivé dans
-[`old/2026-08-audit-dependances.md`](../old/2026-08-audit-dependances.md), 25 de
-ses 30 points appliqués) délibérément laissés en l'état, avec leur raison.
+Décisions de maintenance conservées après réexamen de l'implémentation actuelle.
 
 | Constat | Détail | Pourquoi pas appliqué |
 |---|---|---|
-| Sélecteur de fichiers reporté d'une frame | `rfd::AsyncFileDialog` gérerait lui-même le dispatch sur le thread principal exigé par macOS ; notre code reporte l'ouverture d'une frame à la place | Le `Future` demande un exécuteur dont l'UI n'a pas de handle. Faire remonter le runtime tokio jusqu'à l'interface pour gagner **une frame**, avec pour mode d'échec un sélecteur de fichiers cassé et aucun test automatisé possible : le rapport risque/gain ne le justifie pas |
 | Pas d'actions dans les notifications | `notify-rust` sait poser des boutons (« Répondre ») | Sur macOS, `show()` bloque en attendant la réponse, et les boutons n'apparaissent de façon fiable que depuis un bundle `.app` signé — que nous n'avons pas encore. À reprendre avec la signature macOS |
 | Fenêtrage du fil fait à la main | `ScrollArea::show_rows` suppose des lignes de hauteur uniforme, ce que nos messages n'ont pas (markdown, médias, citations, réactions) ; `show_viewport` exige des offsets connus d'avance | Reviendrait à reconstruire notre fenêtrage sous une autre forme, sans gain |
 | Schéma SQLite non `STRICT` | Les colonnes n'ont pas de typage strict | Différé à une prochaine migration de schéma, pour ne pas cumuler deux réécritures de tables |
 
+Les sélecteurs natifs ont depuis été corrigés : ils suivent une voie asynchrone, sans boucle native bloquante imbriquée. L'ancien constat sur un sélecteur seulement reporté d'une frame ne décrit plus l'implémentation.
+
+## Réglages et apparence
+
+- La langue est un choix de session et revient au français au démarrage ; les réglages d'apparence et de stockage sont, eux, persistés.
+- Les thèmes personnels et polices importées demandent un dossier inscriptible ; un échec peut laisser le réglage appliqué seulement pour la session.
+Les fonctionnalités suivantes sont retenues dans le backlog, sans date de réalisation :
+
+- [Import de thèmes VS Code](https://github.com/abnd-corp/Abcom/issues/55).
+- [Import/export de thèmes Abcom en JSON](https://github.com/abnd-corp/Abcom/issues/56).
+- [Partage de thèmes dans une conversation](https://github.com/abnd-corp/Abcom/issues/57).
+- [Variantes italiques des polices proposées](https://github.com/abnd-corp/Abcom/issues/58).
+
+Elles ne sont pas encore disponibles ; les issues précisent le périmètre et la validation attendue.
+
+## Dépendances
+
+GTK et `proc-macro-error` ont été retirés au profit du tray KSNI. Trois avis de maintenance D-Bus font l'objet d'exceptions explicites approuvées, suivies dans l'[issue #59](https://github.com/abnd-corp/Abcom/issues/59). Elle reste ouverte tant qu'une exception subsiste ; la CI vérifie cet état. L'audit complet continue de bloquer les autres avis. Revue au 30 novembre 2026 ; un report demande une justification et une nouvelle date de jalon. L'accessibilité reste activée.
+
 ## Rendu et mesures restantes
 
-- Mesures à refaire selon le protocole de l'audit (conservé dans `old/2026-07-audit-performance.md` §6) : GPU au repos, RSS après navigation GIF intensive picker fermé, débit d'un transfert > 1 Go.
+- Mesures à refaire selon le [protocole de mesure](12-performances.md) : GPU au repos, RSS après navigation GIF intensive picker fermé, débit d'un transfert > 1 Go.
 - QA manuelle du fenêtrage : compensation d'offset au chargement de 100 messages pendant qu'un message arrive.
 
 ## Outillage

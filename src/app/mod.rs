@@ -183,6 +183,11 @@ impl AppState {
         self.kv.get(key).map(|v| v == "1").unwrap_or(default)
     }
 
+    /// Lit une préférence textuelle persistée.
+    pub fn pref_str(&self, key: &str) -> Option<&str> {
+        self.kv.get(key).map(String::as_str)
+    }
+
     /// Lit une préférence numérique persistée. `None` si absente ou illisible.
     pub fn pref_number(&self, key: &str) -> Option<u32> {
         self.kv.get(key)?.trim().parse().ok()

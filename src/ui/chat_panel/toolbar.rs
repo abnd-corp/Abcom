@@ -40,7 +40,7 @@ impl AbcomApp {
         let mut reply_clicked = false;
         let mut plus_rect = None;
 
-        let area = egui::Area::new(egui::Id::new(("msg_hover_toolbar", row_index)))
+        let area = egui::Area::new(egui::Id::unique(("msg_hover_toolbar", row_index)))
             .order(egui::Order::Foreground)
             .fixed_pos(anchor);
         let resp = area.show(ctx, |ui| {

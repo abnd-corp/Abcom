@@ -60,7 +60,10 @@ impl Probe {
     /// utile devient « une *vraie* police le dessine-t-elle ? ». On la retire
     /// donc pour mesurer.
     fn without_last_resort() -> Self {
-        let mut definitions = super::build_fonts();
+        let mut definitions = super::build_fonts(
+            &crate::ui::fonts::FontPlans::theme(crate::ui::theme::FontKind::NotoSans),
+            &[],
+        );
         for family in definitions.families.values_mut() {
             family.retain(|name| name != "unifont");
         }
@@ -79,7 +82,10 @@ impl Probe {
     /// case hexadécimale qu'Unifont réserve à un codet non assigné : un
     /// caractère qui s'en distingue a bien un glyphe à lui.
     fn complete() -> Self {
-        let ctx = Self::context(super::build_fonts());
+        let ctx = Self::context(super::build_fonts(
+            &crate::ui::fonts::FontPlans::theme(crate::ui::theme::FontKind::NotoSans),
+            &[],
+        ));
         let tofu = glyph_signature(&ctx, UNASSIGNED[0]);
         Self { ctx, tofu }
     }
@@ -140,13 +146,18 @@ fn each_font_of_the_chain_carries_its_share() {
     }
 }
 
+/// Chaîne de Noto Sans, dans l'ordre historique de l'application.
+const NOTO_CHAIN: [&str; 4] = ["noto-sans", "noto-symbols2", "inter-bold", "unifont"];
+
 /// La chaîne doit être consultée dans l'ordre déclaré, et Unifont fermer la
 /// marche : placée plus haut, son rendu tramé remplacerait des glyphes que
 /// d'autres polices dessinent proprement.
 #[test]
 fn the_chain_is_wired_in_declared_order() {
-    let definitions = super::build_fonts();
-    for name in super::FONT_CHAIN {
+    use crate::ui::theme::FontKind;
+    let definitions =
+        super::build_fonts(&crate::ui::fonts::FontPlans::theme(FontKind::NotoSans), &[]);
+    for name in NOTO_CHAIN {
         assert!(
             definitions.font_data.contains_key(name),
             "{name} n'est pas embarquée"
@@ -154,13 +165,83 @@ fn the_chain_is_wired_in_declared_order() {
     }
     let proportional = &definitions.families[&egui::FontFamily::Proportional];
     assert_eq!(
-        &proportional[..super::FONT_CHAIN.len()],
-        &super::FONT_CHAIN.map(str::to_owned),
+        &proportional[..NOTO_CHAIN.len()],
+        &NOTO_CHAIN.map(str::to_owned),
         "la chaîne doit être en tête du proportionnel, dans l'ordre"
     );
     assert_eq!(
-        super::FONT_CHAIN.last(),
+        NOTO_CHAIN.last(),
         Some(&"unifont"),
         "Unifont est le dernier recours, pas un choix par défaut"
     );
+}
+
+/// Chaque famille se ferme sur Unifont, quelle que soit la police de tête, et
+/// ne cite que des polices embarquées : un nom inconnu ferait paniquer egui.
+#[test]
+fn every_family_ends_on_unifont_and_only_names_embedded_fonts() {
+    use crate::ui::theme::{FontKind, MSG_BOLD_FAMILY, MSG_FAMILY, MSG_ITALIC_FAMILY};
+    for (ui, messages) in [
+        (FontKind::NotoSans, FontKind::NotoSans),
+        (FontKind::Inter, FontKind::Inter),
+        (FontKind::NotoSans, FontKind::Inter),
+        (FontKind::Inter, FontKind::NotoSans),
+    ] {
+        let definitions = super::build_fonts(
+            &crate::ui::fonts::FontPlans {
+                ui: crate::ui::fonts::FontPlan::Theme(ui),
+                msg: crate::ui::fonts::FontPlan::Theme(messages),
+            },
+            &[],
+        );
+        for name in [
+            super::BOLD_FAMILY,
+            MSG_FAMILY,
+            MSG_BOLD_FAMILY,
+            MSG_ITALIC_FAMILY,
+        ] {
+            let chain = &definitions.families[&egui::FontFamily::Name(name.into())];
+            assert_eq!(chain.last().map(String::as_str), Some("unifont"), "{name}");
+            for font in chain {
+                assert!(
+                    definitions.font_data.contains_key(font),
+                    "{name} cite {font}, non embarquée"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn the_message_and_interface_fonts_can_differ() {
+    use crate::ui::theme::{FontKind, MSG_FAMILY};
+    let definitions = super::build_fonts(
+        &crate::ui::fonts::FontPlans {
+            ui: crate::ui::fonts::FontPlan::Theme(FontKind::NotoSans),
+            msg: crate::ui::fonts::FontPlan::Theme(FontKind::Inter),
+        },
+        &[],
+    );
+    let proportional = &definitions.families[&egui::FontFamily::Proportional];
+    let messages = &definitions.families[&egui::FontFamily::Name(MSG_FAMILY.into())];
+    assert_eq!(proportional[0], "noto-sans");
+    assert_eq!(messages[0], "inter");
+}
+
+#[test]
+fn inter_has_a_real_italic_and_noto_sans_does_not() {
+    use crate::ui::theme::{FontKind, MSG_ITALIC_FAMILY};
+    let italic = |kind| {
+        super::build_fonts(
+            &crate::ui::fonts::FontPlans {
+                ui: crate::ui::fonts::FontPlan::Theme(FontKind::NotoSans),
+                msg: crate::ui::fonts::FontPlan::Theme(kind),
+            },
+            &[],
+        )
+        .families[&egui::FontFamily::Name(MSG_ITALIC_FAMILY.into())][0]
+            .clone()
+    };
+    assert_eq!(italic(FontKind::Inter), "inter-italic");
+    assert_eq!(italic(FontKind::NotoSans), "noto-sans");
 }

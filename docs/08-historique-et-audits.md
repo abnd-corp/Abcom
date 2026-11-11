@@ -1,109 +1,127 @@
-# 08 — Historique du projet et audits
+# 08 — Journal de maintenance et audits
 
-Ce document retrace les phases du projet, les audits menés et leurs résultats mesurés. Les documents de travail d'origine (audits complets, plans d'exécution détaillés, ADR) sont conservés tels quels dans [old/](../old/) — s'y référer pour le détail constat par constat.
+[English](en/08-history-and-audits.md) · **Français** · [Documentation](README.fr.md)
 
-## Chronologie
+Les résultats ci-dessous sont datés ; ils ne certifient pas toutes les versions ni tous les OS. Les procédures actives sont dans le [protocole de mesure](12-performances.md) et le [cahier de tests](10-cahier-de-tests.md).
 
-### Avril 2026 — Première version
+## Repères historiques
 
-Chat LAN fonctionnel mais rudimentaire : découverte UDP, une connexion TCP par paquet, JSON en clair, persistance par réécriture complète de `messages.json`, cinq modules monolithiques, aucun test. Les documents de cette époque (architecture, ADR sur le choix Rust et du P2P) sont dans [`old/`](../old/).
+- Avril 2026 : première messagerie LAN, JSON en clair et historique réécrit en fichiers.
+- Juin 2026 : séparation des modules, tests sur sockets réelles et CI ; 164 tests après l'audit technique.
+- Juillet 2026 : caches de rendu, SQLite WAL, transport Noise persistant, mode résident et groupes. Mesures macOS de l'époque : environ 0,2 % CPU, 155 Mo RSS et 8 threads après optimisation ; ce ne sont pas des budgets garantis aujourd'hui.
+- Août 2026 : identifiants de groupes immuables, protocole 3, accusés après commit et file privée durable. Retrait du quota automatique après un incident de suppression : la purge est désormais manuelle.
 
-### Mai–juin 2026 — Fonctionnalités et refonte modulaire
+Les anciens plans d'exécution et documents remplacés ont été retirés de l'arborescence courante. Les décisions toujours applicables figurent dans la [présentation](01-presentation.md#décisions-fondatrices) et l'[architecture](02-architecture.md).
 
-Développement des fonctionnalités de messagerie : architecture découpée en sous-modules (`app/`, `ui/`, `network/`, `message/`), Markdown, picker emoji et shortcodes, interface FR/EN, accusés de réception puis correctif de leur logique, transfert de fichiers avec acceptation, puis refonte des médias en streaming par tranches (fichiers > 1 Go, vignettes, visionneuse), sélecteur Klipy (GIF/mèmes/stickers). Corrections marquantes : boucle infinie CPU sur `has_unread`, son de notification qui bloquait le thread UI.
+## 11 novembre 2026 — Tray KSNI et exceptions suivies
 
-### 23–27 juin 2026 — Audit technique et solidification
+Le backend AppIndicator/GTK est remplacé par KSNI dans tray-icon 0.26.1, avec ses fonctionnalités par défaut désactivées. GTK, libappindicator et proc-macro-error ont disparu du lockfile. Le thread GTK et son réveil toutes les 200 ms sont supprimés ; les menus et le badge passent par le worker KSNI. Le contournement des variables GTK héritées de Snap n'est plus utile et a été retiré.
 
-Premier audit formel (`old/2026-06-audit-technique.md`), suivi de quatre sprints :
+Trois exceptions nominatives, approuvées, visent uniquement RUSTSEC-2026-0370, 0371 et 0372. Leur motif et l'[issue #59](https://github.com/abnd-corp/Abcom/issues/59) figurent dans `deny.toml`. Cette issue reste ouverte jusqu'au retrait de toutes les exceptions. La CI vérifie cet invariant et exécute désormais l'audit complet ; fermer l'issue alors qu'une exception subsiste fait échouer le contrôle. Revue au 30 novembre 2026, avec justification et déplacement du jalon si nécessaire. Aucun avis de vulnérabilité n'est exempté.
 
-| Sprint | Contenu |
-|---|---|
-| Robustesse réseau | Timeout de lecture 5 s + limite de taille des paquets ; hash de message FNV-1a déterministe (remplace `DefaultHasher`, non stable entre processus) avec timestamp dans la clé |
-| Tests réseau | Couverture de `server`, `sender`, `discovery`, `transfer` sur de vraies sockets |
-| CI/CD | Workflows GitHub Actions `dev` et `main`, hook pre-commit partagé |
-| Tests transfert | Round-trip complet, refus, en-têtes invalides |
+Un test Linux explicite crée le tray et change son badge sur un bus D-Bus privé, sans GTK ; la CI le lance avec `dbus-run-session`. Ce test ne valide pas l'affichage réel du panneau, qui reste au cahier de tests. Les dépendances système GTK/AppIndicator ont été retirées de la CI et de l'image de test.
 
-Bilan : 130 → 164 tests, robustesse réseau corrigée, CI opérationnelle. Verdict de l'audit : cœur fonctionnel atteint, prêt pour usage réel sur LAN de confiance.
+Validation locale sur macOS : 642 tests toutes fonctionnalités et 640 sans fonctionnalités par défaut, aucun échec. Formatage, Clippy strict, compilation release, contrôle documentaire EN/FR, compilation avec Rust 1.95.0 et audit complet `cargo deny --locked check` passent. Le test D-Bus Linux est préparé mais n'a pas été exécuté localement ; une session de bureau Linux réelle reste à vérifier. Le garde-fou de suivi a été contrôlé avec l'issue ouverte et un état fermé simulé, qui échoue comme prévu.
 
-### 4 juillet 2026 — Audit performance et passe d'optimisation
+## 11 novembre 2026 — Mise à jour des dépendances
 
-L'application, destinée à tourner en permanence, consommait beaucoup trop au repos. Baseline mesurée : **443 Mo de RAM, 22 % de CPU, 9,7 % de GPU, 15 threads**.
+Toutes les dépendances directes ont été relevées vers leurs dernières versions stables compatibles, et le lockfile a été résolu à nouveau. Principales montées : eframe/egui 0.37, rusqlite 0.42, ZIP 9.5.1, rfd 0.18, tray-icon 0.26.1, resvg 0.50, rodio 0.23 et skrifa 0.50.
 
-L'audit (`old/2026-07-audit-performance.md`) a identifié les causes structurelles : re-rendu et re-parsing de tout le fil à chaque frame avec repaint permanent, réécriture du JSON complet à chaque message dans le thread UI, caches d'images jamais purgés, dossier `media/` sans limite, réglages de build absents. Le plan d'exécution (`old/2026-07-plan-optimisation.md`) a été réalisé en trois phases :
+À cette étape, le backend AppIndicator sélectionné utilisait GTK 0.18.2 ; GTK 0.19 créait un conflit de liaison native. Le passage ultérieur à KSNI, décrit ci-dessus, retire cette chaîne. Les polices d'emoji monochromes d'egui sont activées explicitement pour conserver les glyphes précédemment fournis. Les API d'identifiants, rôles d'accessibilité et compensation du défilement ont été adaptées, ainsi que la lecture des noms ZIP. Le champ de durée de purge a maintenant un libellé accessible.
 
-- **A — extinction au repos** : profil release optimisé, réveil de l'UI par événement au lieu du polling à 500 ms, throttle de la progression des transferts, thread audio pérenne ;
-- **B — coût par frame indépendant de l'historique** : compteurs de génération, caches dérivés du fil et de la barre latérale, Markdown memoïsé, fenêtrage du fil avec pagination au scroll ;
-- **C — bornage mémoire et disque** : gel des GIF hors écran, downscale des images avant texture, LRU de textures, GC du dossier `media/` (orphelins + plafond 2 Go), persistance débouncée hors thread UI.
+L'audit RustSec rafraîchi ne signale plus de vulnérabilité ni d'avis de sûreté des entrées-sorties sur le graphe résolu. **Il reste en échec sur quatre avis de dépendances non maintenues**, sans exception ajoutée à `deny.toml` :
 
-Résultats mesurés le jour même : **CPU ~0,6 %, RSS ~156 Mo, 8 threads**, plus aucune écriture disque par message.
-
-Décisions produit actées à cette occasion : objectifs chiffrés (~0 % CPU au repos, RSS < 150 Mo), migration vers SQLite, GIF affichés en HD dans le fil (le bornage passe par le gel hors écran, pas par la résolution), pagination sans bouton façon Discord, et — aucune release n'étant publiée — liberté de casser le protocole réseau.
-
-### 4 juillet 2026 (suite) — Seconde passe et sécurisation du transport
-
-La seconde passe (`old/2026-07-seconde-passe-et-securisation.md`) a traité les finitions (découverte silencieuse hors changement d'état, générations contenu/présence scindées, `resvg` optionnel) puis livré les deux gros chantiers :
-
-- **SQLite** : historique complet en base, thread d'écriture dédié, migration automatique des JSON (vérifiée sur 401 messages réels), pagination depuis la base, avatars en BLOB — fin du plafond de 500 messages et du bug des avatars > 64 Ko rejetés par la limite de paquet.
-- **Chiffrement du transport** : identité X25519 par machine, connexions TCP persistantes par pair, handshake Noise XX (chat **et** médias), TOFU avec refus sur clé changée, passphrase de salon optionnelle (`XXpsk3`). TLS et une simple PSK avaient été évalués et écartés (PKI inadaptée au P2P ; pas d'identité ni de forward secrecy).
-
-Mesures après implémentation : **CPU ~0,2 %, RSS ~155 Mo, binaire 10,8 Mo, 216 tests**. Vérifié en conditions réelles : un client en clair est rejeté au handshake ; sans la bonne passphrase, aucun handshake n'aboutit.
-
-L'atlas d'emojis, envisagé, a été abandonné après analyse : le gel du premier frame venait du décodage des 323 PNG (désormais fait dans un thread), pas du nombre de textures ; l'atlas n'aurait rien gagné en mémoire.
-
-### 4 juillet 2026 (fin) — Runner résident
-
-Spécification puis implémentation du mode « toujours ouvert » (`old/2026-07-spec-runner-resident.md`) : fermer = se replier dans le tray (un seul processus, le daemon séparé a été écarté), zéro rendu fenêtre cachée avec purge des textures, notifications système natives réglables, badge non-lus, autostart activé par défaut en release. Choix de fiabilité : la politique de rendu ne s'appuie que sur des signaux sûrs (caché / minimisé / focus) — la détection d'occlusion, non fiable, est hors périmètre. Ajusté ensuite : retrait du Dock macOS quand la fenêtre est cachée ; la pause des GIF hors focus, d'abord livrée, a été retirée.
-
-### 5 juillet 2026 — Phase 10 : groupes
-
-Refonte complète des salons (`old/2026-07-spec-groupes.md`, désormais consolidé dans [05 — Fonctionnalités](05-fonctionnalites.md)) : messages réservés aux membres, gestion des membres (ajout, exclusion, départ avec succession du propriétaire, suppression), rattrapage des absents par le propriétaire, politique d'historique « quitter, c'est partir », compteurs non-lus et sourdine par salon.
-
-Corrections apportées par cette phase — l'ancienne implémentation diffusait les messages de salon à **tout le réseau** et le fil des salons restait vide :
-
-| Symptôme | Cause |
-|---|---|
-| Gel de l'application à la création d'un groupe | Auto-deadlock : le `MutexGuard` du scrutinee d'un `if let` vit jusqu'à la fin du bloc (édition 2021), et le corps reprenait le même verrou |
-| Messages de salon envoyés à tous les pairs | Pas de branche « groupe » à l'envoi → broadcast par défaut |
-| Fil de salon vide | Filtrage de conversation sans cas `#nom` |
-| Groupes annoncés à des non-membres | `Create` diffusé à tout le réseau |
-| ACK privés émis pour des messages de salon | `to_user.is_some()` confondait privé et salon |
-
-Bilan : 226 tests verts.
-
-## Août 2026 — Audit de correction et refonte des identifiants de salon
-
-Passe d'audit menée sur l'ensemble du code, suivie de son application. Trois
-défauts de fond, tous silencieux :
-
-| Défaut | Effet |
-|---|---|
-| Le nom d'un salon entrait dans le hash des messages | Renommer un groupe orphelinait d'un coup ses réactions, ses accusés et son repère de lecture |
-| Les accusés partaient avant la persistance | L'expéditeur croyait son message livré alors qu'un arrêt avant commit l'avait fait disparaître ; la file d'envoi durable était vidée dès l'admission dans le canal réseau |
-| L'URL d'un média venue d'un pair était chargée sans filtre | Un message devenait une balise de traçage : l'hôte visé apprenait l'IP du destinataire et l'instant exact de sa lecture, hors de tout accusé |
-
-Corrigés dans la foulée : débordement d'entier sur la péremption des pairs
-(horloge reculée), pagination définitivement bloquée après débordement de la
-fenêtre mémoire, erreurs SQLite invisibles, schémas d'URL non filtrés dans les
-liens, seuil d'acceptation des médias ramené de 1 Gio à 50 Mo, dérivation de
-passphrase sans étirement, un thread OS par pièce jointe, orphelins après
-effacement d'une conversation, et le lanceur Linux qui ne lançait rien.
-
-Le protocole passe en **version 3** : l'identifiant de salon entre dans le hash
-des messages, un pair resté en version 2 calculerait d'autres valeurs.
-
-Bilan : 329 tests verts, et un [cahier de tests manuels](10-cahier-de-tests.md)
-pour ce que l'automatisation ne peut pas voir.
-
-## Récapitulatif des mesures
-
-| Axe | Avril (baseline) | Après optimisation + sécurisation |
+| Dépendance | Chemin restant | Avis |
 |---|---|---|
-| CPU au repos | 22 % | ~0,2 % |
-| RAM (RSS) | 443 Mo | ~155 Mo |
-| Threads | 15 | 8 |
-| Binaire release | — | ~11 Mo |
-| Tests | 0 | 329 |
-| Transport | JSON en clair, 1 connexion/paquet | Noise XX, connexions persistantes |
-| Persistance | JSON réécrit à chaque message | SQLite WAL, écritures hors thread UI |
+| `proc-macro-error 1.0.4` | GTK 0.18 et tray Linux | RUSTSEC-2024-0370 |
+| `zbus_names 4.3.5` | AccessKit/AT-SPI et accessibilité Linux | RUSTSEC-2026-0371 |
+| `zvariant 5.15.1` | AccessKit/AT-SPI et accessibilité Linux | RUSTSEC-2026-0370 |
+| `zvariant_derive 5.15.1` | Même chaîne | RUSTSEC-2026-0372 |
 
-Reste à mesurer en usage réel : GPU au repos après la passe finale, RSS après navigation GIF intensive, débit d'un transfert > 1 Go (voir [09 — Limites et pistes](09-limites-et-pistes.md)).
+Les dernières dépendances amont utilisées conservent ces composants. Lever ces quatre avis demande une évolution amont ou une adaptation dédiée ; désactiver le tray ou l'accessibilité pour masquer l'audit modifierait le produit. Les chiffres de l'audit précédent, ci-dessous, décrivent l'état antérieur à cette mise à jour.
+
+### Validation de la mise à jour
+
+| Contrôle | Résultat |
+|---|---|
+| Clippy toutes cibles et fonctionnalités, `-D warnings` | OK |
+| Tests toutes fonctionnalités | 639 réussis, aucun échec |
+| Tests sans fonctionnalités par défaut | 639 réussis, aucun échec |
+| Compilation release | OK |
+| Formatage et contrôle documentaire EN/FR | OK |
+| Compilation toutes cibles et fonctionnalités avec Rust 1.95.0 | OK ; MSRV conservée |
+| Licences, sources et interdictions | OK |
+| Audit RustSec complet | Échec limité aux quatre avis de maintenance ci-dessus |
+
+## 11 novembre 2026 — Revue des paramètres après Apparence
+
+Reprise locale de `feature/apparence` au commit `b05a022`, sans push. Comparaison
+avec les paramètres de `dev` : les grilles n'avaient pas de largeur maximale et
+la licence imposait déjà 12 points. Le retour à la ligne global ajouté avec
+Apparence réduisait les premières colonnes des grilles à leur minimum egui de
+40 points. Stockage n'était testé qu'avant la réponse du calcul disque ; les
+anciens contrôles de géométrie ignoraient les textes non interactifs.
+
+Corrections : largeur des colonnes bornée dans Général, Stockage et Crédits,
+actions de stockage repliables, un seul défilement par onglet et un état de
+position distinct par onglet. La licence utilise la taille générale et des
+paragraphes repliés à la largeur disponible ; un test vérifie la conservation
+de tous ses mots. Le fichier `LICENSE` reste intact.
+
+Six tests supplémentaires vérifient les textes et contrôles en FR/EN, fenêtres
+560 × 360 et 860 × 600, tailles 100 et 160 %, la lisibilité des colonnes, la
+licence et l'accès aux réglages de purge avec enregistrement. La matrice
+existante utilise désormais un tableau de stockage rempli, avec des tailles en
+Go et des milliers de fichiers. Captures GPU hors écran inspectées en taille
+normale et petite fenêtre ; ce contrôle ne remplace pas une fenêtre native,
+VoiceOver/NVDA ou des essais sur Windows/Linux.
+
+### Contrôles exécutés sur macOS (Rust 1.99.1)
+
+| Contrôle | Résultat |
+|---|---|
+| `cargo fmt --all --check` et `git diff --check` | OK |
+| `cargo clippy --all-targets --all-features --locked -- -D warnings` | OK |
+| `cargo test --all-features --locked` | 639 réussis : 631 bibliothèque, 2 binaire, 1 P2P, 5 interactions UI |
+| `cargo check --all-targets --no-default-features --locked` | OK |
+| `cargo test --no-default-features --locked` | 639 réussis, aucun échec |
+| `cargo build --release --locked` | OK |
+| `cargo deny --locked --offline check licenses sources bans` | OK, avertissements de doublons non bloquants |
+| `cargo deny --locked check advisories` | Échec, détails ci-dessous |
+
+Le premier lancement des tests réseau dans le bac à sable échouait à ouvrir
+les sockets (`Operation not permitted`) ; la suite complète a ensuite été
+rejouée avec l'accès local nécessaire et passe. Les captures GPU ont également
+nécessité cet accès. Aucun test natif Windows/Linux ni contrôle avec la MSRV
+1.95 n'a été exécuté ici (toolchain absente). Aucun lancement dans une vraie
+fenêtre, sélecteur natif ou lecteur d'écran : ces essais restent au cahier de
+tests, complété par les cas 12.30 à 12.32.
+
+### Dépendances : audit bloquant
+
+`cargo deny --locked check advisories`, avec la base RustSec mise à jour
+(révision `fd6f39814c4d3c359fdbe223d0280dec4933f78f`), échoue sur **16 avis** :
+11 vulnérabilités, un avis de sûreté des entrées-sorties et quatre paquets non maintenus.
+`clipboard-win 5.4.1`, retiré du registre, produit en plus un avertissement.
+Le problème ne se limite donc pas à ce dernier paquet. Les versions concernées étaient déjà présentes au début de cette reprise ; le correctif des paramètres ne modifiait ni les dépendances ni le lockfile. Ce relevé ne constitue pas une analyse de
+l'exploitabilité de chaque avis dans Abcom. La mise à niveau des dépendances
+reste à traiter séparément.
+
+| Dépendance verrouillée | Catégorie cargo-deny | Avis |
+|---|---|---|
+| `libsqlite3-sys 0.38.2` | vulnerability | [RUSTSEC-2026-0459](https://rustsec.org/advisories/RUSTSEC-2026-0459) |
+| `proc-macro-error 1.0.4` | unmaintained | [RUSTSEC-2024-0370](https://rustsec.org/advisories/RUSTSEC-2024-0370) |
+| `rustls 0.23.43` | vulnerability | [RUSTSEC-2026-0285](https://rustsec.org/advisories/RUSTSEC-2026-0285) |
+| `rustls 0.23.43` | vulnerability | [RUSTSEC-2026-0346](https://rustsec.org/advisories/RUSTSEC-2026-0346) |
+| `rustls 0.23.43` | vulnerability | [RUSTSEC-2026-0348](https://rustsec.org/advisories/RUSTSEC-2026-0348) |
+| `rustls 0.23.43` | vulnerability | [RUSTSEC-2026-0349](https://rustsec.org/advisories/RUSTSEC-2026-0349) |
+| `rustls-webpki 0.103.13` | vulnerability | [RUSTSEC-2026-0382](https://rustsec.org/advisories/RUSTSEC-2026-0382) |
+| `tokio 1.53.1` | unsound | [RUSTSEC-2026-0386](https://rustsec.org/advisories/RUSTSEC-2026-0386) |
+| `webpki-roots 1.0.9` | vulnerability | [RUSTSEC-2026-0381](https://rustsec.org/advisories/RUSTSEC-2026-0381) |
+| `zbus_names 4.3.4` | unmaintained | [RUSTSEC-2026-0371](https://rustsec.org/advisories/RUSTSEC-2026-0371) |
+| `zip 8.6.0` | vulnerability | [RUSTSEC-2026-0367](https://rustsec.org/advisories/RUSTSEC-2026-0367) |
+| `zip 8.6.0` | vulnerability | [RUSTSEC-2026-0368](https://rustsec.org/advisories/RUSTSEC-2026-0368) |
+| `zip 8.6.0` | vulnerability | [RUSTSEC-2026-0369](https://rustsec.org/advisories/RUSTSEC-2026-0369) |
+| `zip 8.6.0` | vulnerability | [RUSTSEC-2026-0429](https://rustsec.org/advisories/RUSTSEC-2026-0429) |
+| `zvariant 5.13.1` | unmaintained | [RUSTSEC-2026-0370](https://rustsec.org/advisories/RUSTSEC-2026-0370) |
+| `zvariant_derive 5.13.1` | unmaintained | [RUSTSEC-2026-0372](https://rustsec.org/advisories/RUSTSEC-2026-0372) |

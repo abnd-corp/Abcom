@@ -125,7 +125,7 @@ pub(super) fn icon_button(
         )
         .on_hover_text(tooltip);
     // Bouton sans texte : l'infobulle sert de libellé accessible.
-    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tooltip));
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, tooltip));
     paint(
         ui.painter(),
         response.rect.shrink2(egui::vec2(7.0, 7.0)),
@@ -154,9 +154,7 @@ pub(super) fn chip_remove_button(ui: &mut egui::Ui) -> bool {
     }
     // Sans ceci, un bouton entièrement peint est invisible pour un lecteur
     // d'écran — et introuvable pour les tests pilotés par AccessKit.
-    resp.widget_info(|| {
-        egui::WidgetInfo::labeled(egui::WidgetType::Button, true, accessible_label)
-    });
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, accessible_label));
     resp.on_hover_cursor(egui::CursorIcon::PointingHand)
         .clicked()
 }
@@ -207,7 +205,7 @@ pub(super) fn attachment_menu_popup(
 ) -> (Option<AttachmentMenuAction>, egui::Rect) {
     // Use the size remembered from the previous frame (or a safe default) so that
     // the popup's bottom-left is anchored just above the + button.
-    let popup_id = egui::Id::new("attachment_menu_popup");
+    let popup_id = egui::Id::unique("attachment_menu_popup");
     let popup_h = ctx
         .memory(|m| m.area_rect(popup_id))
         .map(|r| r.height())

@@ -217,12 +217,15 @@ pub(super) fn render_message_header(
         ui.spacing_mut().item_spacing.x = 6.0;
         ui.label(
             egui::RichText::new(display_name)
+                .text_style(crate::ui::theme::msg_style())
                 .color(name_color)
-                .family(egui::FontFamily::Name(crate::ui::BOLD_FAMILY.into())),
+                .family(egui::FontFamily::Name(
+                    crate::ui::theme::MSG_BOLD_FAMILY.into(),
+                )),
         );
         ui.label(
             egui::RichText::new(timestamp)
-                .small()
+                .text_style(crate::ui::theme::msg_small_style())
                 .color(crate::ui::theme::palette(ui).text_muted),
         );
         if let Some(detail) = receipt_detail {
@@ -289,7 +292,7 @@ pub(super) fn show_receipt_detail_button(
     // Sans libellé, l'œil n'existe pas pour un lecteur d'écran — et le compte,
     // retiré de l'affichage, reste accessible au survol.
     let label = format!("{} {read}/{}", i18n::LU_PAR.get(language), detail.audience);
-    btn.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, &label));
+    btn.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, &label));
     let btn = btn
         .on_hover_text(label)
         .on_hover_cursor(egui::CursorIcon::PointingHand);
@@ -454,17 +457,18 @@ pub(super) fn render_reaction_pills(
             if !ui.is_rect_visible(rect) {
                 continue;
             }
+            let palette = crate::ui::theme::palette(ui);
             let fill = if mine {
-                egui::Color32::from_rgb(70, 90, 140)
+                palette.chip_mine
             } else if resp.hovered() {
                 ui.visuals().widgets.hovered.bg_fill
             } else {
-                egui::Color32::from_rgb(50, 52, 58)
+                palette.chip
             };
             let stroke = if mine {
-                egui::Stroke::new(1.0, egui::Color32::from_rgb(120, 150, 255))
+                egui::Stroke::new(1.0, palette.chip_mine_border)
             } else {
-                egui::Stroke::new(1.0, crate::ui::theme::palette(ui).surface_strong)
+                egui::Stroke::new(1.0, palette.surface_strong)
             };
             ui.painter()
                 .rect(rect, 6.0, fill, stroke, egui::StrokeKind::Inside);
@@ -533,9 +537,11 @@ pub(super) fn render_reply_quote(
                         );
                         ui.label(
                             egui::RichText::new(author_name)
-                                .small()
+                                .text_style(crate::ui::theme::msg_small_style())
                                 .color(author_color)
-                                .family(egui::FontFamily::Name(crate::ui::BOLD_FAMILY.into())),
+                                .family(egui::FontFamily::Name(
+                                    crate::ui::theme::MSG_BOLD_FAMILY.into(),
+                                )),
                         );
                         if orig.media.is_some() {
                             crate::ui::media::render_reply_thumb(
@@ -552,7 +558,7 @@ pub(super) fn render_reply_quote(
                         ui.add(
                             egui::Label::new(
                                 egui::RichText::new(snippet)
-                                    .small()
+                                    .text_style(crate::ui::theme::msg_small_style())
                                     .color(crate::ui::theme::palette(ui).text_muted),
                             )
                             .truncate(),
@@ -561,7 +567,7 @@ pub(super) fn render_reply_quote(
                     None => {
                         ui.label(
                             egui::RichText::new(not_found_label)
-                                .small()
+                                .text_style(crate::ui::theme::msg_small_style())
                                 .italics()
                                 .color(crate::ui::theme::palette(ui).text_muted),
                         );
@@ -606,7 +612,7 @@ pub(super) fn render_reply_quote(
             let hit = rect.expand2(egui::vec2(4.0, 2.0));
             let resp = ui.interact(
                 hit,
-                egui::Id::new(("reply_quote", row_index)),
+                egui::Id::unique(("reply_quote", row_index)),
                 egui::Sense::click(),
             );
             if resp.hovered() {

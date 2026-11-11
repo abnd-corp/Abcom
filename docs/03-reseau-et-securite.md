@@ -1,5 +1,7 @@
 # 03 — Réseau et sécurité
 
+[English](en/03-network-and-security.md) · **Français** · [Documentation](README.fr.md)
+
 ## Ports
 
 | Port | Protocole | Usage |
@@ -76,6 +78,24 @@ Les messages sont identifiés sur le réseau par un hash FNV-1a déterministe de
 
 Pour un salon, le champ « destinataire » porte l'**identifiant** du salon et non son nom. C'est ce qui permet de renommer un groupe sans invalider un seul hash — donc sans orpheliner ses réactions, ses accusés et son repère de lecture.
 
+## Accès réseau optionnels (hors LAN)
+
+La découverte, les conversations et les transferts locaux fonctionnent sans Internet. Deux services optionnels utilisent Internet :
+
+- **Klipy** : les recherches de GIF/mèmes/stickers nécessitent une clé API et transmettent les termes recherchés ; chaque destinataire charge les médias depuis le CDN Klipy autorisé.
+- **Polices en ligne** : désactivées par défaut, elles exigent un accord dans Paramètres → Apparence → Polices. Leurs requêtes sont détaillées ci-dessous.
+
+Cliquer un lien externe ouvre aussi le navigateur du système.
+
+| Quand | Où | Ce qui part |
+|---|---|---|
+| L'utilisateur coche « Autoriser le téléchargement de polices en ligne », puis ouvre la liste (au plus une fois tous les 7 jours) | `https://api.fontsource.org/v1/fonts` | une requête GET, sans identifiant |
+| L'utilisateur choisit une police | `https://cdn.jsdelivr.net/fontsource/fonts/<police>@latest/<sous-ensemble>-<graisse>-normal.woff2` | jusqu'à quatre requêtes GET |
+
+Ces deux serveurs voient l'adresse IP de l'utilisateur ; rien d'autre n'est envoyé, et l'avertissement est affiché à côté de la case. Tant qu'elle est décochée, **aucune requête ne part**, ni au démarrage ni à l'ouverture de l'onglet.
+
+Ce qui est reçu est traité comme n'importe quel fichier importé : taille bornée (liste 8 Mo, fichier 6 Mo), identifiants de police limités à `[a-z0-9-]`, licences limitées à OFL-1.1 et Apache-2.0, décodage puis validation avant d'atteindre le moteur de rendu, écriture par fichier voisin renommé. Décocher la case ou annuler abandonne le téléchargement en cours ; ses réponses tardives sont ignorées.
+
 ## Modèle de menace
 
 **Couvert (données en transit)** : un observateur du LAN ne peut ni lire le trafic (confidentialité), ni le modifier ou le rejouer (AEAD), ni se faire passer pour un pair connu (authentification par clé + TOFU). Le durcissement `XXpsk3` empêche en plus un inconnu d'établir la moindre session.
@@ -83,7 +103,7 @@ Pour un salon, le champ « destinataire » porte l'**identifiant** du salon et n
 **Non couvert, assumé à ce stade** :
 
 - **La toute première rencontre** : le TOFU protège les connexions *suivantes*, pas la première. Tant qu'aucune clé n'est épinglée pour un pseudo, un pair malveillant peut annoncer le pseudo de quelqu'un d'autre **avec sa propre clé**, et signer cette annonce sans difficulté — la signature prouve la possession de la clé annoncée, pas le droit d'utiliser ce pseudo. La parade est la vérification d'empreinte hors-bande (Paramètres → Profil) au premier contact, et l'usage de la passphrase de salon sur un réseau ouvert.
-- **Chiffrement au repos** : `abcom.db` (messages, avatars, clés épinglées), le dossier `media/` et le dossier de travail `scratch/` sont en clair sur le disque local. Ils sont dans le répertoire de données de l'utilisateur (`identity.key` est en 0600, ACL restreinte sous Windows), donc protégés des *autres comptes* de la machine, mais pas d'un accès physique au disque ni d'une sauvegarde. Piste : SQLCipher ou chiffrement fichier (voir [09 — Limites et pistes](09-limites-et-pistes.md)).
+- **Chiffrement au repos** : `abcom.db` (messages, avatars, clés épinglées), le dossier `media/` et le dossier de travail `scratch/` sont en clair sur le disque local. Ils se trouvent dans le répertoire de données de l'utilisateur ; leur protection dépend des droits de ce répertoire et des fichiers. `identity.key` est restreint en 0600 (ACL sous Windows), ce qui ne protège pas d'un accès par le même compte, un administrateur ou une sauvegarde non protégée. Piste : SQLCipher ou chiffrement fichier (voir [09 — Limites et pistes](09-limites-et-pistes.md)).
 - **Métadonnées de découverte** : l'annonce UDP (pseudo + empreinte) est visible par tout le LAN — c'est la fonction même de la découverte.
 - **Événements de groupe non signés** : l'auteur de la session est authentifié et ses droits sont vérifiés localement, mais un événement n'est pas transférable avec une preuve cryptographique hors de cette session.
 - **Identifiants de messages devinables** : les réactions, réponses et accusés ciblent un message par son hash FNV-1a, qui n'est pas cryptographique. Un pair authentifié peut donc forger un identifiant plausible pour cibler un message qu'il n'a pas reçu. L'impact est limité (il faut déjà être un pair authentifié), mais c'est une raison de ne pas transformer ce hash en identifiant de sécurité.
@@ -91,7 +111,7 @@ Pour un salon, le champ « destinataire » porte l'**identifiant** du salon et n
 
 **Fermé depuis l'audit d'août 2026** :
 
-- **Traçage par média distant** : le champ `url` d'un média arrive d'un pair et le chargeur d'images déclenche une requête HTTP dès que le message devient visible, sans clic. N'importe quel pair pouvait donc transformer un message en balise : l'hôte visé apprenait l'adresse IP du destinataire et l'instant exact de sa lecture, hors de tout accusé, alors que le reste de l'application ne sort jamais du LAN. Le chargement est désormais restreint à `https://*.klipy.com` (correspondance par suffixe de domaine, identifiants d'URL écartés) ; une URL rejetée retombe sur une carte fichier au lieu d'émettre une requête.
+- **Traçage par média distant** : le champ `url` d'un média arrive d'un pair et le chargeur d'images déclenche une requête HTTP dès que le message devient visible, sans clic. N'importe quel pair pouvait donc transformer un message en balise : l'hôte visé apprenait l'adresse IP du destinataire et l'instant exact de sa lecture, hors de tout accusé, en dehors des accès Internet optionnels attendus. Le chargement est désormais restreint à `https://*.klipy.com` (correspondance par suffixe de domaine, identifiants d'URL écartés) ; une URL rejetée retombe sur une carte fichier au lieu d'émettre une requête.
 - **Schémas d'URL dans les messages** : un lien Markdown reçu était rendu cliquable quel que soit son schéma. Seuls `http` et `https` le sont désormais — `file://`, `smb://` (fuite d'empreinte NTLM sous Windows) et les schémas applicatifs enregistrés restent du texte brut.
 
 ### Passphrase de salon : ce qu'elle protège, et ce qu'elle ne protège pas
@@ -100,7 +120,7 @@ Pour un salon, le champ « destinataire » porte l'**identifiant** du salon et n
 |---|---|
 | Qui la connaît ? | Tous les membres du salon, à l'identique — c'est un secret **partagé**, pas une identité |
 | Comment se distribue-t-elle ? | Hors-bande, par un canal de confiance (de vive voix, gestionnaire de mots de passe). Elle est lue depuis `ABCOM_PASSPHRASE` ou le `.env` local, jamais transmise sur le réseau |
-| Que protège-t-elle ? | Elle empêche un inconnu du LAN d'**établir la moindre session** (le handshake `XXpsk3` échoue sans elle) : ni connexion, ni paquet, ni découverte utile |
+| Que protège-t-elle ? | Elle empêche un inconnu du LAN d'**établir la moindre session** (le handshake `XXpsk3` échoue sans elle) : aucune session de chat ou de transfert ; les annonces de découverte restent visibles |
 | Que ne protège-t-elle pas ? | Elle n'authentifie **personne à l'intérieur** du salon : un membre qui la connaît reste identifié par sa clé et son épinglage TOFU, pas par la passphrase. Elle ne se révoque pas individuellement — retirer l'accès à quelqu'un impose de la changer partout |
 | Fuite de la passphrase | Elle ne compromet **pas** le contenu des sessions passées (les clés de session viennent du handshake, pas du PSK) : elle redonne seulement la capacité de se connecter |
 

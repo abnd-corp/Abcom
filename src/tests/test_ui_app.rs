@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use eframe::egui;
 use tokio::sync::mpsc;
 
-use super::{AbcomApp, UiRuntimeChannels};
+use super::{i18n, AbcomApp, UiLanguage, UiRuntimeChannels};
 use crate::app::AppState;
 use crate::network::secure::TrustStore;
 
@@ -139,6 +139,7 @@ fn renders_every_settings_tab() {
     for tab in [
         SettingsTab::Profile,
         SettingsTab::General,
+        SettingsTab::Appearance,
         SettingsTab::Storage,
         SettingsTab::Credits,
         SettingsTab::License,
@@ -235,5 +236,156 @@ fn read_receipts_are_swept_without_switching_conversation() {
     assert!(
         send_rx.try_recv().is_err(),
         "et ne pas être réémis au passage suivant"
+    );
+}
+
+/// Entrée insère une nouvelle ligne, l'envoi passe par Cmd/Ctrl+Entrée. egui
+/// active pourtant un bouton qui a le focus sur Entrée comme sur Espace : il
+/// suffisait qu'un clic ait laissé le focus sur « Envoyer » — au retour d'un
+/// sélecteur de fichiers, par exemple — pour que la touche envoie le message au
+/// lieu d'aller à la ligne.
+#[test]
+fn enter_on_the_focused_send_button_goes_to_the_line_instead_of_sending() {
+    let mut app = test_app();
+    let (send_tx, mut send_rx) = mpsc::channel(16);
+    app.net.send_tx = send_tx;
+    {
+        let mut s = app.state.lock().unwrap();
+        s.add_peer("alice".into(), "127.0.0.1:9000".parse().unwrap());
+        s.selected_conversation = Some("alice".into());
+    }
+    app.composer.text = "bonjour".to_string();
+    app.composer.cursor_char = app.composer.text.chars().count();
+
+    let ready = std::cell::Cell::new(false);
+    let mut harness = egui_kittest::Harness::builder()
+        .with_size(egui::vec2(700.0, 340.0))
+        .build_ui(move |root| {
+            if !ready.get() {
+                // Les familles grasse et italique ne sont liées qu'ici : sans
+                // elles, le premier nom d'auteur peint fait paniquer epaint.
+                crate::ui::appearance::apply(
+                    root.ctx(),
+                    crate::ui::themes::BuiltinTheme::Classic,
+                    &Default::default(),
+                );
+                ready.set(true);
+                return;
+            }
+            {
+                let s = app.state.lock().unwrap();
+                app.sidebar_cache.refresh(&s);
+                app.chat_cache.refresh(
+                    &s,
+                    app.ui_language,
+                    &app.emoji.map,
+                    true,
+                    &crate::ui::theme::ResolvedTheme::classic(),
+                );
+            }
+            app.show_sidebar_panel(root);
+            let _ = app.show_input_bar(root);
+            app.show_central_panel(root);
+        });
+    for _ in 0..3 {
+        harness.step();
+    }
+
+    use egui_kittest::kittest::Queryable as _;
+    harness
+        .get_by_label(i18n::ENVOYER.get(UiLanguage::French))
+        .focus();
+    harness.step();
+    harness.key_press(egui::Key::Enter);
+    harness.step();
+    harness.step();
+    assert!(
+        send_rx.try_recv().is_err(),
+        "Entrée seule sur le bouton focalisé doit aller à la ligne, pas envoyer"
+    );
+
+    harness.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::Enter);
+    harness.step();
+    harness.step();
+    assert!(
+        send_rx.try_recv().is_ok(),
+        "Cmd+Entrée doit continuer d'envoyer, focus ou pas"
+    );
+}
+
+/// Rend `frames` images dans une fenêtre de `size` points à la densité `ppp`,
+/// avec les Paramètres ouverts, et renvoie le rectangle de leur boîte modale.
+fn settings_rect_in_window(
+    app: &mut AbcomApp,
+    size: egui::Vec2,
+    ppp: f32,
+    frames: usize,
+) -> Option<egui::Rect> {
+    let ctx = egui::Context::default();
+    ctx.set_pixels_per_point(ppp);
+    let raw = egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, size)),
+        ..Default::default()
+    };
+    for _ in 0..frames {
+        let mut output = ctx.run_ui(raw.clone(), |root| {
+            app.show_sidebar_panel(root);
+            app.show_central_panel(root);
+            let ctx = root.ctx().clone();
+            app.render_settings(&ctx);
+        });
+        output.textures_delta.clear();
+    }
+    ctx.memory(|m| m.area_rect(egui::Id::unique("settings_modal")))
+}
+
+/// La fenêtre des Paramètres faisait 640 × 480 quelle que soit la fenêtre : dans
+/// la plus petite permise (560 × 360), elle en sortait de partout.
+#[test]
+fn settings_window_fits_in_every_window_size_and_tab() {
+    use crate::ui::SettingsTab;
+
+    let mut app = test_app();
+    app.modals.settings_open = true;
+    for (width, height) in [(560.0, 360.0), (860.0, 600.0), (1440.0, 900.0)] {
+        for ppp in [1.0, 2.0] {
+            for tab in [
+                SettingsTab::Profile,
+                SettingsTab::General,
+                SettingsTab::Appearance,
+                SettingsTab::Storage,
+                SettingsTab::Credits,
+                SettingsTab::License,
+            ] {
+                app.modals.settings_tab = tab;
+                let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(width, height));
+                let rect = settings_rect_in_window(&mut app, screen.size(), ppp, 3)
+                    .unwrap_or_else(|| panic!("Paramètres absents ({width}×{height})"));
+                assert!(
+                    screen.contains_rect(rect),
+                    "Paramètres {rect:?} hors de la fenêtre {screen:?} (onglet {}, ppp {ppp})",
+                    match tab {
+                        SettingsTab::Profile => "Profil",
+                        SettingsTab::General => "Général",
+                        SettingsTab::Appearance => "Apparence",
+                        SettingsTab::Storage => "Stockage",
+                        SettingsTab::Credits => "Crédits",
+                        SettingsTab::License => "Licence",
+                    }
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn settings_window_keeps_its_size_on_a_large_screen() {
+    let mut app = test_app();
+    app.modals.settings_open = true;
+    let rect = settings_rect_in_window(&mut app, egui::vec2(1440.0, 900.0), 1.0, 3)
+        .expect("Paramètres ouverts");
+    assert!(
+        rect.width() >= 760.0 && rect.height() >= 560.0,
+        "sur grand écran la fenêtre garde sa taille nominale : {rect:?}"
     );
 }

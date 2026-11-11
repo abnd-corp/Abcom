@@ -1,68 +1,41 @@
-# Abcom
+**English** · [Français](README.fr.md)
 
-[![CI — dev](https://github.com/abnd-corp/abcom/actions/workflows/ci-dev.yml/badge.svg?branch=dev)](https://github.com/abnd-corp/abcom/actions/workflows/ci-dev.yml)
-[![CI — main](https://github.com/abnd-corp/abcom/actions/workflows/ci-main.yml/badge.svg?branch=main)](https://github.com/abnd-corp/abcom/actions/workflows/ci-main.yml)
-[![Licence AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-blue.svg)](LICENSE)
+# Abcom — encrypted LAN messenger
 
-English · [Français](README.fr.md)
+[![CI](https://github.com/abnd-corp/Abcom/actions/workflows/ci-dev.yml/badge.svg?branch=dev)](https://github.com/abnd-corp/Abcom/actions/workflows/ci-dev.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 
-Instant messenger for local networks, written in Rust. Machines on the same LAN discover
-each other automatically and exchange messages, files and media peer-to-peer: no server,
-no account, no Internet connection. All traffic is end-to-end encrypted (Noise XX) and
-the history is stored locally in SQLite.
+Abcom connects computers on the same local network for private chats, group conversations and file sharing. It runs without a server or an account, with encrypted peer-to-peer connections and history stored on your computer.
 
-Native GUI (egui), designed to run all the time: the window folds into the menu bar /
-system tray, the app stays reachable and uses almost nothing when idle.
+Built in Rust with a native egui interface for macOS, Windows and Linux.
 
-## Features
-
-- **Conversations**: public "All" channel, private messages, group rooms with member management
-- **Rich messages**: Markdown, emojis (picker + `:shortcodes:`), reactions, quoted replies, typing indicator
-- **Receipts**: delivered (grey ✓✓) and read (blue ✓✓) in private chats, with automatic retransmission
-- **Files and media**: files and folders up to 2 GiB, explicit acceptance above 50 MB, thumbnails and viewer
-- **GIFs, memes, stickers**: built-in Klipy picker
-- **Security**: X25519 identity per machine, Noise XX encryption, key pinning (TOFU), optional room passphrase
-- **Always on**: closing folds into the tray, system notifications, unread badge, autostart at login
-- **Bilingual**: French/English interface, light/dark theme
-- **Offline**: a message written to an absent peer is sent automatically when it reconnects
-- **Local-first**: plain-text export of a conversation and database compaction from Settings
+- Automatic peer discovery; direct messages and groups.
+- Markdown, emojis, reactions, replies and file transfers up to 2 GiB.
+- System notifications, tray mode and configurable themes, text and fonts.
+- Local messaging works offline. GIFs and the opt-in online font catalogue use Internet services.
 
 ## Quick start
 
-Requirements: stable Rust (`rustup`). Machines must be on the same LAN, with ports
-9000-9001/tcp and 9001/udp open between them.
+Install [Rust](https://rustup.rs/), then:
 
-```bash
-# Once after cloning: enable the pre-commit hook (cargo fmt)
-git config core.hooksPath .githooks
-
-# Run
-cargo run --release -- <nickname>
-
-# Try P2P locally: two instances on the same machine
-ABCOM_INSTANCE=1 cargo run --release -- alice   # terminal 1
-ABCOM_INSTANCE=2 cargo run --release -- bob     # terminal 2
-# or: make run2  (shortcut for scripts/run-multi.sh)
+```sh
+git clone https://github.com/abnd-corp/Abcom.git
+cd Abcom
+cargo run --release -- alice
 ```
 
-Without an argument, the nickname defaults to `USER` / `USERNAME`. Installation per
-platform (Linux/systemd, Windows, Docker) is described in
-[docs/06-installation.md](docs/06-installation.md).
+Run Abcom on another computer on the same LAN with a different name. Linux builds need [system packages](docs/en/06-installation.md#linux-build-dependencies).
+
+To try two local instances on macOS or Linux: `make run2`.
 
 ## Documentation
 
-The detailed documentation is in French, in [docs/](docs/): presentation, architecture,
-network and security (threat model), storage, features, installation, development,
-history and audits, known limits, test plan.
+[Installation](docs/en/06-installation.md) · [User guide](docs/en/05-features.md) · [Troubleshooting and FAQ](docs/en/11-troubleshooting.md) · [All documentation](docs/README.md)
 
-To contribute: [CONTRIBUTING.md](CONTRIBUTING.md) (in French). Changes are tracked in
-[CHANGELOG.md](CHANGELOG.md).
+**Beta software.** First-contact identity verification and unencrypted local storage are described in the [security guide](docs/en/03-network-and-security.md). See [known limitations](docs/en/09-limitations.md) and the [changelog](CHANGELOG.md) before deployment.
 
-## Project status
+## Contributing and license
 
-Version **1.0.0-beta.1**, licensed under the **AGPL-3.0**. 329 automated tests, including
-an external headless P2P scenario and a headless render of the whole interface, and
-GitHub Actions CI on Linux, macOS and Windows, with MSRV, `cargo audit`, `cargo deny`
-and coverage.
+Start with the [development guide](docs/en/07-development.md) and [contribution rules](CONTRIBUTING.md). Report reproducible problems in [GitHub Issues](https://github.com/abnd-corp/Abcom/issues).
 
-Open items are listed in [docs/09 — Limits and next steps](docs/09-limites-et-pistes.md) (in French).
+Licensed under [GNU AGPL v3](LICENSE). Bundled assets retain their own licenses; see [credits](docs/en/07-development.md#bundled-assets).
