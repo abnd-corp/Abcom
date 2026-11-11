@@ -647,8 +647,161 @@ impl AbcomApp {
         self.heading(ui, i18n::POLICES_IMPORTEES);
         self.imported_fonts_list(ui);
         ui.label(egui::RichText::new(self.t(i18n::FORMATS_DE_POLICE_ACCEPTES)).weak());
+        self.online_fonts_section(ui);
         ui.add_space(8.0);
         self.appearance_preview(ui);
+    }
+
+    /// Catalogue de polices en ligne : rien n'est demandé au réseau tant que la case est décochée.
+    fn online_fonts_section(&mut self, ui: &mut egui::Ui) {
+        use super::online_fonts::ListStatus;
+        use crate::services::fontsource;
+
+        self.heading(ui, i18n::POLICES_EN_LIGNE);
+        let allow_label = self.t(i18n::AUTORISER_LES_POLICES_EN_LIGNE);
+        ui.checkbox(&mut self.appearance.online_fonts_allowed, allow_label);
+        ui.label(egui::RichText::new(self.t(i18n::POLICES_EN_LIGNE_AVERTISSEMENT)).weak());
+        if !self.appearance.online_fonts_allowed {
+            return;
+        }
+        self.online_load_list(ui.ctx());
+
+        match self.online.status {
+            ListStatus::Idle | ListStatus::Loading => {
+                ui.horizontal(|ui| {
+                    ui.spinner();
+                    ui.label(self.t(i18n::CHARGEMENT_DE_LA_LISTE));
+                });
+                return;
+            }
+            ListStatus::Failed => {
+                ui.label(
+                    egui::RichText::new(self.t(i18n::LISTE_INDISPONIBLE))
+                        .color(theme::palette(ui).danger),
+                );
+                return;
+            }
+            ListStatus::Ready => {}
+        }
+        if self.online.stale {
+            ui.label(egui::RichText::new(self.t(i18n::LISTE_PEUT_ETRE_ANCIENNE)).weak());
+        }
+
+        let search_label = self.t(i18n::RECHERCHER_UNE_POLICE);
+        let before = (self.online.query.clone(), self.online.category.clone());
+        ui.horizontal_wrapped(|ui| {
+            let response = ui.add(
+                egui::TextEdit::singleline(&mut self.online.query)
+                    .hint_text(search_label)
+                    .char_limit(60),
+            );
+            response.widget_info(|| {
+                egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, search_label)
+            });
+        });
+        ui.horizontal_wrapped(|ui| {
+            let prefix = self.t(i18n::CATEGORIE_DE_POLICE);
+            let all = self.t(i18n::TOUTES_LES_CATEGORIES);
+            let selected = self.online.category.is_none();
+            let chip = ui.selectable_label(selected, all);
+            chip.widget_info(|| {
+                egui::WidgetInfo::selected(
+                    egui::WidgetType::RadioButton,
+                    true,
+                    selected,
+                    format!("{prefix} : {all}"),
+                )
+            });
+            if chip.clicked() {
+                self.online.category = None;
+            }
+            for category in fontsource::CATEGORIES {
+                let selected = self.online.category.as_deref() == Some(category);
+                let chip = ui.selectable_label(selected, category);
+                chip.widget_info(|| {
+                    egui::WidgetInfo::selected(
+                        egui::WidgetType::RadioButton,
+                        true,
+                        selected,
+                        format!("{prefix} : {category}"),
+                    )
+                });
+                if chip.clicked() {
+                    self.online.category = Some(category.to_owned());
+                }
+            }
+        });
+        if before != (self.online.query.clone(), self.online.category.clone()) {
+            self.online.page = 0;
+        }
+
+        let matches: Vec<fontsource::CatalogFont> = fontsource::filter(
+            &self.online.fonts,
+            &self.online.query,
+            self.online.category.as_deref(),
+        )
+        .into_iter()
+        .cloned()
+        .collect();
+        if matches.is_empty() {
+            ui.label(egui::RichText::new(self.t(i18n::AUCUNE_POLICE_TROUVEE)).weak());
+        }
+        let pages = fontsource::page_count(matches.len());
+        self.online.page = self.online.page.min(pages - 1);
+        let mut request: Option<(String, FontZone)> = None;
+        for font in fontsource::page_of(&matches, self.online.page) {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(&font.family);
+                ui.label(egui::RichText::new(&font.category).weak());
+                for (zone, entry) in [
+                    (FontZone::Interface, i18n::UTILISER_POUR_L_INTERFACE),
+                    (
+                        FontZone::Conversations,
+                        i18n::UTILISER_POUR_LES_CONVERSATIONS,
+                    ),
+                ] {
+                    let text = self.t(entry);
+                    let label = format!("{} : {}", font.family, text.to_lowercase());
+                    let button = ui.small_button(text);
+                    button.widget_info(|| {
+                        egui::WidgetInfo::labeled(egui::WidgetType::Button, true, &label)
+                    });
+                    if button.clicked() {
+                        request = Some((font.id.clone(), zone));
+                    }
+                }
+            });
+        }
+        if pages > 1 {
+            ui.horizontal_wrapped(|ui| {
+                let (previous, next) = (self.t(i18n::PAGE_PRECEDENTE), self.t(i18n::PAGE_SUIVANTE));
+                if ui
+                    .add_enabled(self.online.page > 0, egui::Button::new(previous))
+                    .clicked()
+                {
+                    self.online.page -= 1;
+                }
+                ui.label(format!("{} / {pages}", self.online.page + 1));
+                if ui
+                    .add_enabled(self.online.page + 1 < pages, egui::Button::new(next))
+                    .clicked()
+                {
+                    self.online.page += 1;
+                }
+            });
+        }
+        if self.online.download.is_some() {
+            ui.horizontal(|ui| {
+                ui.spinner();
+                ui.label(self.t(i18n::TELECHARGEMENT_EN_COURS));
+                if ui.button(self.t(i18n::ANNULER)).clicked() {
+                    self.online_cancel();
+                }
+            });
+        }
+        if let Some((id, zone)) = request {
+            self.online_download(ui.ctx(), &id, zone);
+        }
     }
 
     fn font_zone(&mut self, ui: &mut egui::Ui, zone: FontZone) {
@@ -891,7 +1044,7 @@ impl FontZone {
         }
     }
 
-    fn choice_mut(self, appearance: &mut Appearance) -> &mut FontChoice {
+    pub(crate) fn choice_mut(self, appearance: &mut Appearance) -> &mut FontChoice {
         match self {
             Self::Interface => &mut appearance.ui_font,
             Self::Conversations => &mut appearance.conv_font,

@@ -357,10 +357,7 @@ pub(crate) fn resolve_choice(
                 .ok_or(FontError::Unreadable)?;
             FontPlan::Files {
                 key: format!("imported:{id}:{hash}"),
-                font: DecodedFont {
-                    regular: vec![store.read(id)?],
-                    bold: Vec::new(),
-                },
+                font: store.read_font(id)?,
             }
         }
     })
@@ -376,6 +373,23 @@ pub(crate) struct ImportedFont {
     pub(crate) hash: String,
     /// Fichier TTF ou TTC dans le dossier des polices.
     pub(crate) file: String,
+    /// Autres fichiers de la coupe normale (sous-ensembles latin-ext…).
+    #[serde(default)]
+    pub(crate) extra: Vec<String>,
+    /// Fichiers de la coupe grasse, quand la police en a une.
+    #[serde(default)]
+    pub(crate) bold: Vec<String>,
+    /// D'où vient la police : `fichier` ou `fontsource:<id>`.
+    #[serde(default)]
+    pub(crate) source: String,
+}
+
+impl ImportedFont {
+    fn all_files(&self) -> impl Iterator<Item = &String> {
+        std::iter::once(&self.file)
+            .chain(&self.extra)
+            .chain(&self.bold)
+    }
 }
 
 /// Dossier des polices importées et leur index.
@@ -411,7 +425,12 @@ impl FontStore {
         fonts.retain(|font| {
             let ok = valid_font_id(&font.id)
                 && font.file == format!("{}.ttf", font.id)
-                && dir.join(&font.file).is_file();
+                && font.all_files().all(|file| {
+                    file.starts_with(&font.id)
+                        && file.ends_with(".ttf")
+                        && !file.contains(['/', '\\'])
+                        && dir.join(file).is_file()
+                });
             if !ok {
                 tracing::warn!("police importée {} ignorée", font.id);
             }
@@ -424,6 +443,11 @@ impl FontStore {
         }
     }
 
+    /// Dossier des polices.
+    pub(crate) fn dir(&self) -> &Path {
+        &self.dir
+    }
+
     pub(crate) fn fonts(&self) -> &[ImportedFont] {
         &self.fonts
     }
@@ -432,12 +456,37 @@ impl FontStore {
         self.fonts.iter().find(|f| f.id == id)
     }
 
-    /// Octets d'une police importée, relus et revalidés : un fichier remplacé à la main ne plante pas egui.
+    /// Octets du fichier principal d'une police importée, relus et revalidés.
+    #[cfg(test)]
     pub(crate) fn read(&self, id: &str) -> Result<Arc<Vec<u8>>, FontError> {
+        self.read_font(id).map(|font| font.regular[0].clone())
+    }
+
+    /// Tous les fichiers d'une police importée, relus et revalidés : un fichier
+    /// remplacé à la main ne doit pas atteindre egui.
+    pub(crate) fn read_font(&self, id: &str) -> Result<DecodedFont, FontError> {
         let font = self.get(id).ok_or(FontError::Unreadable)?;
-        let bytes = std::fs::read(self.dir.join(&font.file)).map_err(|_| FontError::Unreadable)?;
-        validate_font_set(&[(&bytes, 0)])?;
-        Ok(Arc::new(bytes))
+        let load =
+            |files: &mut dyn Iterator<Item = &String>| -> Result<Vec<Arc<Vec<u8>>>, FontError> {
+                files
+                    .map(|file| {
+                        std::fs::read(self.dir.join(file))
+                            .map(Arc::new)
+                            .map_err(|_| FontError::Unreadable)
+                    })
+                    .collect()
+            };
+        let regular = load(&mut std::iter::once(&font.file).chain(&font.extra))?;
+        let bold = load(&mut font.bold.iter())?;
+        let check = |files: &[Arc<Vec<u8>>]| {
+            let parts: Vec<(&[u8], u32)> = files.iter().map(|f| (f.as_slice(), 0)).collect();
+            validate_font_set(&parts)
+        };
+        check(&regular)?;
+        if !bold.is_empty() {
+            check(&bold)?;
+        }
+        Ok(DecodedFont { regular, bold })
     }
 
     /// Importe un fichier : taille, décodage, validation, puis copie.
@@ -454,27 +503,90 @@ impl FontStore {
         if raw.len() as u64 > MAX_FONT_FILE_BYTES {
             return Err(ImportError::Font(FontError::TooLarge));
         }
-        let decoded = decode_font(raw).map_err(ImportError::Font)?;
-        let family = validate_font_set(&[(&decoded, 0)]).map_err(ImportError::Font)?;
-        let hash = hex_digest(&decoded);
+        self.import_set(&[raw], &[], "fichier")
+    }
+
+    /// Importe une police en un ou plusieurs fichiers : la coupe normale (au
+    /// moins un fichier) et, si elle existe, la grasse. `source` identifie
+    /// l'origine, pour ne pas la télécharger deux fois.
+    pub(crate) fn import_set(
+        &mut self,
+        regular: &[&[u8]],
+        bold: &[&[u8]],
+        source: &str,
+    ) -> Result<ImportOutcome, ImportError> {
+        if source != "fichier" {
+            if let Some(existing) = self.fonts.iter().find(|f| f.source == source) {
+                return Ok(ImportOutcome::Existing(existing.clone()));
+            }
+        }
+        let decode = |files: &[&[u8]]| -> Result<Vec<Vec<u8>>, ImportError> {
+            files
+                .iter()
+                .map(|raw| decode_font(raw).map_err(ImportError::Font))
+                .collect()
+        };
+        let regular = decode(regular)?;
+        let bold = decode(bold)?;
+        let parts = |files: &[Vec<u8>]| -> Vec<(Vec<u8>, u32)> {
+            files.iter().map(|f| (f.clone(), 0)).collect()
+        };
+        let check = |files: &[Vec<u8>]| {
+            let owned = parts(files);
+            let borrowed: Vec<(&[u8], u32)> =
+                owned.iter().map(|(b, i)| (b.as_slice(), *i)).collect();
+            validate_font_set(&borrowed).map_err(ImportError::Font)
+        };
+        let family = check(&regular)?;
+        if !bold.is_empty() {
+            check(&bold)?;
+        }
+        let hash = hex_digest(&regular.concat());
         if let Some(existing) = self.fonts.iter().find(|f| f.hash == hash) {
             return Ok(ImportOutcome::Existing(existing.clone()));
         }
         let id = self.new_id();
+        let names = |prefix: &str, count: usize| -> Vec<String> {
+            (0..count).map(|n| format!("{id}{prefix}{n}.ttf")).collect()
+        };
         let file = format!("{id}.ttf");
+        let extra = names("-", regular.len().saturating_sub(1))
+            .into_iter()
+            .enumerate()
+            .map(|(n, _)| format!("{id}-{}.ttf", n + 1))
+            .collect::<Vec<_>>();
+        let bold_files = names("-b", bold.len());
         std::fs::create_dir_all(&self.dir).map_err(|e| ImportError::Io(e.to_string()))?;
-        write_atomic(&self.dir.join(&file), &decoded).map_err(ImportError::Io)?;
+        let mut written: Vec<String> = Vec::new();
+        let outputs = std::iter::once(&file)
+            .chain(&extra)
+            .zip(&regular)
+            .chain(bold_files.iter().zip(&bold));
+        for (name, bytes) in outputs {
+            if let Err(err) = write_atomic(&self.dir.join(name), bytes) {
+                for done in &written {
+                    let _ = std::fs::remove_file(self.dir.join(done));
+                }
+                return Err(ImportError::Io(err));
+            }
+            written.push(name.clone());
+        }
         let font = ImportedFont {
             id,
             family: self.unique_family(&family),
             hash,
             file,
+            extra,
+            bold: bold_files,
+            source: source.to_owned(),
         };
         self.fonts.push(font.clone());
         if let Err(err) = self.save_index() {
-            // Sans index, le fichier serait orphelin au prochain lancement.
+            // Sans index, les fichiers seraient orphelins au prochain lancement.
             self.fonts.pop();
-            let _ = std::fs::remove_file(self.dir.join(&font.file));
+            for done in &written {
+                let _ = std::fs::remove_file(self.dir.join(done));
+            }
             return Err(ImportError::Io(err));
         }
         self.revision += 1;
@@ -487,7 +599,9 @@ impl FontStore {
             return false;
         };
         let font = self.fonts.remove(index);
-        let _ = std::fs::remove_file(self.dir.join(&font.file));
+        for file in font.all_files() {
+            let _ = std::fs::remove_file(self.dir.join(file));
+        }
         if let Err(err) = self.save_index() {
             tracing::warn!("index des polices non réécrit : {err}");
         }

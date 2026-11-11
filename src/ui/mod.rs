@@ -30,6 +30,7 @@ mod i18n;
 mod input_bar;
 mod markdown;
 mod media;
+mod online_fonts;
 mod outbound;
 mod picker;
 mod reactions;
@@ -343,6 +344,8 @@ pub(crate) struct AbcomApp {
     pub(crate) fonts: fonts::FontStore,
     /// Choisit un fichier de police ; le sélecteur natif par défaut, remplaçable par les tests.
     pub(crate) font_picker: Box<dyn FnMut() -> Option<PathBuf>>,
+    /// Catalogue de polices en ligne (désactivé tant que l'utilisateur ne l'a pas autorisé).
+    pub(crate) online: online_fonts::OnlineFonts,
     /// État de l'onglet Apparence des Paramètres.
     pub(crate) appearance_ui: appearance_tab::AppearanceUi,
     /// Thèmes personnels, lus dans le dossier des données.
@@ -560,6 +563,7 @@ impl AbcomApp {
             applied_appearance: None,
             fonts,
             font_picker: Box::new(pick_font_file),
+            online: online_fonts::OnlineFonts::real(),
             themes,
             appearance_ui: appearance_tab::AppearanceUi::default(),
             persisted_appearance: saved_appearance,
@@ -622,6 +626,10 @@ impl AbcomApp {
     /// qu'on fait glisser change l'apparence à chaque image, et la base n'a pas
     /// à garder chaque valeur intermédiaire.
     pub(crate) fn sync_appearance(&mut self, ctx: &egui::Context) {
+        self.online_poll();
+        if !self.appearance.online_fonts_allowed && self.online.download.is_some() {
+            self.online_cancel();
+        }
         if self.appearance.drop_missing_custom(&self.themes) {
             self.notify(self.t(i18n::THEME_PERSONNEL_INTROUVABLE));
         }

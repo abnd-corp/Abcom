@@ -1577,3 +1577,590 @@ fn switching_fonts_with_a_long_conversation_stays_responsive() {
         );
     }
 }
+
+// ── Polices en ligne ──────────────────────────────────────────────────────
+
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use crate::services::fontsource::{self, FontHttp, Response};
+
+type Pending = Vec<(String, Box<dyn FnOnce(Response) + Send>)>;
+
+/// Faux réseau : journalise les requêtes et répond depuis une table.
+#[derive(Clone, Default)]
+struct FakeHttp {
+    log: Arc<Mutex<Vec<String>>>,
+    routes: Arc<Mutex<HashMap<String, Response>>>,
+    hold: Arc<AtomicBool>,
+    pending: Arc<Mutex<Pending>>,
+}
+
+impl FontHttp for FakeHttp {
+    fn get(&self, url: &str, _max: usize, done: Box<dyn FnOnce(Response) + Send + 'static>) {
+        self.log.lock().unwrap().push(url.to_owned());
+        if self.hold.load(Ordering::SeqCst) {
+            self.pending.lock().unwrap().push((url.to_owned(), done));
+        } else {
+            done(self.answer(url));
+        }
+    }
+}
+
+impl FakeHttp {
+    fn answer(&self, url: &str) -> Response {
+        self.routes
+            .lock()
+            .unwrap()
+            .get(url)
+            .cloned()
+            .unwrap_or_else(|| Err("HTTP 404".into()))
+    }
+
+    /// Un faux réseau qui sert la liste d'essai et une police pour chaque fichier d'Inter et de Lexend.
+    fn serving_catalog() -> Self {
+        let fake = Self::default();
+        let woff2 = std::fs::read(format!("{FIXTURE_FONTS}/Inter-Regular.woff2")).unwrap();
+        let list = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/fontsource/fonts.json"
+        ))
+        .unwrap();
+        let mut routes = fake.routes.lock().unwrap();
+        routes.insert(fontsource::LIST_URL.to_owned(), Ok(list));
+        for id in ["inter", "lexend", "lato", "roboto"] {
+            for subset in ["latin", "latin-ext"] {
+                for weight in [400, 700] {
+                    routes.insert(fontsource::file_url(id, subset, weight), Ok(woff2.clone()));
+                }
+            }
+        }
+        drop(routes);
+        fake
+    }
+
+    fn requests(&self) -> Vec<String> {
+        self.log.lock().unwrap().clone()
+    }
+
+    fn set(&self, url: &str, response: Response) {
+        self.routes.lock().unwrap().insert(url.to_owned(), response);
+    }
+
+    /// Répond à tout ce qui attendait.
+    fn release(&self) {
+        let waiting: Pending = std::mem::take(&mut *self.pending.lock().unwrap());
+        for (url, done) in waiting {
+            let answer = self.answer(&url);
+            done(answer);
+        }
+    }
+}
+
+fn online_session(fake: &FakeHttp, allowed: bool) -> (Session, std::path::PathBuf) {
+    let dir = std::env::temp_dir().join(format!(
+        "abcom-online-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut app = new_app_in(&dir, None);
+    app.online.http = Arc::new(fake.clone());
+    app.appearance.online_fonts_allowed = allowed;
+    (Session::new(app, desktop()), dir)
+}
+
+fn use_for(zone: FontZone, family: &str) -> String {
+    let entry = match zone {
+        FontZone::Interface => i18n::UTILISER_POUR_L_INTERFACE,
+        FontZone::Conversations => i18n::UTILISER_POUR_LES_CONVERSATIONS,
+    };
+    format!("{family} : {}", fr(entry).to_lowercase())
+}
+
+#[test]
+fn nothing_touches_the_network_until_the_user_allows_it() {
+    let fake = FakeHttp::serving_catalog();
+    let (mut session, _) = online_session(&fake, false);
+    session.settle();
+    open_tab(&mut session, AppearanceTab::Fonts);
+    session.settle();
+    click(&mut session, &font_row(FontZone::Conversations, "Lexend"));
+    click(&mut session, fr(i18n::APPARENCE_COULEURS));
+    click(&mut session, fr(i18n::APPARENCE_POLICES));
+    assert!(fake.requests().is_empty(), "{:?}", fake.requests());
+    assert!(session
+        .harness
+        .query_by_label(fr(i18n::RECHERCHER_UNE_POLICE))
+        .is_none());
+    session
+        .harness
+        .get_by_label(fr(i18n::POLICES_EN_LIGNE_AVERTISSEMENT));
+}
+
+#[test]
+fn allowing_it_loads_the_list_once_and_shows_only_free_fonts() {
+    let fake = FakeHttp::serving_catalog();
+    let (mut session, dir) = online_session(&fake, false);
+    open_tab(&mut session, AppearanceTab::Fonts);
+    click(&mut session, fr(i18n::AUTORISER_LES_POLICES_EN_LIGNE));
+    session.settle();
+    assert_eq!(fake.requests(), [fontsource::LIST_URL]);
+    assert!(session.app.borrow().appearance.online_fonts_allowed);
+    for family in [
+        "Inter",
+        "Lexend",
+        "Roboto",
+        "Lato",
+        "Open Sans",
+        "JetBrains Mono",
+    ] {
+        session
+            .harness
+            .get_by_label(&use_for(FontZone::Conversations, family));
+    }
+    assert!(
+        session
+            .harness
+            .query_by_label(&use_for(FontZone::Conversations, "Aileron"))
+            .is_none(),
+        "licence CC0 : écartée"
+    );
+    assert!(
+        dir.join("fonts").join("fontsource.json").exists(),
+        "liste mise en cache"
+    );
+
+    // Revenir sur l'onglet ne redemande rien.
+    click(&mut session, fr(i18n::APPARENCE_COULEURS));
+    click(&mut session, fr(i18n::APPARENCE_POLICES));
+    assert_eq!(fake.requests().len(), 1);
+}
+
+#[test]
+fn the_search_ignores_case_and_accents_and_the_category_filters() {
+    let fake = FakeHttp::serving_catalog();
+    let (mut session, _) = online_session(&fake, true);
+    open_tab(&mut session, AppearanceTab::Fonts);
+    session.settle();
+    type_into(&mut session, fr(i18n::RECHERCHER_UNE_POLICE), "LEX");
+    session
+        .harness
+        .get_by_label(&use_for(FontZone::Conversations, "Lexend"));
+    assert!(session
+        .harness
+        .query_by_label(&use_for(FontZone::Conversations, "Inter"))
+        .is_none());
+
+    type_into(&mut session, fr(i18n::RECHERCHER_UNE_POLICE), "zzzzzz");
+    session
+        .harness
+        .get_by_label(fr(i18n::AUCUNE_POLICE_TROUVEE));
+
+    // Vider le champ : tout sélectionner, puis effacer.
+    session
+        .harness
+        .get_by_role_and_label(
+            egui::accesskit::Role::TextInput,
+            fr(i18n::RECHERCHER_UNE_POLICE),
+        )
+        .focus();
+    session.settle();
+    session
+        .harness
+        .key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::A);
+    session.harness.key_press(egui::Key::Backspace);
+    session.settle();
+    click(
+        &mut session,
+        &format!("{} : monospace", fr(i18n::CATEGORIE_DE_POLICE)),
+    );
+    session
+        .harness
+        .get_by_label(&use_for(FontZone::Conversations, "JetBrains Mono"));
+    assert!(session
+        .harness
+        .query_by_label(&use_for(FontZone::Conversations, "Lexend"))
+        .is_none());
+    click(
+        &mut session,
+        &format!(
+            "{} : {}",
+            fr(i18n::CATEGORIE_DE_POLICE),
+            fr(i18n::TOUTES_LES_CATEGORIES)
+        ),
+    );
+    session
+        .harness
+        .get_by_label(&use_for(FontZone::Conversations, "Lexend"));
+}
+
+#[test]
+fn downloading_a_font_fetches_all_its_files_and_applies_it() {
+    let fake = FakeHttp::serving_catalog();
+    let (mut session, dir) = online_session(&fake, true);
+    open_tab(&mut session, AppearanceTab::Fonts);
+    session.settle();
+    click(&mut session, &use_for(FontZone::Conversations, "Inter"));
+    session.settle();
+
+    let requests = fake.requests();
+    for expected in [
+        fontsource::file_url("inter", "latin", 400),
+        fontsource::file_url("inter", "latin-ext", 400),
+        fontsource::file_url("inter", "latin", 700),
+        fontsource::file_url("inter", "latin-ext", 700),
+    ] {
+        assert!(requests.contains(&expected), "{expected} manquant");
+    }
+    assert_eq!(requests.len(), 5, "la liste, puis quatre fichiers");
+
+    let app = session.app.borrow();
+    assert_eq!(app.fonts.fonts().len(), 1);
+    let font = &app.fonts.fonts()[0];
+    assert_eq!(font.source, "fontsource:inter");
+    assert_eq!((font.extra.len(), font.bold.len()), (1, 2));
+    assert_eq!(
+        app.appearance.conv_font,
+        FontChoice::Imported(font.id.clone())
+    );
+    assert!(app.last_notification.as_deref().unwrap().contains("Inter"));
+    assert!(app.online.download.is_none());
+    let pref = saved_pref(&app).unwrap();
+    drop(app);
+    assert!(head_of(&session, MSG_FAMILY).ends_with("-r0"));
+    assert!(
+        head_of(&session, MSG_BOLD_FAMILY).ends_with("-b0"),
+        "son gras vient du catalogue"
+    );
+    drop(session);
+
+    // Redémarrage : la police téléchargée reste utilisée, sans le moindre accès réseau.
+    let silent = FakeHttp::default();
+    let mut app = new_app_in(&dir, Some(&pref));
+    app.online.http = Arc::new(silent.clone());
+    let mut restarted = Session::new(app, desktop());
+    restarted.settle();
+    assert!(head_of(&restarted, MSG_FAMILY).ends_with("-r0"));
+    assert!(silent.requests().is_empty(), "{:?}", silent.requests());
+}
+
+#[test]
+fn a_missing_subset_or_bold_cut_does_not_prevent_the_download() {
+    let fake = FakeHttp::serving_catalog();
+    fake.set(
+        &fontsource::file_url("lexend", "latin-ext", 400),
+        Err("HTTP 404".into()),
+    );
+    fake.set(
+        &fontsource::file_url("lexend", "latin", 700),
+        Err("HTTP 500".into()),
+    );
+    fake.set(
+        &fontsource::file_url("lexend", "latin-ext", 700),
+        Err("délai dépassé".into()),
+    );
+    let (mut session, _) = online_session(&fake, true);
+    open_tab(&mut session, AppearanceTab::Fonts);
+    session.settle();
+    click(&mut session, &use_for(FontZone::Interface, "Lexend"));
+    let app = session.app.borrow();
+    let font = &app.fonts.fonts()[0];
+    assert_eq!((font.extra.len(), font.bold.len()), (0, 0));
+    assert_eq!(
+        app.appearance.ui_font,
+        FontChoice::Imported(font.id.clone())
+    );
+}
+
+#[test]
+fn a_failed_latin_file_adds_nothing_and_says_so() {
+    for failure in [
+        Err("HTTP 404".to_owned()),
+        Err("HTTP 500".to_owned()),
+        Err("délai dépassé".to_owned()),
+        Ok(b"<html>page d'erreur</html>".to_vec()),
+        Ok(Vec::new()),
+        Ok(b"wOF2".to_vec()),
+        Ok(std::fs::read(format!("{FIXTURE_FONTS}/Inter-Regular.woff2")).unwrap()[..2000].to_vec()),
+    ] {
+        let fake = FakeHttp::serving_catalog();
+        fake.set(
+            &fontsource::file_url("inter", "latin", 400),
+            failure.clone(),
+        );
+        let (mut session, dir) = online_session(&fake, true);
+        open_tab(&mut session, AppearanceTab::Fonts);
+        session.settle();
+        let before = session.app.borrow().appearance.clone();
+        click(&mut session, &use_for(FontZone::Conversations, "Inter"));
+        let app = session.app.borrow();
+        assert_eq!(
+            app.last_notification.as_deref(),
+            Some(fr(i18n::TELECHARGEMENT_ECHOUE)),
+            "{failure:?}"
+        );
+        assert_eq!(app.appearance, before);
+        assert!(app.fonts.fonts().is_empty());
+        assert!(app.online.download.is_none());
+        let leftovers = std::fs::read_dir(dir.join("fonts"))
+            .map(|d| {
+                d.flatten()
+                    .filter(|e| e.file_name().to_string_lossy().ends_with(".ttf"))
+                    .count()
+            })
+            .unwrap_or(0);
+        assert_eq!(leftovers, 0, "aucun fichier à moitié écrit");
+    }
+}
+
+#[test]
+fn a_list_error_is_reported_and_leaves_the_tab_usable() {
+    for failure in [
+        Err("HTTP 500".to_owned()),
+        Err("délai dépassé".to_owned()),
+        Ok(b"pas du json".to_vec()),
+        Ok(b"[]".to_vec()),
+        Ok(b"{\"erreur\":true}".to_vec()),
+    ] {
+        let fake = FakeHttp::serving_catalog();
+        fake.set(fontsource::LIST_URL, failure.clone());
+        let (mut session, _) = online_session(&fake, true);
+        open_tab(&mut session, AppearanceTab::Fonts);
+        session.settle();
+        let app = session.app.borrow();
+        assert_eq!(
+            app.online.status,
+            super::online_fonts::ListStatus::Failed,
+            "{failure:?}"
+        );
+        assert_eq!(
+            app.last_notification.as_deref(),
+            Some(fr(i18n::LISTE_INDISPONIBLE))
+        );
+        drop(app);
+        session.harness.get_by_label(fr(i18n::POLICES_EN_LIGNE));
+        click(&mut session, &font_row(FontZone::Conversations, "Lexend"));
+    }
+}
+
+fn write_old_cache(dir: &std::path::Path, age_days: u64) {
+    let list = fontsource::parse_catalog(
+        &std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/fontsource/fonts.json"
+        ))
+        .unwrap(),
+    )
+    .unwrap();
+    let now = fontsource::now_secs();
+    fontsource::write_cache(
+        &dir.join("fonts").join("fontsource.json"),
+        &list,
+        now - age_days * 86_400,
+    );
+}
+
+fn session_with_cache(fake: &FakeHttp, age_days: u64) -> Session {
+    let dir = std::env::temp_dir().join(format!(
+        "abcom-online-cache-{age_days}-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    write_old_cache(&dir, age_days);
+    let mut app = new_app_in(&dir, None);
+    app.online.http = Arc::new(fake.clone());
+    app.appearance.online_fonts_allowed = true;
+    Session::new(app, desktop())
+}
+
+#[test]
+fn a_fresh_cached_list_is_used_without_any_request() {
+    let fake = FakeHttp::serving_catalog();
+    let mut session = session_with_cache(&fake, 2);
+    open_tab(&mut session, AppearanceTab::Fonts);
+    session.settle();
+    session
+        .harness
+        .get_by_label(&use_for(FontZone::Conversations, "Lexend"));
+    assert!(fake.requests().is_empty());
+}
+
+#[test]
+fn an_expired_list_is_refreshed() {
+    let fake = FakeHttp::serving_catalog();
+    let mut session = session_with_cache(&fake, 8);
+    open_tab(&mut session, AppearanceTab::Fonts);
+    session.settle();
+    assert_eq!(fake.requests(), [fontsource::LIST_URL]);
+    assert!(!session.app.borrow().online.stale);
+}
+
+#[test]
+fn an_expired_list_with_the_network_down_stays_usable_and_is_marked_old() {
+    let fake = FakeHttp::serving_catalog();
+    fake.set(fontsource::LIST_URL, Err("hors ligne".into()));
+    let mut session = session_with_cache(&fake, 30);
+    open_tab(&mut session, AppearanceTab::Fonts);
+    session.settle();
+    session
+        .harness
+        .get_by_label(fr(i18n::LISTE_PEUT_ETRE_ANCIENNE));
+    session
+        .harness
+        .get_by_label(&use_for(FontZone::Conversations, "Lexend"));
+    assert!(session.app.borrow().online.stale);
+}
+
+#[test]
+fn cancelling_a_download_ignores_the_late_answers() {
+    let fake = FakeHttp::serving_catalog();
+    let (mut session, _) = online_session(&fake, true);
+    open_tab(&mut session, AppearanceTab::Fonts);
+    session.settle();
+    fake.hold.store(true, Ordering::SeqCst);
+    click(&mut session, &use_for(FontZone::Conversations, "Inter"));
+    assert!(session.app.borrow().online.download.is_some());
+    session
+        .harness
+        .get_by_label(fr(i18n::TELECHARGEMENT_EN_COURS));
+
+    click(&mut session, fr(i18n::ANNULER));
+    assert!(session.app.borrow().online.download.is_none());
+    fake.release();
+    session.settle();
+    let app = session.app.borrow();
+    assert!(app.fonts.fonts().is_empty(), "réponses tardives ignorées");
+    assert_eq!(app.appearance.conv_font, FontChoice::ThemeDefault);
+}
+
+#[test]
+fn unchecking_the_permission_during_a_download_abandons_it() {
+    let fake = FakeHttp::serving_catalog();
+    let (mut session, _) = online_session(&fake, true);
+    open_tab(&mut session, AppearanceTab::Fonts);
+    session.settle();
+    fake.hold.store(true, Ordering::SeqCst);
+    click(&mut session, &use_for(FontZone::Conversations, "Inter"));
+    click(&mut session, fr(i18n::AUTORISER_LES_POLICES_EN_LIGNE));
+    session.settle();
+    assert!(!session.app.borrow().appearance.online_fonts_allowed);
+    assert!(session.app.borrow().online.download.is_none());
+    let sent = fake.requests().len();
+    fake.release();
+    session.settle();
+    assert!(session.app.borrow().fonts.fonts().is_empty());
+    assert_eq!(fake.requests().len(), sent, "plus aucune requête");
+}
+
+#[test]
+fn two_quick_clicks_keep_only_the_last_font() {
+    let fake = FakeHttp::serving_catalog();
+    let (mut session, _) = online_session(&fake, true);
+    open_tab(&mut session, AppearanceTab::Fonts);
+    session.settle();
+    fake.hold.store(true, Ordering::SeqCst);
+    click(&mut session, &use_for(FontZone::Conversations, "Inter"));
+    click(&mut session, &use_for(FontZone::Conversations, "Lexend"));
+    fake.release();
+    session.settle();
+    let app = session.app.borrow();
+    assert_eq!(app.fonts.fonts().len(), 1, "une seule police ajoutée");
+    assert_eq!(app.fonts.fonts()[0].source, "fontsource:lexend");
+}
+
+#[test]
+fn downloading_the_same_font_twice_reuses_the_first_copy() {
+    let fake = FakeHttp::serving_catalog();
+    let (mut session, _) = online_session(&fake, true);
+    open_tab(&mut session, AppearanceTab::Fonts);
+    session.settle();
+    click(&mut session, &use_for(FontZone::Conversations, "Inter"));
+    click(&mut session, &use_for(FontZone::Interface, "Inter"));
+    let app = session.app.borrow();
+    assert_eq!(app.fonts.fonts().len(), 1);
+    assert_eq!(app.appearance.ui_font, app.appearance.conv_font);
+}
+
+#[test]
+fn a_downloaded_font_can_be_removed_like_an_imported_one() {
+    let fake = FakeHttp::serving_catalog();
+    let (mut session, dir) = online_session(&fake, true);
+    open_tab(&mut session, AppearanceTab::Fonts);
+    session.settle();
+    click(&mut session, &use_for(FontZone::Conversations, "Inter"));
+    let family = session.app.borrow().fonts.fonts()[0].family.clone();
+    click(&mut session, &format!("{} {family}", fr(i18n::RETIRER)));
+    assert!(session.app.borrow().fonts.fonts().is_empty());
+    let left: Vec<_> = std::fs::read_dir(dir.join("fonts"))
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().to_string())
+        .filter(|n| n.ends_with(".ttf"))
+        .collect();
+    assert!(left.is_empty(), "tous les fichiers sont retirés : {left:?}");
+}
+
+#[test]
+fn the_list_is_paginated_without_overflowing() {
+    let fake = FakeHttp::serving_catalog();
+    let many: Vec<_> = (0..130)
+        .map(|n| {
+            serde_json::json!({
+                "id": format!("police-{n:03}"), "family": format!("Police {n:03}"),
+                "subsets": ["latin"], "weights": [400], "category": "serif", "license": "OFL-1.1"
+            })
+        })
+        .collect();
+    fake.set(fontsource::LIST_URL, Ok(serde_json::to_vec(&many).unwrap()));
+    let (mut session, _) = online_session(&fake, true);
+    open_tab(&mut session, AppearanceTab::Fonts);
+    session.settle();
+    session
+        .harness
+        .get_by_label(&use_for(FontZone::Conversations, "Police 000"));
+    assert!(session
+        .harness
+        .query_by_label(&use_for(FontZone::Conversations, "Police 050"))
+        .is_none());
+    session.harness.get_by_label("1 / 3");
+    click(&mut session, fr(i18n::PAGE_SUIVANTE));
+    session
+        .harness
+        .get_by_label(&use_for(FontZone::Conversations, "Police 050"));
+    click(&mut session, fr(i18n::PAGE_SUIVANTE));
+    session.harness.get_by_label("3 / 3");
+    assert!(session
+        .harness
+        .get_by_label(fr(i18n::PAGE_SUIVANTE))
+        .accesskit_node()
+        .is_disabled());
+    // Une recherche ramène à la première page.
+    type_into(&mut session, fr(i18n::RECHERCHER_UNE_POLICE), "Police 12");
+    assert_eq!(session.app.borrow().online.page, 0);
+}
+
+#[test]
+fn the_online_permission_survives_a_restart() {
+    let fake = FakeHttp::serving_catalog();
+    let (mut session, dir) = online_session(&fake, false);
+    open_tab(&mut session, AppearanceTab::Fonts);
+    click(&mut session, fr(i18n::AUTORISER_LES_POLICES_EN_LIGNE));
+    let pref = saved_pref(&session.app.borrow()).unwrap();
+    assert!(Appearance::from_pref(Some(&pref)).online_fonts_allowed);
+    drop(session);
+    let app = new_app_in(&dir, Some(&pref));
+    assert!(app.appearance.online_fonts_allowed);
+    // Décochée, elle l'est aussi après un redémarrage.
+    let mut off = Appearance::from_pref(Some(&pref));
+    off.online_fonts_allowed = false;
+    assert!(
+        !new_app_in(&dir, Some(&off.to_pref()))
+            .appearance
+            .online_fonts_allowed
+    );
+}

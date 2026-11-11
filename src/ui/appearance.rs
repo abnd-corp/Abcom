@@ -123,6 +123,8 @@ pub(crate) struct Appearance {
     pub(crate) ui_font: FontChoice,
     /// Police des conversations.
     pub(crate) conv_font: FontChoice,
+    /// L'utilisateur a accepté que l'application contacte le catalogue de polices en ligne.
+    pub(crate) online_fonts_allowed: bool,
 }
 
 impl Default for Appearance {
@@ -133,6 +135,7 @@ impl Default for Appearance {
             text: TextSettings::default(),
             ui_font: FontChoice::default(),
             conv_font: FontChoice::default(),
+            online_fonts_allowed: false,
         }
     }
 }
@@ -277,9 +280,9 @@ fn preview_fonts(fonts: &FontStore) -> Vec<PreviewFont> {
         },
     ]);
     previews.extend(fonts.fonts().iter().filter_map(|font| {
-        fonts.read(&font.id).ok().map(|bytes| PreviewFont {
+        fonts.read_font(&font.id).ok().map(|decoded| PreviewFont {
             family: format!("imported-{}", font.id),
-            files: vec![bytes],
+            files: decoded.regular,
         })
     }));
     previews
