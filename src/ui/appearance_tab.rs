@@ -9,6 +9,7 @@ use super::appearance::{
 };
 use super::colors::{contrast_ratio, MIN_TEXT_CONTRAST};
 use super::custom_themes::clean_name;
+use super::fonts::{FontChoice, FontError, ImportError, ImportOutcome, SuggestedFont};
 use super::i18n::{self, Entry};
 use super::theme::{self, Palette};
 use super::themes::BuiltinTheme;
@@ -27,6 +28,7 @@ pub(crate) enum AppearanceTab {
     Themes,
     Text,
     Colors,
+    Fonts,
 }
 
 /// État de l'onglet, gardé tant que l'application tourne.
@@ -34,6 +36,8 @@ pub(crate) enum AppearanceTab {
 pub(crate) struct AppearanceUi {
     pub(crate) tab: AppearanceTab,
     confirm_reset: bool,
+    /// Les polices proposées sont chargées pour s'afficher chacune dans la leur.
+    pub(crate) previews: bool,
     confirm_delete: bool,
     /// Nom en cours de saisie, avec l'identifiant du thème renommé.
     name_buffer: Option<(String, String)>,
@@ -220,6 +224,7 @@ impl AbcomApp {
                 (AppearanceTab::Themes, i18n::APPARENCE_THEMES),
                 (AppearanceTab::Text, i18n::APPARENCE_TEXTE),
                 (AppearanceTab::Colors, i18n::APPARENCE_COULEURS),
+                (AppearanceTab::Fonts, i18n::APPARENCE_POLICES),
             ] {
                 if ui
                     .selectable_label(self.appearance_ui.tab == tab, self.t(label))
@@ -241,6 +246,7 @@ impl AbcomApp {
                 AppearanceTab::Themes => self.themes_tab(ui),
                 AppearanceTab::Text => self.text_tab(ui),
                 AppearanceTab::Colors => self.colors_tab(ui),
+                AppearanceTab::Fonts => self.fonts_tab(ui),
             });
         ui.separator();
         self.reset_footer(ui);
@@ -629,6 +635,178 @@ impl AbcomApp {
         });
     }
 
+    // ── Polices ───────────────────────────────────────────────────────────
+
+    fn fonts_tab(&mut self, ui: &mut egui::Ui) {
+        // Les polices proposées se chargent une fois, pour s'afficher chacune dans la leur.
+        self.appearance_ui.previews = true;
+        for zone in [FontZone::Interface, FontZone::Conversations] {
+            self.font_zone(ui, zone);
+        }
+        ui.add_space(10.0);
+        self.heading(ui, i18n::POLICES_IMPORTEES);
+        self.imported_fonts_list(ui);
+        ui.label(egui::RichText::new(self.t(i18n::FORMATS_DE_POLICE_ACCEPTES)).weak());
+        ui.add_space(8.0);
+        self.appearance_preview(ui);
+    }
+
+    fn font_zone(&mut self, ui: &mut egui::Ui, zone: FontZone) {
+        let (title, import_label) = match zone {
+            FontZone::Interface => (
+                self.t(i18n::POLICE_DE_L_INTERFACE),
+                self.t(i18n::IMPORTER_POUR_L_INTERFACE),
+            ),
+            FontZone::Conversations => (
+                self.t(i18n::POLICE_DES_CONVERSATIONS),
+                self.t(i18n::IMPORTER_POUR_LES_CONVERSATIONS),
+            ),
+        };
+        ui.add_space(10.0);
+        ui.label(egui::RichText::new(title).strong().heading());
+        ui.add_space(2.0);
+
+        let current = zone.choice(&self.appearance).clone();
+        let mut chosen: Option<FontChoice> = None;
+        let mut rows: Vec<(FontChoice, String, String, Option<String>)> = vec![
+            (
+                FontChoice::ThemeDefault,
+                self.t(i18n::POLICE_DU_THEME).to_owned(),
+                self.t(i18n::POLICE_DU_THEME_DESCRIPTION).to_owned(),
+                None,
+            ),
+            (
+                FontChoice::NotoSans,
+                "Noto Sans".to_owned(),
+                self.t(i18n::POLICE_NOTO_SANS_DESCRIPTION).to_owned(),
+                Some("builtin-noto".to_owned()),
+            ),
+            (
+                FontChoice::Inter,
+                "Inter".to_owned(),
+                self.t(i18n::POLICE_INTER_DESCRIPTION).to_owned(),
+                Some("builtin-inter".to_owned()),
+            ),
+        ];
+        for font in SuggestedFont::ALL {
+            rows.push((
+                FontChoice::Suggested(font),
+                font.name().to_owned(),
+                self.t(suggested_description(font)).to_owned(),
+                Some(format!("suggested-{}", font.id())),
+            ));
+        }
+        for font in self.fonts.fonts() {
+            rows.push((
+                FontChoice::Imported(font.id.clone()),
+                font.family.clone(),
+                String::new(),
+                Some(format!("imported-{}", font.id)),
+            ));
+        }
+        for (choice, name, description, family) in rows {
+            let selected = current == choice;
+            let label = format!("{title} : {name}");
+            let mut text = egui::RichText::new(&name).size(15.0);
+            // egui panique sur une famille qu'il ne connaît pas encore : les polices
+            // d'aperçu ne sont liées qu'à l'image qui suit leur enregistrement.
+            if let Some(family) = family.as_deref().map(super::preview_family) {
+                if ui.ctx().fonts(|fonts| fonts.families().contains(&family)) {
+                    text = text.family(family);
+                }
+            }
+            let response = ui
+                .horizontal_wrapped(|ui| {
+                    let response = ui.selectable_label(selected, text);
+                    if !description.is_empty() {
+                        ui.label(egui::RichText::new(&description).weak());
+                    }
+                    response
+                })
+                .inner;
+            response.widget_info(|| {
+                egui::WidgetInfo::selected(egui::WidgetType::RadioButton, true, selected, &label)
+            });
+            if response.clicked() {
+                chosen = Some(choice);
+            }
+        }
+        if let Some(choice) = chosen {
+            *zone.choice_mut(&mut self.appearance) = choice;
+        }
+
+        ui.add_space(4.0);
+        if ui.button(import_label).clicked() {
+            self.import_font(zone);
+        }
+    }
+
+    fn imported_fonts_list(&mut self, ui: &mut egui::Ui) {
+        let fonts = self.fonts.fonts().to_vec();
+        if fonts.is_empty() {
+            ui.label(egui::RichText::new(self.t(i18n::AUCUNE_POLICE_IMPORTEE)).weak());
+        }
+        let mut remove: Option<String> = None;
+        for font in &fonts {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(&font.family);
+                let label = format!("{} {}", self.t(i18n::RETIRER), font.family);
+                let button = ui.button(self.t(i18n::RETIRER));
+                button.widget_info(|| {
+                    egui::WidgetInfo::labeled(egui::WidgetType::Button, true, &label)
+                });
+                if button.clicked() {
+                    remove = Some(font.id.clone());
+                }
+            });
+        }
+        if let Some(id) = remove {
+            self.remove_font(&id);
+        }
+    }
+
+    /// Ouvre le sélecteur, importe le fichier choisi et l'applique à la zone.
+    pub(crate) fn import_font(&mut self, zone: FontZone) {
+        let Some(path) = (self.font_picker)() else {
+            return;
+        };
+        match self.fonts.import(&path) {
+            Ok(ImportOutcome::Added(font)) => {
+                *zone.choice_mut(&mut self.appearance) = FontChoice::Imported(font.id.clone());
+                let message = format!("{} {}", self.t(i18n::POLICE_IMPORTEE), font.family);
+                self.notify(&message);
+            }
+            Ok(ImportOutcome::Existing(font)) => {
+                *zone.choice_mut(&mut self.appearance) = FontChoice::Imported(font.id);
+                self.notify(self.t(i18n::POLICE_DEJA_IMPORTEE));
+            }
+            Err(ImportError::Font(error)) => {
+                let entry = match error {
+                    FontError::Unreadable => i18n::POLICE_ILLISIBLE,
+                    FontError::NoLatin => i18n::POLICE_SANS_LATIN,
+                    FontError::NoOutline => i18n::POLICE_SANS_CONTOURS,
+                    FontError::TooLarge => i18n::POLICE_TROP_LOURDE,
+                };
+                self.notify(self.t(entry));
+            }
+            Err(ImportError::Io(error)) => {
+                tracing::warn!("import de police : {error}");
+                self.notify(self.t(i18n::POLICE_NON_ENREGISTREE));
+            }
+        }
+    }
+
+    /// Retire une police importée ; les zones qui l'utilisaient reprennent celle du thème.
+    pub(crate) fn remove_font(&mut self, id: &str) {
+        self.fonts.remove(id);
+        let removed = FontChoice::Imported(id.to_owned());
+        for zone in [FontZone::Interface, FontZone::Conversations] {
+            if *zone.choice(&self.appearance) == removed {
+                *zone.choice_mut(&mut self.appearance) = FontChoice::ThemeDefault;
+            }
+        }
+    }
+
     // ── Aperçu et réinitialisation ────────────────────────────────────────
 
     fn appearance_preview(&self, ui: &mut egui::Ui) {
@@ -695,6 +873,40 @@ impl AbcomApp {
                 }
             }
         });
+    }
+}
+
+/// Zone du texte à laquelle une police s'applique.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum FontZone {
+    Interface,
+    Conversations,
+}
+
+impl FontZone {
+    fn choice(self, appearance: &Appearance) -> &FontChoice {
+        match self {
+            Self::Interface => &appearance.ui_font,
+            Self::Conversations => &appearance.conv_font,
+        }
+    }
+
+    fn choice_mut(self, appearance: &mut Appearance) -> &mut FontChoice {
+        match self {
+            Self::Interface => &mut appearance.ui_font,
+            Self::Conversations => &mut appearance.conv_font,
+        }
+    }
+}
+
+fn suggested_description(font: SuggestedFont) -> Entry {
+    match font {
+        SuggestedFont::Atkinson => i18n::POLICE_ATKINSON_DESCRIPTION,
+        SuggestedFont::Lexend => i18n::POLICE_LEXEND_DESCRIPTION,
+        SuggestedFont::OpenDyslexic => i18n::POLICE_OPENDYSLEXIC_DESCRIPTION,
+        SuggestedFont::Literata => i18n::POLICE_LITERATA_DESCRIPTION,
+        SuggestedFont::Nunito => i18n::POLICE_NUNITO_DESCRIPTION,
+        SuggestedFont::JetBrainsMono => i18n::POLICE_JETBRAINS_DESCRIPTION,
     }
 }
 

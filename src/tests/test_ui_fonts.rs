@@ -61,8 +61,8 @@ impl Probe {
     /// donc pour mesurer.
     fn without_last_resort() -> Self {
         let mut definitions = super::build_fonts(
-            crate::ui::theme::FontKind::NotoSans,
-            crate::ui::theme::FontKind::NotoSans,
+            &crate::ui::fonts::FontPlans::theme(crate::ui::theme::FontKind::NotoSans),
+            &[],
         );
         for family in definitions.families.values_mut() {
             family.retain(|name| name != "unifont");
@@ -83,8 +83,8 @@ impl Probe {
     /// caractère qui s'en distingue a bien un glyphe à lui.
     fn complete() -> Self {
         let ctx = Self::context(super::build_fonts(
-            crate::ui::theme::FontKind::NotoSans,
-            crate::ui::theme::FontKind::NotoSans,
+            &crate::ui::fonts::FontPlans::theme(crate::ui::theme::FontKind::NotoSans),
+            &[],
         ));
         let tofu = glyph_signature(&ctx, UNASSIGNED[0]);
         Self { ctx, tofu }
@@ -155,7 +155,8 @@ const NOTO_CHAIN: [&str; 4] = ["noto-sans", "noto-symbols2", "inter-bold", "unif
 #[test]
 fn the_chain_is_wired_in_declared_order() {
     use crate::ui::theme::FontKind;
-    let definitions = super::build_fonts(FontKind::NotoSans, FontKind::NotoSans);
+    let definitions =
+        super::build_fonts(&crate::ui::fonts::FontPlans::theme(FontKind::NotoSans), &[]);
     for name in NOTO_CHAIN {
         assert!(
             definitions.font_data.contains_key(name),
@@ -186,7 +187,13 @@ fn every_family_ends_on_unifont_and_only_names_embedded_fonts() {
         (FontKind::NotoSans, FontKind::Inter),
         (FontKind::Inter, FontKind::NotoSans),
     ] {
-        let definitions = super::build_fonts(ui, messages);
+        let definitions = super::build_fonts(
+            &crate::ui::fonts::FontPlans {
+                ui: crate::ui::fonts::FontPlan::Theme(ui),
+                msg: crate::ui::fonts::FontPlan::Theme(messages),
+            },
+            &[],
+        );
         for name in [
             super::BOLD_FAMILY,
             MSG_FAMILY,
@@ -208,7 +215,13 @@ fn every_family_ends_on_unifont_and_only_names_embedded_fonts() {
 #[test]
 fn the_message_and_interface_fonts_can_differ() {
     use crate::ui::theme::{FontKind, MSG_FAMILY};
-    let definitions = super::build_fonts(FontKind::NotoSans, FontKind::Inter);
+    let definitions = super::build_fonts(
+        &crate::ui::fonts::FontPlans {
+            ui: crate::ui::fonts::FontPlan::Theme(FontKind::NotoSans),
+            msg: crate::ui::fonts::FontPlan::Theme(FontKind::Inter),
+        },
+        &[],
+    );
     let proportional = &definitions.families[&egui::FontFamily::Proportional];
     let messages = &definitions.families[&egui::FontFamily::Name(MSG_FAMILY.into())];
     assert_eq!(proportional[0], "noto-sans");
@@ -219,8 +232,14 @@ fn the_message_and_interface_fonts_can_differ() {
 fn inter_has_a_real_italic_and_noto_sans_does_not() {
     use crate::ui::theme::{FontKind, MSG_ITALIC_FAMILY};
     let italic = |kind| {
-        super::build_fonts(FontKind::NotoSans, kind).families
-            [&egui::FontFamily::Name(MSG_ITALIC_FAMILY.into())][0]
+        super::build_fonts(
+            &crate::ui::fonts::FontPlans {
+                ui: crate::ui::fonts::FontPlan::Theme(FontKind::NotoSans),
+                msg: crate::ui::fonts::FontPlan::Theme(kind),
+            },
+            &[],
+        )
+        .families[&egui::FontFamily::Name(MSG_ITALIC_FAMILY.into())][0]
             .clone()
     };
     assert_eq!(italic(FontKind::Inter), "inter-italic");

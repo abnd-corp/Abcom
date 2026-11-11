@@ -688,7 +688,7 @@ enum SpanOverride {
 /// couleur vive d'egui, qui ne synthétise pas le gras.
 fn bold_text(ui: &egui::Ui, text: &str) -> egui::RichText {
     let rich = super::theme::message_text(ui, text).strong();
-    if super::theme::text(ui).msg_has_real_bold() {
+    if super::theme::text(ui).msg_real_bold {
         rich.family(egui::FontFamily::Name(super::theme::MSG_BOLD_FAMILY.into()))
     } else {
         rich
@@ -699,7 +699,7 @@ fn bold_text(ui: &egui::Ui, text: &str) -> egui::RichText {
 /// synthétisé d'egui (le bitmap penché).
 fn italic_text(ui: &egui::Ui, text: &str) -> egui::RichText {
     let rich = super::theme::message_text(ui, text);
-    if super::theme::text(ui).msg_has_real_italic() {
+    if super::theme::text(ui).msg_real_italic {
         rich.family(egui::FontFamily::Name(
             super::theme::MSG_ITALIC_FAMILY.into(),
         ))

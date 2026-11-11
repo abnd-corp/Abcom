@@ -10,6 +10,7 @@ use std::sync::Arc;
 use eframe::egui::{self, Color32};
 
 use super::appearance::TextSettings;
+use super::fonts::FontPlans;
 
 /// Hauteur de ligne du composeur dans le thème classique (curseur et emojis).
 const CLASSIC_COMPOSER_LINE_HEIGHT: f32 = 22.0;
@@ -227,8 +228,10 @@ pub(crate) struct TextMetrics {
     /// Hauteur de ligne du composeur, qui place aussi les emojis de la saisie.
     pub(crate) composer_line_height: f32,
     pub(crate) dark_text_gamma: Option<f32>,
-    pub(crate) ui_font: FontKind,
-    pub(crate) msg_font: FontKind,
+    /// La police des conversations a une vraie coupe grasse.
+    pub(crate) msg_real_bold: bool,
+    /// La police des conversations a une vraie coupe italique.
+    pub(crate) msg_real_italic: bool,
 }
 
 impl TextMetrics {
@@ -256,19 +259,16 @@ impl TextMetrics {
             composer_line_height: (typography.composer_line_height * conv)
                 .max(Self::MIN_COMPOSER_LINE_HEIGHT),
             dark_text_gamma: typography.dark_text_gamma,
-            ui_font: typography.font,
-            msg_font: typography.font,
+            msg_real_bold: typography.font == FontKind::Inter,
+            msg_real_italic: typography.font == FontKind::Inter,
         }
     }
 
-    /// La police des conversations a-t-elle une vraie coupe italique ?
-    pub(crate) fn msg_has_real_italic(&self) -> bool {
-        self.msg_font == FontKind::Inter
-    }
-
-    /// Le `**gras**` des messages passe-t-il par une vraie coupe grasse ?
-    pub(crate) fn msg_has_real_bold(&self) -> bool {
-        self.msg_font == FontKind::Inter
+    /// Reporte sur les métriques les coupes réellement disponibles.
+    pub(crate) fn with_font_cuts(mut self, bold: bool, italic: bool) -> Self {
+        self.msg_real_bold = bold;
+        self.msg_real_italic = italic;
+        self
     }
 }
 
@@ -280,6 +280,8 @@ pub(crate) struct ResolvedTheme {
     pub(crate) dark: Palette,
     pub(crate) light: Palette,
     pub(crate) text: TextMetrics,
+    /// Polices de l'interface et des conversations.
+    pub(crate) fonts: FontPlans,
     /// Les widgets egui prennent les couleurs du thème ; Classique garde celles d'egui.
     pub(crate) styled_widgets: bool,
 }
@@ -292,6 +294,7 @@ impl ResolvedTheme {
             dark: DARK,
             light: LIGHT,
             text: TextMetrics::resolve(&Typography::CLASSIC, &TextSettings::default()),
+            fonts: FontPlans::theme(FontKind::NotoSans),
             styled_widgets: false,
         }
     }

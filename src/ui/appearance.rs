@@ -1,11 +1,15 @@
 //! Réglages d'apparence choisis par l'utilisateur, et leur application au contexte egui.
 
+use std::sync::Arc;
+
 use eframe::egui;
 use serde::{Deserialize, Serialize};
 
 use super::custom_themes::{ThemeStore, CUSTOM_PREFIX};
+use super::fonts::{resolve_choice, FontChoice, FontPlan, FontPlans, FontStore, SuggestedFont};
 use super::theme::{self, FontKind, ResolvedTheme};
 use super::themes::BuiltinTheme;
+use super::PreviewFont;
 
 /// Bornes des curseurs de taille.
 pub(crate) const SCALE_RANGE: std::ops::RangeInclusive<f32> = 0.8..=1.6;
@@ -115,6 +119,10 @@ pub(crate) struct Appearance {
     pub(crate) theme: String,
     pub(crate) mode: Mode,
     pub(crate) text: TextSettings,
+    /// Police de l'interface.
+    pub(crate) ui_font: FontChoice,
+    /// Police des conversations.
+    pub(crate) conv_font: FontChoice,
 }
 
 impl Default for Appearance {
@@ -123,6 +131,8 @@ impl Default for Appearance {
             theme: BuiltinTheme::Classic.id().to_owned(),
             mode: Mode::default(),
             text: TextSettings::default(),
+            ui_font: FontChoice::default(),
+            conv_font: FontChoice::default(),
         }
     }
 }
@@ -196,14 +206,83 @@ impl Appearance {
 }
 
 /// Installe l'apparence dans le contexte egui : mode, thème, tailles et polices.
-pub(crate) fn apply_appearance(ctx: &egui::Context, appearance: &Appearance, store: &ThemeStore) {
+///
+/// Renvoie le nombre de zones dont la police choisie n'a pas pu être chargée :
+/// elles retombent sur la police du thème.
+pub(crate) fn apply_appearance(
+    ctx: &egui::Context,
+    appearance: &Appearance,
+    store: &ThemeStore,
+    fonts: &FontStore,
+    previews: bool,
+) -> usize {
     ctx.set_theme(appearance.mode.preference());
     let text = appearance.text.sanitized();
-    let resolved = match appearance.custom_id().and_then(|id| store.get(id)) {
+    let mut resolved = match appearance.custom_id().and_then(|id| store.get(id)) {
         Some(custom) => custom.resolve(&text),
         None => appearance.builtin().resolve_with(&text),
     };
-    install_resolved(ctx, resolved);
+    let theme_font = match &resolved.fonts.ui {
+        FontPlan::Theme(kind) => *kind,
+        FontPlan::Files { .. } => FontKind::NotoSans,
+    };
+    let mut failures = 0;
+    let mut zone = |choice: &FontChoice| {
+        resolve_choice(choice, theme_font, fonts).unwrap_or_else(|err| {
+            tracing::warn!("police {} indisponible : {err:?}", choice.to_id());
+            failures += 1;
+            FontPlan::Theme(theme_font)
+        })
+    };
+    resolved.fonts = FontPlans {
+        ui: zone(&appearance.ui_font),
+        msg: zone(&appearance.conv_font),
+    };
+    resolved.text = resolved.text.with_font_cuts(
+        resolved.fonts.msg.real_bold(),
+        resolved.fonts.msg.real_italic(),
+    );
+    let preview_fonts = if previews {
+        preview_fonts(fonts)
+    } else {
+        Vec::new()
+    };
+    install_resolved(ctx, resolved, preview_fonts, fonts.revision);
+    failures
+}
+
+/// Polices proposées et importées, pour écrire chaque nom dans sa propre police.
+fn preview_fonts(fonts: &FontStore) -> Vec<PreviewFont> {
+    let mut previews: Vec<PreviewFont> = SuggestedFont::ALL
+        .into_iter()
+        .filter_map(|font| {
+            font.decoded().ok().map(|decoded| PreviewFont {
+                family: format!("suggested-{}", font.id()),
+                files: decoded.regular,
+            })
+        })
+        .collect();
+    previews.extend([
+        PreviewFont {
+            family: "builtin-noto".to_owned(),
+            files: vec![Arc::new(
+                include_bytes!("../../assets/fonts/NotoSans-Regular.ttf").to_vec(),
+            )],
+        },
+        PreviewFont {
+            family: "builtin-inter".to_owned(),
+            files: vec![Arc::new(
+                include_bytes!("../../assets/fonts/Inter-Regular.ttf").to_vec(),
+            )],
+        },
+    ]);
+    previews.extend(fonts.fonts().iter().filter_map(|font| {
+        fonts.read(&font.id).ok().map(|bytes| PreviewFont {
+            family: format!("imported-{}", font.id),
+            files: vec![bytes],
+        })
+    }));
+    previews
 }
 
 /// Installe un thème et ses réglages de texte dans le contexte egui.
@@ -211,20 +290,28 @@ pub(crate) fn apply_appearance(ctx: &egui::Context, appearance: &Appearance, sto
 /// Les polices ne sont reconstruites que si le choix de police change : c'est
 /// le seul changement coûteux, une couleur ou une taille n'y touche pas.
 pub(crate) fn apply(ctx: &egui::Context, theme: BuiltinTheme, text: &TextSettings) {
-    install_resolved(ctx, theme.resolve_with(&text.sanitized()));
+    install_resolved(ctx, theme.resolve_with(&text.sanitized()), Vec::new(), 0);
 }
 
-fn install_resolved(ctx: &egui::Context, mut resolved: ResolvedTheme) {
+fn install_resolved(
+    ctx: &egui::Context,
+    mut resolved: ResolvedTheme,
+    previews: Vec<PreviewFont>,
+    store_revision: u64,
+) {
     resolved.revision = theme::current(ctx).revision + 1;
-    apply_resolved(ctx, resolved);
-}
-
-/// Installe un thème déjà résolu : styles egui, polices, puis le thème lui-même.
-pub(crate) fn apply_resolved(ctx: &egui::Context, resolved: ResolvedTheme) {
-    let fonts = (resolved.text.ui_font, resolved.text.msg_font);
-    if font_choice_changed(ctx, fonts) {
-        ctx.set_fonts(super::build_fonts(fonts.0, fonts.1));
-        remember_font_choice(ctx, fonts);
+    let key = format!(
+        "{}|{}",
+        resolved.fonts.key(),
+        if previews.is_empty() {
+            "-".to_owned()
+        } else {
+            format!("p{store_revision}:{}", previews.len())
+        }
+    );
+    if font_choice_changed(ctx, &key) {
+        ctx.set_fonts(super::build_fonts(&resolved.fonts, &previews));
+        remember_font_choice(ctx, key);
     }
     apply_text_styles(ctx, &resolved);
     apply_visuals(ctx, &resolved);
@@ -235,12 +322,14 @@ fn font_choice_id() -> egui::Id {
     egui::Id::new("abcom_font_choice")
 }
 
-fn font_choice_changed(ctx: &egui::Context, fonts: (FontKind, FontKind)) -> bool {
-    ctx.data(|d| d.get_temp::<(FontKind, FontKind)>(font_choice_id())) != Some(fonts)
+fn font_choice_changed(ctx: &egui::Context, key: &str) -> bool {
+    ctx.data(|d| d.get_temp::<String>(font_choice_id()))
+        .as_deref()
+        != Some(key)
 }
 
-fn remember_font_choice(ctx: &egui::Context, fonts: (FontKind, FontKind)) {
-    ctx.data_mut(|d| d.insert_temp(font_choice_id(), fonts));
+fn remember_font_choice(ctx: &egui::Context, key: String) {
+    ctx.data_mut(|d| d.insert_temp(font_choice_id(), key));
 }
 
 /// Tailles de tous les styles de texte : ceux de l'interface, puis ceux des conversations.

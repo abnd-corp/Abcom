@@ -66,6 +66,8 @@ snow = "0.10.0"
 # Signature des annonces de découverte (clé dérivée de l'identité Noise).
 ed25519-dalek = "3"
 blake2 = "0.10.6"
+skrifa = "0.44"
+wuff = "0.2"
 # Sons de notification : seule la lecture est utilisée (tonalités
 # synthétisées), aucun décodeur de format n'est nécessaire.
 rodio = { version = "0.22", default-features = false, features = ["playback"], optional = true }

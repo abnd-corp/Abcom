@@ -26,7 +26,12 @@ pub(super) fn new_app(pref: Option<&str>) -> AbcomApp {
             .as_nanos()
     ));
     std::fs::create_dir_all(&dir).unwrap();
-    let mut state = AppState::new_with_base("moi", &dir);
+    new_app_in(&dir, pref)
+}
+
+/// Application dont le dossier de données est `dir` : un redémarrage y retrouve ses thèmes et polices.
+pub(super) fn new_app_in(dir: &std::path::Path, pref: Option<&str>) -> AbcomApp {
+    let mut state = AppState::new_with_base("moi", dir);
     if let Some(pref) = pref {
         state.set_pref(Appearance::PREF_KEY, pref);
     }
@@ -107,6 +112,7 @@ fn a_saved_appearance_is_applied_on_the_first_frame() {
             conv_scale: 1.4,
             ..TextSettings::default()
         },
+        ..Appearance::default()
     };
     let mut session = Session::new(new_app(Some(&saved.to_pref())), egui::vec2(860.0, 600.0));
     session.harness.step();
@@ -313,6 +319,7 @@ fn open_tab(session: &mut Session, tab: AppearanceTab) {
         AppearanceTab::Themes => i18n::APPARENCE_THEMES,
         AppearanceTab::Text => i18n::APPARENCE_TEXTE,
         AppearanceTab::Colors => i18n::APPARENCE_COULEURS,
+        AppearanceTab::Fonts => i18n::APPARENCE_POLICES,
     };
     let language = session.app.borrow().ui_language;
     click(session, label.get(language));
@@ -1037,5 +1044,536 @@ fn the_whole_tab_is_translated_in_english() {
                 entry.fr
             );
         }
+    }
+}
+
+// ── Polices ───────────────────────────────────────────────────────────────
+
+use super::appearance_tab::FontZone;
+use super::fonts::{FontChoice, SuggestedFont};
+use super::theme::{MSG_BOLD_FAMILY, MSG_FAMILY};
+
+const ASSET_FONTS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/fonts");
+const FIXTURE_FONTS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fonts");
+
+fn zone_title(zone: FontZone) -> &'static str {
+    match zone {
+        FontZone::Interface => fr(i18n::POLICE_DE_L_INTERFACE),
+        FontZone::Conversations => fr(i18n::POLICE_DES_CONVERSATIONS),
+    }
+}
+
+fn font_row(zone: FontZone, name: &str) -> String {
+    format!("{} : {name}", zone_title(zone))
+}
+
+fn import_label(zone: FontZone) -> &'static str {
+    match zone {
+        FontZone::Interface => fr(i18n::IMPORTER_POUR_L_INTERFACE),
+        FontZone::Conversations => fr(i18n::IMPORTER_POUR_LES_CONVERSATIONS),
+    }
+}
+
+/// Fait répondre le sélecteur de fichier de l'application avec `path` (ou l'annule).
+fn pick(session: &Session, path: Option<std::path::PathBuf>) {
+    session.app.borrow_mut().font_picker = Box::new(move || path.clone());
+}
+
+fn registered_families(session: &Session) -> Vec<egui::FontFamily> {
+    session.ctx().fonts(|fonts| fonts.families())
+}
+
+/// Première police de la chaîne d'une famille, telle qu'egui la connaît.
+fn head_of(session: &Session, family: &str) -> String {
+    session.ctx().fonts(|fonts| {
+        fonts.definitions().families[&egui::FontFamily::Name(family.into())][0].clone()
+    })
+}
+
+#[test]
+fn opening_the_fonts_tab_registers_every_suggested_font_once() {
+    let mut session = Session::new(new_app(None), desktop());
+    open_tab(&mut session, AppearanceTab::Fonts);
+    session.settle();
+    let families = registered_families(&session);
+    for font in SuggestedFont::ALL {
+        let family = super::preview_family(&format!("suggested-{}", font.id()));
+        assert!(families.contains(&family), "{} non enregistrée", font.id());
+    }
+    for builtin in ["builtin-noto", "builtin-inter"] {
+        assert!(
+            families.contains(&super::preview_family(builtin)),
+            "{builtin}"
+        );
+    }
+}
+
+#[test]
+fn every_row_shows_its_name_and_a_description() {
+    let mut session = Session::new(new_app(None), desktop());
+    open_tab(&mut session, AppearanceTab::Fonts);
+    for zone in [FontZone::Interface, FontZone::Conversations] {
+        for name in [
+            "Noto Sans",
+            "Inter",
+            "Atkinson Hyperlegible",
+            "Lexend",
+            "OpenDyslexic",
+            "Literata",
+            "Nunito",
+            "JetBrains Mono",
+        ] {
+            session.harness.get_by_label(&font_row(zone, name));
+        }
+        session
+            .harness
+            .get_by_label(&font_row(zone, fr(i18n::POLICE_DU_THEME)));
+    }
+    let descriptions = session
+        .harness
+        .get_all_by_label(fr(i18n::POLICE_LEXEND_DESCRIPTION))
+        .count();
+    assert_eq!(descriptions, 2, "une par zone");
+}
+
+#[test]
+fn each_suggested_font_can_be_picked_for_the_conversations_and_the_interface() {
+    for font in SuggestedFont::ALL {
+        for zone in [FontZone::Interface, FontZone::Conversations] {
+            let mut session = Session::new(new_app(None), desktop());
+            open_tab(&mut session, AppearanceTab::Fonts);
+            click(&mut session, &font_row(zone, font.name()));
+            session.settle();
+            let app = session.app.borrow();
+            let chosen = match zone {
+                FontZone::Interface => &app.appearance.ui_font,
+                FontZone::Conversations => &app.appearance.conv_font,
+            };
+            assert_eq!(
+                *chosen,
+                FontChoice::Suggested(font),
+                "{} / {zone:?}",
+                font.id()
+            );
+            drop(app);
+            let head = match zone {
+                FontZone::Interface => session.ctx().fonts(|f| {
+                    f.definitions().families[&egui::FontFamily::Proportional][0].clone()
+                }),
+                FontZone::Conversations => head_of(&session, MSG_FAMILY),
+            };
+            assert!(
+                head.ends_with("-r0"),
+                "{} : la police est en tête ({head})",
+                font.id()
+            );
+            let bold = head_of(&session, MSG_BOLD_FAMILY);
+            if zone == FontZone::Conversations {
+                assert!(
+                    bold.ends_with("-b0"),
+                    "{} : son gras est le 700 ({bold})",
+                    font.id()
+                );
+                assert!(super::theme::current(&session.ctx()).text.msg_real_bold);
+            }
+        }
+    }
+}
+
+#[test]
+fn the_two_zones_can_use_different_fonts() {
+    let mut session = Session::new(new_app(None), desktop());
+    open_tab(&mut session, AppearanceTab::Fonts);
+    click(&mut session, &font_row(FontZone::Conversations, "Literata"));
+    click(&mut session, &font_row(FontZone::Interface, "Lexend"));
+    let app = session.app.borrow();
+    assert_eq!(
+        app.appearance.conv_font,
+        FontChoice::Suggested(SuggestedFont::Literata)
+    );
+    assert_eq!(
+        app.appearance.ui_font,
+        FontChoice::Suggested(SuggestedFont::Lexend)
+    );
+}
+
+#[test]
+fn a_font_choice_is_saved_and_applied_on_the_next_start() {
+    let mut session = Session::new(new_app(None), desktop());
+    open_tab(&mut session, AppearanceTab::Fonts);
+    click(&mut session, &font_row(FontZone::Conversations, "Nunito"));
+    let pref = saved_pref(&session.app.borrow()).expect("écrit");
+    assert!(pref.contains("suggested:nunito"), "{pref}");
+    drop(session);
+
+    let mut restarted = Session::new(new_app(Some(&pref)), desktop());
+    restarted.settle();
+    assert_eq!(
+        restarted.app.borrow().appearance.conv_font,
+        FontChoice::Suggested(SuggestedFont::Nunito)
+    );
+    assert!(head_of(&restarted, MSG_FAMILY).ends_with("-r0"));
+}
+
+#[test]
+fn going_back_to_the_theme_font_restores_the_theme_chain() {
+    let mut session = Session::new(new_app(None), desktop());
+    open_tab(&mut session, AppearanceTab::Fonts);
+    click(&mut session, &font_row(FontZone::Conversations, "Lexend"));
+    click(
+        &mut session,
+        &font_row(FontZone::Conversations, fr(i18n::POLICE_DU_THEME)),
+    );
+    assert_eq!(head_of(&session, MSG_FAMILY), "noto-sans");
+}
+
+#[test]
+fn builtin_fonts_can_be_chosen_explicitly() {
+    let mut session = Session::new(new_app(None), desktop());
+    open_tab(&mut session, AppearanceTab::Fonts);
+    click(&mut session, &font_row(FontZone::Conversations, "Inter"));
+    assert_eq!(head_of(&session, MSG_FAMILY), "inter");
+    assert!(super::theme::current(&session.ctx()).text.msg_real_italic);
+    click(
+        &mut session,
+        &font_row(FontZone::Conversations, "Noto Sans"),
+    );
+    assert_eq!(head_of(&session, MSG_FAMILY), "noto-sans");
+    assert!(!super::theme::current(&session.ctx()).text.msg_real_italic);
+}
+
+#[test]
+fn fonts_are_not_rebuilt_by_a_color_or_a_size_change() {
+    let mut session = Session::new(new_app(None), desktop());
+    open_tab(&mut session, AppearanceTab::Fonts);
+    click(&mut session, &font_row(FontZone::Conversations, "Lexend"));
+    let before = session.ctx().fonts(|f| f.definitions().clone());
+    session.app.borrow_mut().appearance.text.global_scale = 1.4;
+    session
+        .app
+        .borrow_mut()
+        .appearance
+        .select_builtin(BuiltinTheme::Frost);
+    session.settle();
+    let after = session.ctx().fonts(|f| f.definitions().clone());
+    assert_eq!(
+        before.families, after.families,
+        "la même chaîne, sans reconstruction"
+    );
+}
+
+#[test]
+fn importing_each_font_format_applies_it_and_survives_a_restart() {
+    let cases = [
+        ("Inter-Regular.ttf", ASSET_FONTS, "Inter"),
+        ("Unifont.otf", ASSET_FONTS, "Unifont"),
+        ("Inter-Regular.woff", FIXTURE_FONTS, "Inter"),
+        ("Inter-Regular.woff2", FIXTURE_FONTS, "Inter"),
+    ];
+    for (file, folder, family) in cases {
+        for zone in [FontZone::Interface, FontZone::Conversations] {
+            let dir = std::env::temp_dir().join(format!(
+                "abcom-import-{}-{:?}-{}",
+                file,
+                zone,
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            std::fs::create_dir_all(&dir).unwrap();
+            let mut session = Session::new(new_app_in(&dir, None), desktop());
+            pick(&session, Some(std::path::PathBuf::from(folder).join(file)));
+            open_tab(&mut session, AppearanceTab::Fonts);
+            click(&mut session, import_label(zone));
+
+            let app = session.app.borrow();
+            assert_eq!(app.fonts.fonts().len(), 1, "{file}");
+            let font = app.fonts.fonts()[0].clone();
+            assert_eq!(font.family, family, "{file}");
+            let applied = match zone {
+                FontZone::Interface => &app.appearance.ui_font,
+                FontZone::Conversations => &app.appearance.conv_font,
+            };
+            assert_eq!(*applied, FontChoice::Imported(font.id.clone()), "{file}");
+            assert!(app
+                .last_notification
+                .as_deref()
+                .unwrap_or("")
+                .contains(family));
+            let pref = saved_pref(&app).expect("préférence écrite");
+            drop(app);
+            drop(session);
+
+            let mut restarted = Session::new(new_app_in(&dir, Some(&pref)), desktop());
+            restarted.settle();
+            assert_eq!(restarted.app.borrow().fonts.fonts().len(), 1);
+            let head = match zone {
+                FontZone::Interface => restarted.ctx().fonts(|f| {
+                    f.definitions().families[&egui::FontFamily::Proportional][0].clone()
+                }),
+                FontZone::Conversations => head_of(&restarted, MSG_FAMILY),
+            };
+            assert!(
+                head.ends_with("-r0"),
+                "{file} : appliquée au redémarrage ({head})"
+            );
+        }
+    }
+}
+
+fn session_in_temp_dir() -> (Session, std::path::PathBuf) {
+    let dir = std::env::temp_dir().join(format!(
+        "abcom-fontdir-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    (Session::new(new_app_in(&dir, None), desktop()), dir)
+}
+
+#[test]
+fn refused_imports_say_why_and_change_nothing() {
+    let (mut session, dir) = session_in_temp_dir();
+    open_tab(&mut session, AppearanceTab::Fonts);
+    let ttf = std::fs::read(format!("{ASSET_FONTS}/Inter-Regular.ttf")).unwrap();
+    let woff2 = std::fs::read(format!("{FIXTURE_FONTS}/Inter-Regular.woff2")).unwrap();
+    let mut bomb = vec![0u8; 48];
+    bomb[..4].copy_from_slice(b"wOF2");
+    bomb[16..20].copy_from_slice(&u32::MAX.to_be_bytes());
+    let latin_ext = SuggestedFont::Lexend.decoded().unwrap().regular[1]
+        .as_ref()
+        .clone();
+
+    let huge = dir.join("enorme.ttf");
+    std::fs::File::create(&huge)
+        .unwrap()
+        .set_len(31 * 1024 * 1024)
+        .unwrap();
+
+    let cases: Vec<(&str, Option<Vec<u8>>, i18n::Entry)> = vec![
+        (
+            "bidon.ttf",
+            Some(b"ceci n'est pas une police".to_vec()),
+            i18n::POLICE_ILLISIBLE,
+        ),
+        ("vide.ttf", Some(Vec::new()), i18n::POLICE_ILLISIBLE),
+        (
+            "coupee.woff2",
+            Some(woff2[..woff2.len() / 2].to_vec()),
+            i18n::POLICE_ILLISIBLE,
+        ),
+        ("bombe.woff2", Some(bomb), i18n::POLICE_TROP_LOURDE),
+        ("ext.ttf", Some(latin_ext), i18n::POLICE_SANS_LATIN),
+        (
+            "renommee.ttf",
+            Some(b"<html>pas une police</html>".to_vec()),
+            i18n::POLICE_ILLISIBLE,
+        ),
+        ("enorme.ttf", None, i18n::POLICE_TROP_LOURDE),
+    ];
+    let _ = ttf;
+    for (name, bytes, expected) in cases {
+        let path = match bytes {
+            Some(bytes) => {
+                let path = dir.join(name);
+                std::fs::write(&path, bytes).unwrap();
+                path
+            }
+            None => huge.clone(),
+        };
+        let before = session.app.borrow().appearance.clone();
+        session.app.borrow_mut().last_notification = None;
+        pick(&session, Some(path));
+        click(&mut session, import_label(FontZone::Conversations));
+        let app = session.app.borrow();
+        assert_eq!(
+            app.last_notification.as_deref(),
+            Some(fr(expected)),
+            "{name}"
+        );
+        assert_eq!(app.appearance, before, "{name} : rien n'a changé");
+        assert!(app.fonts.fonts().is_empty(), "{name} : rien n'est importé");
+    }
+    assert!(!dir.join("fonts").join("index.json").exists());
+}
+
+#[test]
+fn cancelling_the_file_picker_changes_nothing() {
+    let (mut session, _) = session_in_temp_dir();
+    open_tab(&mut session, AppearanceTab::Fonts);
+    pick(&session, None);
+    session.app.borrow_mut().last_notification = None;
+    click(&mut session, import_label(FontZone::Conversations));
+    let app = session.app.borrow();
+    assert_eq!(app.appearance, Appearance::default());
+    assert!(app.last_notification.is_none());
+}
+
+#[test]
+fn importing_the_same_font_twice_selects_the_existing_one() {
+    let (mut session, _) = session_in_temp_dir();
+    open_tab(&mut session, AppearanceTab::Fonts);
+    let path = std::path::PathBuf::from(ASSET_FONTS).join("Inter-Regular.ttf");
+    pick(&session, Some(path));
+    click(&mut session, import_label(FontZone::Conversations));
+    click(&mut session, import_label(FontZone::Interface));
+    let app = session.app.borrow();
+    assert_eq!(app.fonts.fonts().len(), 1, "pas de doublon");
+    assert_eq!(app.appearance.ui_font, app.appearance.conv_font);
+    assert_eq!(
+        app.last_notification.as_deref(),
+        Some(fr(i18n::POLICE_DEJA_IMPORTEE))
+    );
+}
+
+#[test]
+fn removing_an_imported_font_resets_both_zones_and_deletes_the_file() {
+    let (mut session, dir) = session_in_temp_dir();
+    open_tab(&mut session, AppearanceTab::Fonts);
+    pick(
+        &session,
+        Some(std::path::PathBuf::from(ASSET_FONTS).join("Inter-Regular.ttf")),
+    );
+    click(&mut session, import_label(FontZone::Conversations));
+    click(&mut session, import_label(FontZone::Interface));
+    let family = session.app.borrow().fonts.fonts()[0].family.clone();
+    let file = dir
+        .join("fonts")
+        .join(&session.app.borrow().fonts.fonts()[0].file);
+    assert!(file.exists());
+
+    click(&mut session, &format!("{} {family}", fr(i18n::RETIRER)));
+    let app = session.app.borrow();
+    assert!(app.fonts.fonts().is_empty());
+    assert_eq!(app.appearance.ui_font, FontChoice::ThemeDefault);
+    assert_eq!(app.appearance.conv_font, FontChoice::ThemeDefault);
+    assert!(!file.exists());
+    drop(app);
+    assert_eq!(head_of(&session, MSG_FAMILY), "noto-sans");
+}
+
+#[test]
+fn an_imported_font_deleted_from_the_disk_falls_back_with_a_notice_at_startup() {
+    let (mut session, dir) = session_in_temp_dir();
+    open_tab(&mut session, AppearanceTab::Fonts);
+    pick(
+        &session,
+        Some(std::path::PathBuf::from(ASSET_FONTS).join("Inter-Regular.ttf")),
+    );
+    click(&mut session, import_label(FontZone::Conversations));
+    let pref = saved_pref(&session.app.borrow()).unwrap();
+    let file = dir
+        .join("fonts")
+        .join(&session.app.borrow().fonts.fonts()[0].file);
+    drop(session);
+    std::fs::remove_file(file).unwrap();
+
+    let mut restarted = Session::new(new_app_in(&dir, Some(&pref)), desktop());
+    restarted.settle();
+    assert_eq!(
+        head_of(&restarted, MSG_FAMILY),
+        "noto-sans",
+        "police du thème"
+    );
+    let notice = restarted.app.borrow().last_notification.clone();
+    assert_eq!(notice.as_deref(), Some(fr(i18n::POLICE_INDISPONIBLE)));
+}
+
+#[test]
+fn an_imported_font_replaced_by_junk_never_reaches_egui() {
+    let (mut session, dir) = session_in_temp_dir();
+    open_tab(&mut session, AppearanceTab::Fonts);
+    pick(
+        &session,
+        Some(std::path::PathBuf::from(ASSET_FONTS).join("Inter-Regular.ttf")),
+    );
+    click(&mut session, import_label(FontZone::Conversations));
+    let pref = saved_pref(&session.app.borrow()).unwrap();
+    let file = dir
+        .join("fonts")
+        .join(&session.app.borrow().fonts.fonts()[0].file);
+    drop(session);
+    std::fs::write(file, b"remplace par du texte").unwrap();
+
+    let mut restarted = Session::new(new_app_in(&dir, Some(&pref)), desktop());
+    restarted.settle();
+    assert_eq!(head_of(&restarted, MSG_FAMILY), "noto-sans");
+}
+
+#[test]
+fn text_in_other_scripts_still_renders_with_a_latin_only_font() {
+    let mut session = Session::new(new_app(None), desktop());
+    open_tab(&mut session, AppearanceTab::Fonts);
+    click(&mut session, &font_row(FontZone::Conversations, "Lexend"));
+    session.settle();
+    let width = |text: &str| -> f32 {
+        session.ctx().fonts_mut(|fonts| {
+            fonts
+                .layout_no_wrap(
+                    text.to_owned(),
+                    egui::FontId::new(14.0, egui::FontFamily::Name(MSG_FAMILY.into())),
+                    egui::Color32::WHITE,
+                )
+                .size()
+                .x
+        })
+    };
+    for text in [
+        "日本語のテキスト",
+        "Привет, мир",
+        "مرحبا بالعالم",
+        "한국어",
+        "Ça va très bien ? Łódź",
+    ] {
+        assert!(width(text) > 0.0, "{text}");
+    }
+}
+
+#[test]
+fn switching_fonts_with_a_long_conversation_stays_responsive() {
+    let mut app = new_app(None);
+    {
+        let mut state = app.state.lock().unwrap();
+        state.add_peer("alice".into(), "127.0.0.1:9000".parse().unwrap());
+        state.selected_conversation = Some("alice".into());
+        for i in 0..1000u64 {
+            state.messages.push(crate::message::ChatMessage {
+                from: if i % 2 == 0 {
+                    "alice".into()
+                } else {
+                    "moi".into()
+                },
+                content: format!(
+                    "Message numéro {i} : **gras**, *italique* et `code` — Ça va très bien ?"
+                ),
+                timestamp: "12:00".into(),
+                timestamp_epoch: Some(i),
+                to_user: Some(if i % 2 == 0 {
+                    "moi".into()
+                } else {
+                    "alice".into()
+                }),
+                media: None,
+                reply_to: None,
+                nonce: None,
+            });
+        }
+        state.bump_content();
+    }
+    app.modals.settings_open = true;
+    app.modals.settings_tab = super::SettingsTab::Appearance;
+    let mut session = Session::new(app, desktop());
+    open_tab(&mut session, AppearanceTab::Fonts);
+    for font in ["Lexend", "OpenDyslexic", "Literata"] {
+        let started = std::time::Instant::now();
+        click(&mut session, &font_row(FontZone::Conversations, font));
+        let elapsed = started.elapsed();
+        assert!(
+            elapsed.as_millis() < 2500,
+            "{font} : {elapsed:?} pour 5 images"
+        );
     }
 }

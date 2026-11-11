@@ -1,6 +1,7 @@
 use eframe::egui;
 
 use super::*;
+use crate::ui::fonts::FontPlans;
 use crate::ui::theme::{self, FontKind, TextMetrics, Typography};
 use crate::ui::themes::BuiltinTheme;
 
@@ -243,26 +244,16 @@ fn apply_bumps_the_revision_every_time() {
 #[test]
 fn fonts_are_only_rebuilt_when_the_font_choice_changes() {
     let ctx = egui::Context::default();
+    let noto = FontPlans::theme(FontKind::NotoSans).key();
+    let inter = FontPlans::theme(FontKind::Inter).key();
     apply(&ctx, BuiltinTheme::Classic, &TextSettings::default());
-    assert!(!font_choice_changed(
-        &ctx,
-        (FontKind::NotoSans, FontKind::NotoSans)
-    ));
+    assert!(!font_choice_changed(&ctx, &format!("{noto}|-")));
     // Couleurs, tailles et autre thème de même police : pas de reconstruction.
     apply(&ctx, BuiltinTheme::Frost, &settings(1.4, 1.0, 1.0));
-    assert!(!font_choice_changed(
-        &ctx,
-        (FontKind::NotoSans, FontKind::NotoSans)
-    ));
+    assert!(!font_choice_changed(&ctx, &format!("{noto}|-")));
     apply(&ctx, BuiltinTheme::Lounge, &TextSettings::default());
-    assert!(font_choice_changed(
-        &ctx,
-        (FontKind::NotoSans, FontKind::NotoSans)
-    ));
-    assert!(!font_choice_changed(
-        &ctx,
-        (FontKind::Inter, FontKind::Inter)
-    ));
+    assert!(font_choice_changed(&ctx, &format!("{noto}|-")));
+    assert!(!font_choice_changed(&ctx, &format!("{inter}|-")));
 }
 
 #[test]
@@ -445,6 +436,7 @@ fn every_builtin_theme_round_trips_through_the_preference() {
                     conv_line_spacing: Some(1.6),
                     conv_letter_spacing: Some(0.3),
                 },
+                ..Appearance::default()
             };
             assert_eq!(Appearance::from_pref(Some(&original.to_pref())), original);
         }
@@ -475,6 +467,7 @@ fn the_preference_survives_a_real_database_round_trip() {
             global_scale: 1.3,
             ..TextSettings::default()
         },
+        ..Appearance::default()
     };
     {
         let storage = crate::app::Storage::open(&dir).unwrap();

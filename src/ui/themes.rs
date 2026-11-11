@@ -9,6 +9,7 @@ use eframe::egui::Color32;
 
 use super::appearance::TextSettings;
 use super::colors::{palette_from_seed, Seed};
+use super::fonts::FontPlans;
 use super::i18n::{self, Entry};
 use super::theme::{ResolvedTheme, TextMetrics, Typography, DARK, LIGHT};
 
@@ -232,6 +233,7 @@ impl BuiltinTheme {
             dark,
             light,
             text: TextMetrics::resolve(&self.typography(), settings),
+            fonts: FontPlans::theme(self.typography().font),
             styled_widgets: self != Self::Classic,
         }
     }

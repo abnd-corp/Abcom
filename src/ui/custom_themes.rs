@@ -12,6 +12,7 @@ use eframe::egui::Color32;
 use serde::{Deserialize, Serialize};
 
 use super::appearance::TextSettings;
+use super::fonts::FontPlans;
 use super::theme::{Palette, ResolvedTheme, TextMetrics};
 use super::themes::BuiltinTheme;
 
@@ -102,6 +103,7 @@ impl CustomTheme {
             dark: self.dark,
             light: self.light,
             text: TextMetrics::resolve(&self.base.typography(), settings),
+            fonts: FontPlans::theme(self.base.typography().font),
             styled_widgets: true,
         }
     }

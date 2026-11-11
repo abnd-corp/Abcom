@@ -23,6 +23,7 @@ mod custom_themes;
 mod dialog;
 mod emoji_picker;
 mod events;
+mod fonts;
 mod gif_picker;
 mod group_modal;
 mod i18n;
@@ -337,7 +338,11 @@ pub(crate) struct AbcomApp {
     /// Apparence choisie, appliquée au contexte à chaque changement.
     pub(crate) appearance: appearance::Appearance,
     /// Dernière apparence appliquée au contexte (`None` avant la première image).
-    applied_appearance: Option<(appearance::Appearance, u64)>,
+    applied_appearance: Option<(appearance::Appearance, u64, u64, bool)>,
+    /// Polices importées par l'utilisateur.
+    pub(crate) fonts: fonts::FontStore,
+    /// Choisit un fichier de police ; le sélecteur natif par défaut, remplaçable par les tests.
+    pub(crate) font_picker: Box<dyn FnMut() -> Option<PathBuf>>,
     /// État de l'onglet Apparence des Paramètres.
     pub(crate) appearance_ui: appearance_tab::AppearanceUi,
     /// Thèmes personnels, lus dans le dossier des données.
@@ -466,6 +471,7 @@ impl AbcomApp {
             )
         };
         let themes = custom_themes::ThemeStore::load(&themes_dir);
+        let fonts = fonts::FontStore::load(&themes_dir.with_file_name("fonts"));
         let mut saved_appearance = saved_appearance;
         let theme_missing = saved_appearance.drop_missing_custom(&themes);
 
@@ -552,6 +558,8 @@ impl AbcomApp {
             ui_language: UiLanguage::French,
             appearance: saved_appearance.clone(),
             applied_appearance: None,
+            fonts,
+            font_picker: Box::new(pick_font_file),
             themes,
             appearance_ui: appearance_tab::AppearanceUi::default(),
             persisted_appearance: saved_appearance,
@@ -617,9 +625,24 @@ impl AbcomApp {
         if self.appearance.drop_missing_custom(&self.themes) {
             self.notify(self.t(i18n::THEME_PERSONNEL_INTROUVABLE));
         }
-        let key = (self.appearance.clone(), self.themes.revision);
+        let previews = self.appearance_ui.previews;
+        let key = (
+            self.appearance.clone(),
+            self.themes.revision,
+            self.fonts.revision,
+            previews,
+        );
         if self.applied_appearance.as_ref() != Some(&key) {
-            appearance::apply_appearance(ctx, &self.appearance, &self.themes);
+            let failed = appearance::apply_appearance(
+                ctx,
+                &self.appearance,
+                &self.themes,
+                &self.fonts,
+                previews,
+            );
+            if failed > 0 {
+                self.notify(self.t(i18n::POLICE_INDISPONIBLE));
+            }
             self.applied_appearance = Some(key);
         }
         let dragging = ctx.input(|input| input.pointer.any_down());
@@ -1298,13 +1321,82 @@ fn family_chain(head: &str, kind: theme::FontKind) -> Vec<String> {
         .collect()
 }
 
+/// Police d'aperçu : une famille egui à part, pour écrire un nom dans sa propre police.
+pub(crate) struct PreviewFont {
+    pub(crate) family: String,
+    pub(crate) files: Vec<Arc<Vec<u8>>>,
+}
+
+/// Nom de la famille egui d'aperçu d'une police.
+pub(crate) fn preview_family(key: &str) -> egui::FontFamily {
+    egui::FontFamily::Name(format!("preview-{key}").into())
+}
+
+/// Chaînes (normale, grasse, italique) d'une zone ; les polices décodées y sont
+/// enregistrées sous `zone`-r0, `zone`-b0…
+fn zone_chains(
+    plan: &fonts::FontPlan,
+    zone: &str,
+    definitions: &mut egui::FontDefinitions,
+) -> (Vec<String>, Vec<String>, Vec<String>) {
+    match plan {
+        fonts::FontPlan::Theme(kind) => {
+            let (regular, bold, italic) = font_cuts(*kind);
+            (
+                family_chain(regular, *kind),
+                family_chain(bold, *kind),
+                family_chain(italic.unwrap_or(regular), *kind),
+            )
+        }
+        fonts::FontPlan::Files { font, .. } => {
+            let mut register = |prefix: &str, files: &[Arc<Vec<u8>>]| -> Vec<String> {
+                files
+                    .iter()
+                    .enumerate()
+                    .map(|(n, bytes)| {
+                        let name = format!("{zone}-{prefix}{n}");
+                        definitions.font_data.insert(
+                            name.clone(),
+                            Arc::new(egui::FontData::from_owned(bytes.as_ref().clone())),
+                        );
+                        name
+                    })
+                    .collect()
+            };
+            let regular = register("r", &font.regular);
+            let bold = register("b", &font.bold);
+            let fallback = family_chain("noto-sans", theme::FontKind::NotoSans);
+            let join = |head: Vec<String>, tail: &[String]| -> Vec<String> {
+                let mut chain = head;
+                for name in tail {
+                    if !chain.contains(name) {
+                        chain.push(name.clone());
+                    }
+                }
+                chain
+            };
+            let bold_head = if bold.is_empty() {
+                vec!["inter-bold".to_owned()]
+            } else {
+                bold
+            };
+            let regular_chain = join(regular.clone(), &fallback);
+            (
+                regular_chain.clone(),
+                join(join(bold_head, &regular), &fallback),
+                regular_chain,
+            )
+        }
+    }
+}
+
 /// Définitions de polices : une famille pour l'interface (la proportionnelle
 /// d'egui, avec sa version grasse) et une pour les conversations (normale,
-/// grasse, italique), chacune sur la police de son thème.
-fn build_fonts(ui: theme::FontKind, messages: theme::FontKind) -> egui::FontDefinitions {
-    let mut fonts = egui::FontDefinitions::default();
+/// grasse, italique), chacune sur la police choisie pour sa zone.
+fn build_fonts(plans: &fonts::FontPlans, previews: &[PreviewFont]) -> egui::FontDefinitions {
+    let mut definitions = egui::FontDefinitions::default();
     let mut embed = |name: &str, bytes: &'static [u8]| {
-        fonts.font_data.insert(
+        definitions.font_data.insert(
             name.to_owned(),
             Arc::new(egui::FontData::from_static(bytes)),
         );
@@ -1336,39 +1428,50 @@ fn build_fonts(ui: theme::FontKind, messages: theme::FontKind) -> egui::FontDefi
     embed("unifont", include_bytes!("../../assets/fonts/Unifont.otf"));
 
     let named = |name: &str| egui::FontFamily::Name(name.into());
-    let (ui_regular, ui_bold, _) = font_cuts(ui);
-    let (msg_regular, msg_bold, msg_italic) = font_cuts(messages);
-    fonts
+    let (ui_regular, ui_bold, _) = zone_chains(&plans.ui, "ui", &mut definitions);
+    let (msg_regular, msg_bold, msg_italic) = zone_chains(&plans.msg, "msg", &mut definitions);
+    definitions.families.insert(named(BOLD_FAMILY), ui_bold);
+    definitions
         .families
-        .insert(named(BOLD_FAMILY), family_chain(ui_bold, ui));
-    fonts.families.insert(
-        named(theme::MSG_FAMILY),
-        family_chain(msg_regular, messages),
-    );
-    fonts.families.insert(
-        named(theme::MSG_BOLD_FAMILY),
-        family_chain(msg_bold, messages),
-    );
-    fonts.families.insert(
-        named(theme::MSG_ITALIC_FAMILY),
-        family_chain(msg_italic.unwrap_or(msg_regular), messages),
-    );
+        .insert(named(theme::MSG_FAMILY), msg_regular);
+    definitions
+        .families
+        .insert(named(theme::MSG_BOLD_FAMILY), msg_bold);
+    definitions
+        .families
+        .insert(named(theme::MSG_ITALIC_FAMILY), msg_italic);
     // Proportionnel : la police de l'interface passe en tête. Monospace : Hack
     // reste en tête, la chaîne ne sert qu'en repli.
-    let chain = family_chain(ui_regular, ui);
-    let proportional = fonts
+    let proportional = definitions
         .families
         .entry(egui::FontFamily::Proportional)
         .or_default();
     let defaults = std::mem::take(proportional);
-    proportional.extend(chain.iter().cloned());
+    proportional.extend(ui_regular.iter().cloned());
     proportional.extend(defaults);
-    fonts
+    definitions
         .families
         .entry(egui::FontFamily::Monospace)
         .or_default()
-        .extend(chain);
-    fonts
+        .extend(ui_regular);
+
+    let fallback = family_chain("noto-sans", theme::FontKind::NotoSans);
+    for preview in previews {
+        let mut chain = Vec::new();
+        for (n, bytes) in preview.files.iter().enumerate() {
+            let name = format!("preview-{}-{n}", preview.family);
+            definitions.font_data.insert(
+                name.clone(),
+                Arc::new(egui::FontData::from_owned(bytes.as_ref().clone())),
+            );
+            chain.push(name);
+        }
+        chain.extend(fallback.iter().cloned());
+        definitions
+            .families
+            .insert(preview_family(&preview.family), chain);
+    }
+    definitions
 }
 
 fn app_icon_data() -> Option<egui::IconData> {
@@ -1479,6 +1582,13 @@ pub fn run(
     crate::config::clear_gpu_backend_attempt();
 
     Ok(())
+}
+
+/// Sélecteur natif d'un fichier de police.
+fn pick_font_file() -> Option<PathBuf> {
+    rfd::FileDialog::new()
+        .add_filter("Polices", &["ttf", "otf", "ttc", "woff", "woff2"])
+        .pick_file()
 }
 
 /// Raccourcis globaux de l'application, déclarés en un seul endroit.

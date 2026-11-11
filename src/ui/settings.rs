@@ -494,6 +494,48 @@ impl AbcomApp {
                                 ui.separator();
                                 ui.add_space(8.0);
 
+                                // ── Polices proposées ───────────────────────
+                                ui.label(
+                                    egui::RichText::new(self.t(i18n::POLICES_PROPOSEES))
+                                        .strong()
+                                        .heading(),
+                                );
+                                ui.add_space(4.0);
+                                egui::Grid::new("credits_suggested_fonts")
+                                    .num_columns(2)
+                                    .spacing([12.0, 4.0])
+                                    .show(ui, |ui| {
+                                        let lbl = |ui: &mut egui::Ui, t: &str| {
+                                            ui.label(egui::RichText::new(t).strong());
+                                        };
+                                        lbl(ui, self.t(i18n::AUTEURS));
+                                        ui.add(
+                                            egui::Label::new(
+                                                "Atkinson Hyperlegible (Braille Institute of America), \
+                                                 Lexend (The Lexend Project Authors), \
+                                                 OpenDyslexic (Abbie Gonzalez), \
+                                                 Literata (The Literata Project Authors), \
+                                                 Nunito (The Nunito Project Authors), \
+                                                 JetBrains Mono (The JetBrains Mono Project Authors)",
+                                            )
+                                            .wrap_mode(egui::TextWrapMode::Wrap),
+                                        );
+                                        ui.end_row();
+                                        lbl(ui, self.t(i18n::ROLE));
+                                        ui.add(
+                                            egui::Label::new(self.t(i18n::POLICES_PROPOSEES_ROLE))
+                                                .wrap_mode(egui::TextWrapMode::Wrap),
+                                        );
+                                        ui.end_row();
+                                        lbl(ui, self.t(i18n::LICENCE));
+                                        ui.label("SIL Open Font License v1.1");
+                                        ui.end_row();
+                                    });
+
+                                ui.add_space(14.0);
+                                ui.separator();
+                                ui.add_space(8.0);
+
                                 // ── Palettes ─────────────────────────────────
                                 ui.label(
                                     egui::RichText::new(self.t(i18n::PALETTES_DE_COULEURS))

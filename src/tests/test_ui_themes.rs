@@ -62,7 +62,10 @@ fn classic_keeps_the_original_palettes_and_typography() {
     assert_eq!(classic.text.small, 9.0);
     assert_eq!(classic.text.heading, 18.0);
     assert_eq!(classic.text.composer_line_height, 22.0);
-    assert_eq!(classic.text.ui_font, FontKind::NotoSans);
+    assert_eq!(
+        classic.fonts.ui,
+        crate::ui::fonts::FontPlan::Theme(FontKind::NotoSans)
+    );
     assert!(
         !classic.styled_widgets,
         "Classique garde les widgets d'egui"
