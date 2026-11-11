@@ -100,4 +100,3 @@ These dependency versions predated the settings correction; that correction did 
 | `zip 8.6.0` | vulnerability | [RUSTSEC-2026-0429](https://rustsec.org/advisories/RUSTSEC-2026-0429) |
 | `zvariant 5.13.1` | unmaintained | [RUSTSEC-2026-0370](https://rustsec.org/advisories/RUSTSEC-2026-0370) |
 | `zvariant_derive 5.13.1` | unmaintained | [RUSTSEC-2026-0372](https://rustsec.org/advisories/RUSTSEC-2026-0372) |
-
