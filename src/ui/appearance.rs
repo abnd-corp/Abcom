@@ -3,6 +3,7 @@
 use eframe::egui;
 use serde::{Deserialize, Serialize};
 
+use super::custom_themes::{ThemeStore, CUSTOM_PREFIX};
 use super::theme::{self, FontKind, ResolvedTheme};
 use super::themes::BuiltinTheme;
 
@@ -150,9 +151,38 @@ impl Appearance {
         serde_json::to_string(self).unwrap_or_default()
     }
 
+    /// Identifiant du thème personnel choisi, s'il y en a un.
+    pub(crate) fn custom_id(&self) -> Option<&str> {
+        self.theme.strip_prefix(CUSTOM_PREFIX)
+    }
+
+    /// Choisit un thème personnel.
+    #[allow(dead_code)]
+    pub(crate) fn select_custom(&mut self, id: &str) {
+        self.theme = format!("{CUSTOM_PREFIX}{id}");
+    }
+
+    /// Choisit un thème intégré.
+    pub(crate) fn select_builtin(&mut self, theme: BuiltinTheme) {
+        self.theme = theme.id().to_owned();
+    }
+
+    /// Le thème personnel choisi a-t-il disparu ? Si oui, retour à Classique.
+    /// Renvoie vrai quand le thème a changé.
+    pub(crate) fn drop_missing_custom(&mut self, store: &ThemeStore) -> bool {
+        let missing = self.custom_id().is_some_and(|id| store.get(id).is_none());
+        if missing {
+            self.select_builtin(BuiltinTheme::Classic);
+        }
+        missing
+    }
+
     /// Ramène chaque valeur dans ses bornes ; un thème inconnu redevient Classique.
     pub(crate) fn sanitized(mut self) -> Self {
         self.text = self.text.sanitized();
+        if self.custom_id().is_some_and(|id| !id.is_empty()) {
+            return self;
+        }
         if BuiltinTheme::from_id(&self.theme).is_none() {
             tracing::warn!("thème inconnu « {} », retour à Classique", self.theme);
             self.theme = BuiltinTheme::Classic.id().to_owned();
@@ -167,9 +197,14 @@ impl Appearance {
 }
 
 /// Installe l'apparence dans le contexte egui : mode, thème, tailles et polices.
-pub(crate) fn apply_appearance(ctx: &egui::Context, appearance: &Appearance) {
+pub(crate) fn apply_appearance(ctx: &egui::Context, appearance: &Appearance, store: &ThemeStore) {
     ctx.set_theme(appearance.mode.preference());
-    apply(ctx, appearance.builtin(), &appearance.text);
+    let text = appearance.text.sanitized();
+    let resolved = match appearance.custom_id().and_then(|id| store.get(id)) {
+        Some(custom) => custom.resolve(&text),
+        None => appearance.builtin().resolve_with(&text),
+    };
+    install_resolved(ctx, resolved);
 }
 
 /// Installe un thème et ses réglages de texte dans le contexte egui.
@@ -177,9 +212,11 @@ pub(crate) fn apply_appearance(ctx: &egui::Context, appearance: &Appearance) {
 /// Les polices ne sont reconstruites que si le choix de police change : c'est
 /// le seul changement coûteux, une couleur ou une taille n'y touche pas.
 pub(crate) fn apply(ctx: &egui::Context, theme: BuiltinTheme, text: &TextSettings) {
-    let previous = theme::current(ctx);
-    let mut resolved = theme.resolve_with(&text.sanitized());
-    resolved.revision = previous.revision + 1;
+    install_resolved(ctx, theme.resolve_with(&text.sanitized()));
+}
+
+fn install_resolved(ctx: &egui::Context, mut resolved: ResolvedTheme) {
+    resolved.revision = theme::current(ctx).revision + 1;
     apply_resolved(ctx, resolved);
 }
 

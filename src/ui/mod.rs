@@ -18,6 +18,7 @@ mod avatar;
 mod chat_panel;
 mod colors;
 pub mod composer;
+mod custom_themes;
 mod dialog;
 mod emoji_picker;
 mod events;
@@ -334,7 +335,9 @@ pub(crate) struct AbcomApp {
     /// Apparence choisie, appliquée au contexte à chaque changement.
     pub(crate) appearance: appearance::Appearance,
     /// Dernière apparence appliquée au contexte (`None` avant la première image).
-    applied_appearance: Option<appearance::Appearance>,
+    applied_appearance: Option<(appearance::Appearance, u64)>,
+    /// Thèmes personnels, lus dans le dossier des données.
+    pub(crate) themes: custom_themes::ThemeStore,
     /// Dernière apparence écrite dans les préférences.
     persisted_appearance: appearance::Appearance,
     /// Dernière ventilation de l'occupation disque (onglet Stockage).
@@ -443,6 +446,7 @@ impl AbcomApp {
             retention_days,
             purge_includes_images,
             saved_appearance,
+            themes_dir,
         ) = {
             let s = state.lock_safe();
             (
@@ -451,10 +455,17 @@ impl AbcomApp {
                 s.retention_days(),
                 s.purge_includes_images(),
                 appearance::Appearance::from_pref(s.pref_str(appearance::Appearance::PREF_KEY)),
+                s.media_dir()
+                    .parent()
+                    .map(|data| data.join("themes"))
+                    .unwrap_or_else(|| PathBuf::from("themes")),
             )
         };
+        let themes = custom_themes::ThemeStore::load(&themes_dir);
+        let mut saved_appearance = saved_appearance;
+        let theme_missing = saved_appearance.drop_missing_custom(&themes);
 
-        Self {
+        let mut app = Self {
             state,
             identity_fingerprint,
             psk_active,
@@ -537,6 +548,7 @@ impl AbcomApp {
             ui_language: UiLanguage::French,
             appearance: saved_appearance.clone(),
             applied_appearance: None,
+            themes,
             persisted_appearance: saved_appearance,
             storage_usage: None,
             purge_preview: None,
@@ -579,7 +591,11 @@ impl AbcomApp {
             read_receipts_sent: std::collections::HashMap::new(),
             picker_tx,
             picker_rx,
+        };
+        if theme_missing {
+            app.notify(app.t(i18n::THEME_PERSONNEL_INTROUVABLE));
         }
+        app
     }
 
     /// Libellé du catalogue dans la langue active.
@@ -593,11 +609,21 @@ impl AbcomApp {
     /// qu'on fait glisser change l'apparence à chaque image, et la base n'a pas
     /// à garder chaque valeur intermédiaire.
     pub(crate) fn sync_appearance(&mut self, ctx: &egui::Context) {
-        if self.applied_appearance.as_ref() != Some(&self.appearance) {
-            appearance::apply_appearance(ctx, &self.appearance);
-            self.applied_appearance = Some(self.appearance.clone());
+        if self.appearance.drop_missing_custom(&self.themes) {
+            self.notify(self.t(i18n::THEME_PERSONNEL_INTROUVABLE));
+        }
+        let key = (self.appearance.clone(), self.themes.revision);
+        if self.applied_appearance.as_ref() != Some(&key) {
+            appearance::apply_appearance(ctx, &self.appearance, &self.themes);
+            self.applied_appearance = Some(key);
         }
         let dragging = ctx.input(|input| input.pointer.any_down());
+        if !dragging && self.themes.has_unsaved() {
+            if let Err(err) = self.themes.flush() {
+                tracing::warn!("thèmes non enregistrés : {err}");
+                self.notify(self.t(i18n::THEME_NON_ENREGISTRE));
+            }
+        }
         if !dragging && self.persisted_appearance != self.appearance {
             self.state
                 .lock_safe()

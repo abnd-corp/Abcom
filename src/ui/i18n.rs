@@ -242,6 +242,8 @@ catalog! {
     MESSAGE_TROP_VOLUMINEUX_POUR_ETRE_ENVOYE => ("Message trop volumineux pour être envoyé", "Message too large to send"),
     PALETTES_DE_COULEURS => ("Palettes de couleurs", "Color palettes"),
     PALETTES_INSPIREES_DE_CES_PROJETS => ("Palettes de thèmes inspirées de ces projets, sous licence MIT", "Theme palettes inspired by these projects, MIT licensed"),
+    THEME_PERSONNEL_INTROUVABLE => ("Thème personnel introuvable : retour à Classique", "Custom theme not found: back to Classic"),
+    THEME_NON_ENREGISTRE => ("Thème non enregistré : le dossier des données est inaccessible", "Theme not saved: the data folder is not writable"),
     THEME_CLASSIQUE => ("Classique", "Classic"),
     THEME_CLASSIQUE_DESCRIPTION => ("L'apparence d'origine d'Abcom", "Abcom's original look"),
     THEME_SALON => ("Salon", "Lounge"),
