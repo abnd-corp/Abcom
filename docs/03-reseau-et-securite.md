@@ -76,6 +76,19 @@ Les messages sont identifiés sur le réseau par un hash FNV-1a déterministe de
 
 Pour un salon, le champ « destinataire » porte l'**identifiant** du salon et non son nom. C'est ce qui permet de renommer un groupe sans invalider un seul hash — donc sans orpheliner ses réactions, ses accusés et son repère de lecture.
 
+## Accès réseau optionnels (hors LAN)
+
+Le reste de l'application ne sort jamais du réseau local. Une seule fonction fait exception, **et elle est désactivée par défaut** : les **polices en ligne** (Paramètres → Apparence → Polices).
+
+| Quand | Où | Ce qui part |
+|---|---|---|
+| L'utilisateur coche « Autoriser le téléchargement de polices en ligne », puis ouvre la liste (au plus une fois tous les 7 jours) | `https://api.fontsource.org/v1/fonts` | une requête GET, sans identifiant |
+| L'utilisateur choisit une police | `https://cdn.jsdelivr.net/fontsource/fonts/<police>@latest/<sous-ensemble>-<graisse>-normal.woff2` | jusqu'à quatre requêtes GET |
+
+Ces deux serveurs voient l'adresse IP de l'utilisateur ; rien d'autre n'est envoyé, et l'avertissement est affiché à côté de la case. Tant qu'elle est décochée, **aucune requête ne part**, ni au démarrage ni à l'ouverture de l'onglet.
+
+Ce qui est reçu est traité comme n'importe quel fichier importé : taille bornée (liste 8 Mo, fichier 6 Mo), identifiants de police limités à `[a-z0-9-]`, licences limitées à OFL-1.1 et Apache-2.0, décodage puis validation avant d'atteindre le moteur de rendu, écriture par fichier voisin renommé. Décocher la case ou annuler abandonne le téléchargement en cours ; ses réponses tardives sont ignorées.
+
 ## Modèle de menace
 
 **Couvert (données en transit)** : un observateur du LAN ne peut ni lire le trafic (confidentialité), ni le modifier ou le rejouer (AEAD), ni se faire passer pour un pair connu (authentification par clé + TOFU). Le durcissement `XXpsk3` empêche en plus un inconnu d'établir la moindre session.

@@ -239,6 +239,24 @@ salon garde son nom. Ensuite, appliquer 4.9 (renommage) : tout doit tenir.
 | 12.9 | Badge | Messages non lus | Badge sur l'icône du tray | P2 |
 | 12.10 | Autostart | Activer, redémarrer la session | L'app démarre | P2 |
 | 12.11 | Redimensionnement | Fenêtre très étroite / très large | Pas de chevauchement | P1 |
+| 12.12 | Mode conservé | Choisir Sombre, quitter, relancer | Toujours sombre. Régression : retour à « système » | P1 |
+| 12.13 | Dix thèmes | Paramètres → Apparence → Thèmes : essayer chacun, clair puis sombre | Texte lisible partout, aucune zone restée de l'ancien thème | P1 |
+| 12.14 | Taille générale | Tout agrandir à 160 % | Interface et conversations grossissent ; **les emojis gardent leur taille** | P1 |
+| 12.15 | Tailles séparées | Conversations à 140 %, interface à 80 % | Messages plus grands que les menus | P1 |
+| 12.16 | Couleur personnelle | Changer le fond d'un thème intégré | Une copie « (perso) » apparaît, l'original est intact, le contraste s'affiche | P1 |
+| 12.17 | Contraste | Mettre le texte de la couleur du fond | Avertissement rouge sous 4,5:1, l'appli reste utilisable | P1 |
+| 12.18 | Police proposée | Choisir chacune des huit, pour les conversations | Messages dans la bonne police, accents français et « Łódź » compris | P1 |
+| 12.19 | Import `.ttf` / `.otf` / `.ttc` | Importer une police du système | Nom de famille affiché, police appliquée, conservée au redémarrage | P1 |
+| 12.20 | Import `.woff` / `.woff2` | Importer une police web | Idem | P1 |
+| 12.21 | Faux fichier de police | Renommer un `.txt` en `.ttf` et l'importer | Refus avec la raison, rien ne change, **pas de plantage** | P0 |
+| 12.22 | Police supprimée | Supprimer le fichier dans `fonts/`, relancer | Retour à la police du thème avec un avis | P1 |
+| 12.23 | Polices en ligne | Case décochée (défaut) | **Aucune requête** réseau, ouvrir l'onglet y compris | P0 |
+| 12.24 | Polices en ligne, activées | Cocher, rechercher « lex », choisir Lexend | Police téléchargée, appliquée, utilisable hors ligne ensuite | P1 |
+| 12.25 | Plus petit écran | Fenêtre minimale (560 × 360), texte à 160 % | Paramètres entiers dans la fenêtre, tout défile, rien de coupé | P1 |
+| 12.26 | Écran Retina et ordinaire | Déplacer la fenêtre de l'un à l'autre | Texte net, rien ne se déplace | P2 |
+| 12.27 | Lecteur d'écran | VoiceOver (macOS) ou NVDA (Windows) sur Apparence | Chaque contrôle est annoncé avec son nom, une carte de thème dit si elle est sélectionnée | P2 |
+| 12.28 | Sélecteur natif | Importer une police sur chaque OS | La feuille s'ouvre sans geler la fenêtre ; annuler ne change rien | P0 |
+| 12.29 | Emojis inchangés | Fil, emoji seul, saisie, réactions, dans trois thèmes et à 80 / 160 % | Mêmes tailles et même alignement partout | P1 |
 
 ---
 
@@ -305,9 +323,15 @@ Inutile de le refaire à la main : hachage des messages, dérivation et migratio
 des identifiants de salon, filtrage d'URL de médias, schémas de liens markdown,
 péremption des pairs, bornes des réactions, durabilité de la file d'envoi,
 pagination après débordement, purge en cascade, framing et handshake Noise,
-signature des annonces, path traversal.
+signature des annonces, path traversal, et l'apparence : persistance et redémarrage,
+validation et décodage des polices (formats web, bombes de décompression, fichiers
+tronqués), catalogue en ligne simulé (aucune requête sans accord, annulation,
+erreurs réseau), contraste de chaque thème, et toute l'application rejouée sous
+chaque thème, taille de texte, taille de fenêtre et densité. Il reste à la main :
+le rendu sur un vrai écran, le sélecteur natif de chaque OS et le lecteur d'écran
+(12.25 à 12.29).
 
 ```bash
-make test          # 329 tests
+make test          # plus de 600 tests
 cargo test --release   # à lancer avant livraison : le debug fausse les temps
 ```
