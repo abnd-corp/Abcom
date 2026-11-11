@@ -57,12 +57,16 @@ fn classic_keeps_the_original_palettes_and_typography() {
     let classic = BuiltinTheme::Classic.resolve();
     assert_eq!(classic.dark, DARK);
     assert_eq!(classic.light, LIGHT);
-    assert_eq!(classic.typography, Typography::CLASSIC);
-    assert_eq!(classic.typography.body, 13.0);
-    assert_eq!(classic.typography.small, 9.0);
-    assert_eq!(classic.typography.heading, 18.0);
-    assert_eq!(classic.typography.composer_line_height, 22.0);
-    assert_eq!(classic.typography.font, FontKind::NotoSans);
+    assert_eq!(BuiltinTheme::Classic.typography(), Typography::CLASSIC);
+    assert_eq!(classic.text.body, 13.0);
+    assert_eq!(classic.text.small, 9.0);
+    assert_eq!(classic.text.heading, 18.0);
+    assert_eq!(classic.text.composer_line_height, 22.0);
+    assert_eq!(classic.text.ui_font, FontKind::NotoSans);
+    assert!(
+        !classic.styled_widgets,
+        "Classique garde les widgets d'egui"
+    );
 }
 
 #[test]
@@ -71,7 +75,7 @@ fn readable_is_classic_with_larger_text_and_a_softer_white() {
     assert_eq!(readable.dark.text, Color32::from_rgb(232, 235, 239));
     assert_eq!(readable.dark.surface, DARK.surface);
     assert_eq!(readable.light, LIGHT);
-    let t = readable.typography;
+    let t = BuiltinTheme::Readable.typography();
     assert_eq!((t.small, t.body, t.button), (11.0, 15.0, 15.0));
     assert_eq!(t.body_line_height, Some(17.0));
     assert_eq!(t.tracking, 0.15);
@@ -81,7 +85,7 @@ fn readable_is_classic_with_larger_text_and_a_softer_white() {
 
 #[test]
 fn lounge_uses_inter_with_chat_client_sizes() {
-    let t = BuiltinTheme::Lounge.resolve().typography;
+    let t = BuiltinTheme::Lounge.typography();
     assert_eq!((t.small, t.body, t.button), (12.0, 15.0, 14.0));
     assert_eq!(t.body_line_height, Some(20.0));
     assert_eq!(t.font, FontKind::Inter);

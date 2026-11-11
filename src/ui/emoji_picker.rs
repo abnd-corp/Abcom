@@ -411,7 +411,7 @@ pub(crate) fn render_inline(
         let mut matched = false;
         if let Some((len, idx)) = match_emoji_at(&chars, i, emoji_map) {
             if !acc.is_empty() {
-                ui.label(&acc);
+                ui.label(super::theme::message_text(ui, acc.as_str()));
                 acc.clear();
             }
             if let Some(tex) = textures.get(ui.ctx(), idx) {
@@ -429,7 +429,7 @@ pub(crate) fn render_inline(
         }
     }
     if !acc.is_empty() {
-        ui.label(&acc);
+        ui.label(super::theme::message_text(ui, acc.as_str()));
     }
 }
 

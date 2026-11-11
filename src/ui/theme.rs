@@ -9,6 +9,8 @@ use std::sync::Arc;
 
 use eframe::egui::{self, Color32};
 
+use super::appearance::TextSettings;
+
 /// Hauteur de ligne du composeur dans le thème classique (curseur et emojis).
 const CLASSIC_COMPOSER_LINE_HEIGHT: f32 = 22.0;
 
@@ -186,24 +188,111 @@ impl Typography {
     };
 }
 
-/// Thème résolu : palettes des deux modes et réglages de texte.
+/// Famille de police du texte des conversations.
+pub(crate) const MSG_FAMILY: &str = "msg";
+/// Gras des conversations : noms d'auteur et `**gras**`.
+pub(crate) const MSG_BOLD_FAMILY: &str = "msg-bold";
+/// Italique des conversations.
+pub(crate) const MSG_ITALIC_FAMILY: &str = "msg-italic";
+
+/// Style de texte du corps des messages.
+pub(crate) fn msg_style() -> egui::TextStyle {
+    egui::TextStyle::Name("msg".into())
+}
+
+/// Style du petit texte des messages (heure, mentions secondaires).
+pub(crate) fn msg_small_style() -> egui::TextStyle {
+    egui::TextStyle::Name("msg-small".into())
+}
+
+/// Style du code des messages.
+pub(crate) fn msg_mono_style() -> egui::TextStyle {
+    egui::TextStyle::Name("msg-mono".into())
+}
+
+/// Tailles effectives : réglages du thème, mises à l'échelle par l'utilisateur.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct TextMetrics {
+    pub(crate) small: f32,
+    pub(crate) body: f32,
+    pub(crate) button: f32,
+    pub(crate) heading: f32,
+    pub(crate) monospace: f32,
+    pub(crate) msg_small: f32,
+    pub(crate) msg_body: f32,
+    pub(crate) msg_mono: f32,
+    /// Hauteur de ligne du fil ; `None` laisse celle de la police.
+    pub(crate) msg_line_height: Option<f32>,
+    pub(crate) msg_tracking: f32,
+    /// Hauteur de ligne du composeur, qui place aussi les emojis de la saisie.
+    pub(crate) composer_line_height: f32,
+    pub(crate) dark_text_gamma: Option<f32>,
+    pub(crate) ui_font: FontKind,
+    pub(crate) msg_font: FontKind,
+}
+
+impl TextMetrics {
+    /// Le composeur ne descend jamais sous cette hauteur : ses emojis y tiennent.
+    const MIN_COMPOSER_LINE_HEIGHT: f32 = CLASSIC_COMPOSER_LINE_HEIGHT;
+
+    pub(crate) fn resolve(typography: &Typography, settings: &TextSettings) -> Self {
+        let (ui, conv) = (settings.ui_factor(), settings.conv_factor());
+        let msg_body = typography.body * conv;
+        let msg_line_height = match settings.conv_line_spacing {
+            Some(multiple) => Some(msg_body * multiple),
+            None => typography.body_line_height.map(|height| height * conv),
+        };
+        Self {
+            small: typography.small * ui,
+            body: typography.body * ui,
+            button: typography.button * ui,
+            heading: typography.heading * ui,
+            monospace: typography.monospace * ui,
+            msg_small: typography.small * conv,
+            msg_body,
+            msg_mono: typography.monospace * conv,
+            msg_line_height,
+            msg_tracking: settings.conv_letter_spacing.unwrap_or(typography.tracking),
+            composer_line_height: (typography.composer_line_height * conv)
+                .max(Self::MIN_COMPOSER_LINE_HEIGHT),
+            dark_text_gamma: typography.dark_text_gamma,
+            ui_font: typography.font,
+            msg_font: typography.font,
+        }
+    }
+
+    /// La police des conversations a-t-elle une vraie coupe italique ?
+    pub(crate) fn msg_has_real_italic(&self) -> bool {
+        self.msg_font == FontKind::Inter
+    }
+
+    /// Le `**gras**` des messages passe-t-il par une vraie coupe grasse ?
+    pub(crate) fn msg_has_real_bold(&self) -> bool {
+        self.msg_font == FontKind::Inter
+    }
+}
+
+/// Thème résolu : palettes des deux modes et tailles de texte.
 #[derive(Clone, Debug)]
 pub(crate) struct ResolvedTheme {
     /// Change à chaque modification, pour invalider les caches qui en dérivent.
     pub(crate) revision: u64,
     pub(crate) dark: Palette,
     pub(crate) light: Palette,
-    pub(crate) typography: Typography,
+    pub(crate) text: TextMetrics,
+    /// Les widgets egui prennent les couleurs du thème ; Classique garde celles d'egui.
+    pub(crate) styled_widgets: bool,
 }
 
 impl ResolvedTheme {
     /// Apparence historique de l'application.
-    pub(crate) const fn classic() -> Self {
+    pub(crate) fn classic() -> Self {
         Self {
             revision: 0,
             dark: DARK,
             light: LIGHT,
-            typography: Typography::CLASSIC,
+            text: TextMetrics::resolve(&Typography::CLASSIC, &TextSettings::default()),
+            styled_widgets: false,
         }
     }
 
@@ -233,9 +322,22 @@ pub(crate) fn palette(ui: &egui::Ui) -> Palette {
     current(ui.ctx()).palette(ui.visuals().dark_mode)
 }
 
-/// Réglages de texte du thème actif.
-pub(crate) fn typography(ui: &egui::Ui) -> Typography {
-    current(ui.ctx()).typography
+/// Texte du corps d'un message : approche des lettres et hauteur de ligne du thème.
+pub(crate) fn message_text(ui: &egui::Ui, text: impl Into<String>) -> egui::RichText {
+    let metrics = self::text(ui);
+    let mut rich = egui::RichText::new(text);
+    if metrics.msg_tracking != 0.0 {
+        rich = rich.extra_letter_spacing(metrics.msg_tracking);
+    }
+    if let Some(height) = metrics.msg_line_height {
+        rich = rich.line_height(Some(height));
+    }
+    rich
+}
+
+/// Tailles de texte du thème actif.
+pub(crate) fn text(ui: &egui::Ui) -> TextMetrics {
+    current(ui.ctx()).text
 }
 
 #[cfg(test)]

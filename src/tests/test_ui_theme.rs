@@ -1,4 +1,4 @@
-use super::{current, install, palette, typography, ResolvedTheme, DARK, LIGHT};
+use super::{current, install, palette, text, ResolvedTheme, DARK, LIGHT};
 use eframe::egui::{self, Color32};
 
 /// Un rôle doit rester lisible dans les deux thèmes : c'est précisément ce qui
@@ -53,7 +53,7 @@ fn classic_theme_keeps_the_historical_values() {
     assert_eq!(classic.revision, 0);
     assert_eq!(classic.dark, DARK);
     assert_eq!(classic.light, LIGHT);
-    assert_eq!(classic.typography.composer_line_height, 22.0);
+    assert_eq!(classic.text.composer_line_height, 22.0);
     assert_eq!(DARK.background, Color32::from_gray(27));
     assert_eq!(DARK.input_bg, Color32::from_gray(10));
     assert_eq!(LIGHT.background, Color32::from_gray(248));
@@ -98,7 +98,7 @@ fn an_installed_theme_replaces_the_classic_one() {
     let mut theme = ResolvedTheme::classic();
     theme.revision = 7;
     theme.dark.accent = Color32::from_rgb(1, 2, 3);
-    theme.typography.composer_line_height = 30.0;
+    theme.text.composer_line_height = 30.0;
     install(&ctx, theme);
     let current = current(&ctx);
     assert_eq!(current.revision, 7);
@@ -111,12 +111,12 @@ fn palette_and_typography_follow_the_installed_theme_from_a_ui() {
     let ctx = egui::Context::default();
     let mut theme = ResolvedTheme::classic();
     theme.dark.text = Color32::from_rgb(9, 9, 9);
-    theme.typography.composer_line_height = 31.0;
+    theme.text.composer_line_height = 31.0;
     install(&ctx, theme);
     ctx.set_visuals(egui::Visuals::dark());
     let mut seen = None;
     let mut output = ctx.run_ui(Default::default(), |ui| {
-        seen = Some((palette(ui).text, typography(ui).composer_line_height));
+        seen = Some((palette(ui).text, text(ui).composer_line_height));
     });
     // epaint panique si les deltas de textures d'une frame sont abandonnés.
     output.textures_delta.clear();

@@ -263,7 +263,11 @@ fn enter_on_the_focused_send_button_goes_to_the_line_instead_of_sending() {
             if !ready.get() {
                 // Les familles grasse et italique ne sont liées qu'ici : sans
                 // elles, le premier nom d'auteur peint fait paniquer epaint.
-                root.ctx().set_fonts(crate::ui::build_fonts());
+                crate::ui::appearance::apply(
+                    root.ctx(),
+                    crate::ui::themes::BuiltinTheme::Classic,
+                    &Default::default(),
+                );
                 ready.set(true);
                 return;
             }

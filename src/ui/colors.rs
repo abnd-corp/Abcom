@@ -1,8 +1,5 @@
 //! Calculs de couleur : contraste WCAG et palette dérivée d'une graine.
 
-// Branché par les thèmes intégrés (commit suivant).
-#![allow(dead_code)]
-
 use eframe::egui::Color32;
 
 use super::theme::Palette;

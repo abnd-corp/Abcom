@@ -217,12 +217,15 @@ pub(super) fn render_message_header(
         ui.spacing_mut().item_spacing.x = 6.0;
         ui.label(
             egui::RichText::new(display_name)
+                .text_style(crate::ui::theme::msg_style())
                 .color(name_color)
-                .family(egui::FontFamily::Name(crate::ui::BOLD_FAMILY.into())),
+                .family(egui::FontFamily::Name(
+                    crate::ui::theme::MSG_BOLD_FAMILY.into(),
+                )),
         );
         ui.label(
             egui::RichText::new(timestamp)
-                .small()
+                .text_style(crate::ui::theme::msg_small_style())
                 .color(crate::ui::theme::palette(ui).text_muted),
         );
         if let Some(detail) = receipt_detail {
@@ -534,9 +537,11 @@ pub(super) fn render_reply_quote(
                         );
                         ui.label(
                             egui::RichText::new(author_name)
-                                .small()
+                                .text_style(crate::ui::theme::msg_small_style())
                                 .color(author_color)
-                                .family(egui::FontFamily::Name(crate::ui::BOLD_FAMILY.into())),
+                                .family(egui::FontFamily::Name(
+                                    crate::ui::theme::MSG_BOLD_FAMILY.into(),
+                                )),
                         );
                         if orig.media.is_some() {
                             crate::ui::media::render_reply_thumb(
@@ -553,7 +558,7 @@ pub(super) fn render_reply_quote(
                         ui.add(
                             egui::Label::new(
                                 egui::RichText::new(snippet)
-                                    .small()
+                                    .text_style(crate::ui::theme::msg_small_style())
                                     .color(crate::ui::theme::palette(ui).text_muted),
                             )
                             .truncate(),
@@ -562,7 +567,7 @@ pub(super) fn render_reply_quote(
                     None => {
                         ui.label(
                             egui::RichText::new(not_found_label)
-                                .small()
+                                .text_style(crate::ui::theme::msg_small_style())
                                 .italics()
                                 .color(crate::ui::theme::palette(ui).text_muted),
                         );

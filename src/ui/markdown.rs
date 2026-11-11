@@ -543,6 +543,19 @@ pub(crate) fn render_parsed_markdown(
     emoji_map: &std::collections::HashMap<String, usize>,
     emoji_textures: &super::EmojiTextures,
 ) {
+    // Le corps d'un message suit les réglages des conversations, pas ceux de l'interface.
+    let previous = ui.style().override_text_style.clone();
+    ui.style_mut().override_text_style = Some(super::theme::msg_style());
+    render_blocks(ui, parsed, emoji_map, emoji_textures);
+    ui.style_mut().override_text_style = previous;
+}
+
+fn render_blocks(
+    ui: &mut egui::Ui,
+    parsed: &ParsedMarkdown,
+    emoji_map: &std::collections::HashMap<String, usize>,
+    emoji_textures: &super::EmojiTextures,
+) {
     let emoji_size = if parsed.emoji_only { 44.0 } else { 22.0 };
 
     for block in &parsed.blocks {
@@ -563,11 +576,13 @@ pub(crate) fn render_parsed_markdown(
                 });
             }
             MarkdownBlock::Heading { level, spans } => {
-                let size = match level {
+                // Tailles de titre rapportées au corps : 22, 19 et 17 pour un corps de 13.
+                let ratio = match level {
                     1 => 22.0,
                     2 => 19.0,
                     _ => 17.0,
-                };
+                } / 13.0;
+                let size = (super::theme::text(ui).msg_body * ratio).round();
                 ui.horizontal_wrapped(|ui| {
                     render_spans_with_emoji_size(
                         ui,
@@ -669,6 +684,36 @@ enum SpanOverride {
     Strong,
 }
 
+/// Texte en gras : la coupe grasse de la police quand elle en a une, sinon la
+/// couleur vive d'egui, qui ne synthétise pas le gras.
+fn bold_text(ui: &egui::Ui, text: &str) -> egui::RichText {
+    let rich = super::theme::message_text(ui, text).strong();
+    if super::theme::text(ui).msg_has_real_bold() {
+        rich.family(egui::FontFamily::Name(super::theme::MSG_BOLD_FAMILY.into()))
+    } else {
+        rich
+    }
+}
+
+/// Texte en italique : la vraie coupe quand la police en a une, sinon l'italique
+/// synthétisé d'egui (le bitmap penché).
+fn italic_text(ui: &egui::Ui, text: &str) -> egui::RichText {
+    let rich = super::theme::message_text(ui, text);
+    if super::theme::text(ui).msg_has_real_italic() {
+        rich.family(egui::FontFamily::Name(
+            super::theme::MSG_ITALIC_FAMILY.into(),
+        ))
+    } else {
+        rich.italics()
+    }
+}
+
+/// Passe un fragment en titre : sa taille, et la hauteur de ligne rendue à la
+/// police, que celle du corps tronquerait.
+fn heading(rich: egui::RichText, size: f32) -> egui::RichText {
+    rich.size(size).line_height(None)
+}
+
 fn render_spans_with_emoji_size(
     ui: &mut egui::Ui,
     spans: &[MarkdownSpan],
@@ -682,10 +727,10 @@ fn render_spans_with_emoji_size(
         match span {
             MarkdownSpan::Text(text) => match override_style {
                 Some(SpanOverride::Heading(size)) => {
-                    ui.label(egui::RichText::new(text).strong().size(size));
+                    ui.label(heading(bold_text(ui, text), size));
                 }
                 Some(SpanOverride::Strong) => {
-                    ui.label(egui::RichText::new(text).strong());
+                    ui.label(bold_text(ui, text));
                 }
                 None => {
                     super::emoji_picker::render_inline(
@@ -698,23 +743,23 @@ fn render_spans_with_emoji_size(
                 }
             },
             MarkdownSpan::Strong(text) => {
-                let mut rich = egui::RichText::new(text).strong();
+                let mut rich = bold_text(ui, text);
                 if let Some(SpanOverride::Heading(size)) = override_style {
-                    rich = rich.size(size);
+                    rich = heading(rich, size);
                 }
                 ui.label(rich);
             }
             MarkdownSpan::Emphasis(text) => {
-                let mut rich = egui::RichText::new(text).italics();
+                let mut rich = italic_text(ui, text);
                 if let Some(SpanOverride::Heading(size)) = override_style {
-                    rich = rich.size(size).strong();
+                    rich = heading(rich.strong(), size);
                 }
                 ui.label(rich);
             }
             MarkdownSpan::Strikethrough(text) => {
-                let mut rich = egui::RichText::new(text).strikethrough();
+                let mut rich = super::theme::message_text(ui, text).strikethrough();
                 if let Some(SpanOverride::Heading(size)) = override_style {
-                    rich = rich.size(size).strong();
+                    rich = heading(rich.strong(), size);
                 }
                 ui.label(rich);
             }
@@ -722,7 +767,7 @@ fn render_spans_with_emoji_size(
                 render_inline_code(ui, text);
             }
             MarkdownSpan::Link { label, url } => {
-                ui.hyperlink_to(link_text(label, override_style), url);
+                ui.hyperlink_to(link_text(ui, label, override_style), url);
             }
         }
     }
@@ -770,9 +815,8 @@ fn render_inline_code(ui: &mut egui::Ui, text: &str) {
         .show(ui, |ui| {
             ui.label(
                 egui::RichText::new(text)
-                    .monospace()
-                    .color(text_color)
-                    .size(13.0),
+                    .text_style(super::theme::msg_mono_style())
+                    .color(text_color),
             );
         });
 }
@@ -945,8 +989,7 @@ fn render_code_block(ui: &mut egui::Ui, language: Option<&str>, code: &str) {
                     ui.add(
                         egui::Label::new(
                             egui::RichText::new(if code.is_empty() { " " } else { code })
-                                .monospace()
-                                .size(13.0)
+                                .text_style(super::theme::msg_mono_style())
                                 .color(text_color),
                         )
                         .wrap_mode(egui::TextWrapMode::Extend),
@@ -955,10 +998,10 @@ fn render_code_block(ui: &mut egui::Ui, language: Option<&str>, code: &str) {
         });
 }
 
-fn link_text(label: &str, override_style: Option<SpanOverride>) -> egui::RichText {
-    let mut rich = egui::RichText::new(label).underline();
+fn link_text(ui: &egui::Ui, label: &str, override_style: Option<SpanOverride>) -> egui::RichText {
+    let mut rich = super::theme::message_text(ui, label).underline();
     if let Some(SpanOverride::Heading(size)) = override_style {
-        rich = rich.size(size).strong();
+        rich = heading(rich.strong(), size);
     }
     rich
 }

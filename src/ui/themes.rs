@@ -5,14 +5,15 @@
 //! Les palettes de Salon à Encre s'inspirent de palettes publiques sous
 //! licence MIT (cf. Crédits) ; leurs noms n'apparaissent pas dans l'interface.
 
-// Branché par l'application des réglages (commit suivant).
+// Identifiants, noms et descriptions servent à la galerie, branchée avec l'onglet.
 #![allow(dead_code)]
 
 use eframe::egui::Color32;
 
+use super::appearance::TextSettings;
 use super::colors::{palette_from_seed, Seed};
 use super::i18n::{self, Entry};
-use super::theme::{ResolvedTheme, Typography, DARK, LIGHT};
+use super::theme::{ResolvedTheme, TextMetrics, Typography, DARK, LIGHT};
 
 const fn c(hex: u32) -> Color32 {
     Color32::from_rgb((hex >> 16) as u8, (hex >> 8) as u8, hex as u8)
@@ -215,6 +216,11 @@ impl BuiltinTheme {
 
     /// Thème résolu, tel que le thème le définit, avant tout réglage.
     pub(crate) fn resolve(self) -> ResolvedTheme {
+        self.resolve_with(&TextSettings::default())
+    }
+
+    /// Thème résolu avec les réglages de texte de l'utilisateur.
+    pub(crate) fn resolve_with(self, settings: &TextSettings) -> ResolvedTheme {
         let (dark, light) = match (self, self.seeds()) {
             (_, Some((dark, light))) => (palette_from_seed(&dark), palette_from_seed(&light)),
             (Self::Readable, None) => {
@@ -228,7 +234,8 @@ impl BuiltinTheme {
             revision: 0,
             dark,
             light,
-            typography: self.typography(),
+            text: TextMetrics::resolve(&self.typography(), settings),
+            styled_widgets: self != Self::Classic,
         }
     }
 }

@@ -13,6 +13,7 @@ use crate::message::{
 use crate::platform::tray;
 use crate::util::MutexExt;
 
+mod appearance;
 mod avatar;
 mod chat_panel;
 mod colors;
@@ -1197,36 +1198,46 @@ fn arm_shutdown_watchdog() {
     }
 }
 
-/// Nom de la famille de police en gras enregistrée dans egui (Inter Bold).
-/// egui ne synthétise pas le gras : on charge une vraie police pour les noms.
+/// Nom de la famille grasse de l'interface enregistrée dans egui.
+/// egui ne synthétise pas le gras : on charge une vraie police.
 pub(crate) const BOLD_FAMILY: &str = "bold";
 
-/// Chaîne de polices, dans l'ordre de consultation :
-/// `Noto Sans`, `Noto Sans Symbols 2`, `Inter`, `Unifont`, puis les polices par
-/// défaut d'egui — dont ses deux polices d'emoji — en dernier recours.
+/// Noto Color Emoji est absente des chaînes de repli : ses glyphes sont des images CBDT qu'egui ne
+/// sait pas rasteriser, elle captait les codets emoji sans en dessiner aucun. Les
+/// emoji des messages passent de toute façon par le registre PNG (`EmojiTextures`).
+/// Unifont ferme la marche : son rendu tramé ne sert que là où le choix est entre
+/// « moche » et « rien », ce qui évite les carrés vides sur du texte non latin.
+/// Polices de tête d'une famille : (normale, grasse, italique).
 ///
-/// Inter y figure parce qu'elle est déjà embarquée pour les noms d'auteur et
-/// qu'elle dessine les flèches `→ ← ↑ ↓`, qu'aucune des deux Noto ne porte :
-/// sans elle, elles retombaient sur le rendu tramé d'Unifont.
-///
-/// Noto Color Emoji en a été retirée après essai : ses glyphes sont des images
-/// CBDT, qu'egui ne sait pas rasteriser. Placée dans la chaîne, elle capte tous
-/// les codets emoji et n'en dessine aucun — `☑`, `✔`, `😀`, `❤️` disparaissaient
-/// purement et simplement, alors que les polices d'emoji d'egui les rendaient
-/// très bien en monochrome. Les emoji des messages, eux, passent de toute façon
-/// par le registre PNG (cf. `EmojiTextures`), en couleur.
-///
-/// Chaque police n'est interrogée que pour ce que les précédentes ne savent
-/// pas dessiner. Sans cette chaîne, tout caractère hors du latin s'affichait en
-/// carré vide : une phrase collée en chinois, en japonais ou en coréen était
-/// illisible d'un bout à l'autre. Unifont ferme la marche — son rendu tramé ne
-/// sert donc que là où le choix est entre « moche » et « rien ».
-const FONT_CHAIN: [&str; 4] = ["noto-sans", "noto-symbols2", "inter-bold", "unifont"];
+/// Noto Sans garde Inter Bold pour le gras et reste droite en italique (egui
+/// penche alors le bitmap) ; elle ne dessine pas les flèches `→ ← ↑ ↓`, qu'Inter
+/// Bold prête donc en repli. Inter a ses trois coupes.
+fn font_cuts(kind: theme::FontKind) -> (&'static str, &'static str, Option<&'static str>) {
+    match kind {
+        theme::FontKind::NotoSans => ("noto-sans", "inter-bold", None),
+        theme::FontKind::Inter => ("inter", "inter-semibold", Some("inter-italic")),
+    }
+}
 
-/// Définitions de polices : la chaîne ci-dessus en tête des familles standard,
-/// et Inter Bold (OFL) sous la famille [`BOLD_FAMILY`] pour les noms d'auteur —
-/// egui ne synthétise pas le gras.
-fn build_fonts() -> egui::FontDefinitions {
+/// Chaîne d'une famille : sa police de tête, puis ce qu'elle ne sait pas dessiner.
+///
+/// Noto Sans ne dessine pas les flèches `→ ← ↑ ↓` : Inter Bold les prête, avant
+/// qu'Unifont ne les trame. Inter les porte elle-même.
+fn family_chain(head: &str, kind: theme::FontKind) -> Vec<String> {
+    let names: &[&str] = match kind {
+        theme::FontKind::NotoSans => &["noto-sans", "noto-symbols2", "inter-bold", "unifont"],
+        theme::FontKind::Inter => &["inter", "noto-symbols2", "unifont"],
+    };
+    std::iter::once(head)
+        .chain(names.iter().copied().filter(|name| *name != head))
+        .map(str::to_owned)
+        .collect()
+}
+
+/// Définitions de polices : une famille pour l'interface (la proportionnelle
+/// d'egui, avec sa version grasse) et une pour les conversations (normale,
+/// grasse, italique), chacune sur la police de son thème.
+fn build_fonts(ui: theme::FontKind, messages: theme::FontKind) -> egui::FontDefinitions {
     let mut fonts = egui::FontDefinitions::default();
     let mut embed = |name: &str, bytes: &'static [u8]| {
         fonts.font_data.insert(
@@ -1234,6 +1245,18 @@ fn build_fonts() -> egui::FontDefinitions {
             Arc::new(egui::FontData::from_static(bytes)),
         );
     };
+    embed(
+        "inter",
+        include_bytes!("../../assets/fonts/Inter-Regular.ttf"),
+    );
+    embed(
+        "inter-semibold",
+        include_bytes!("../../assets/fonts/Inter-SemiBold.ttf"),
+    );
+    embed(
+        "inter-italic",
+        include_bytes!("../../assets/fonts/Inter-Italic.ttf"),
+    );
     embed(
         "inter-bold",
         include_bytes!("../../assets/fonts/Inter-Bold.ttf"),
@@ -1248,35 +1271,39 @@ fn build_fonts() -> egui::FontDefinitions {
     );
     embed("unifont", include_bytes!("../../assets/fonts/Unifont.otf"));
 
-    // Les noms d'auteur méritent le même repli que le reste : un pseudo en
-    // cyrillique ou en japonais ne doit pas se réduire à des carrés.
+    let named = |name: &str| egui::FontFamily::Name(name.into());
+    let (ui_regular, ui_bold, _) = font_cuts(ui);
+    let (msg_regular, msg_bold, msg_italic) = font_cuts(messages);
+    fonts
+        .families
+        .insert(named(BOLD_FAMILY), family_chain(ui_bold, ui));
     fonts.families.insert(
-        egui::FontFamily::Name(BOLD_FAMILY.into()),
-        std::iter::once("inter-bold".to_owned())
-            .chain(
-                FONT_CHAIN
-                    .iter()
-                    .filter(|name| **name != "inter-bold")
-                    .map(|name| (*name).to_owned()),
-            )
-            .collect(),
+        named(theme::MSG_FAMILY),
+        family_chain(msg_regular, messages),
     );
-    // Proportionnel : Noto Sans devient la police de texte. Monospace : Hack
+    fonts.families.insert(
+        named(theme::MSG_BOLD_FAMILY),
+        family_chain(msg_bold, messages),
+    );
+    fonts.families.insert(
+        named(theme::MSG_ITALIC_FAMILY),
+        family_chain(msg_italic.unwrap_or(msg_regular), messages),
+    );
+    // Proportionnel : la police de l'interface passe en tête. Monospace : Hack
     // reste en tête, la chaîne ne sert qu'en repli.
-    for (family, prepend) in [
-        (egui::FontFamily::Proportional, true),
-        (egui::FontFamily::Monospace, false),
-    ] {
-        let existing = fonts.families.entry(family).or_default();
-        let chain = FONT_CHAIN.iter().map(|name| (*name).to_owned());
-        if prepend {
-            let defaults = std::mem::take(existing);
-            existing.extend(chain);
-            existing.extend(defaults);
-        } else {
-            existing.extend(chain);
-        }
-    }
+    let chain = family_chain(ui_regular, ui);
+    let proportional = fonts
+        .families
+        .entry(egui::FontFamily::Proportional)
+        .or_default();
+    let defaults = std::mem::take(proportional);
+    proportional.extend(chain.iter().cloned());
+    proportional.extend(defaults);
+    fonts
+        .families
+        .entry(egui::FontFamily::Monospace)
+        .or_default()
+        .extend(chain);
     fonts
 }
 
@@ -1357,8 +1384,11 @@ pub fn run(
             // Publie le contexte egui vers les tâches de fond : chaque
             // événement relayé peut désormais réveiller la boucle de rendu.
             let _ = ui_ctx.set(cc.egui_ctx.clone());
-            cc.egui_ctx.set_fonts(build_fonts());
-            theme::install(&cc.egui_ctx, theme::ResolvedTheme::classic());
+            appearance::apply(
+                &cc.egui_ctx,
+                themes::BuiltinTheme::Classic,
+                &appearance::TextSettings::default(),
+            );
             // Loaders d'images egui_extras : HTTP (récupération depuis le CDN
             // Klipy) + décodage GIF/WebP animés pour les vignettes et le fil.
             egui_extras::install_image_loaders(&cc.egui_ctx);
