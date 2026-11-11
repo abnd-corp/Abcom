@@ -345,6 +345,7 @@ catalog! {
     TELECHARGEMENT_ECHOUE => ("Téléchargement impossible : la police n'a pas été ajoutée", "Download failed: the font was not added"),
     AUCUNE_POLICE_TROUVEE => ("Aucune police trouvée.", "No font found."),
     CATEGORIE_DE_POLICE => ("Catégorie", "Category"),
+    CHOISIR_UNE_POLICE => ("Choisir une police", "Choose a font"),
     POLICE_INDISPONIBLE => ("Police indisponible : retour à celle du thème", "Font unavailable: back to the theme font"),
     THEME_CLASSIQUE => ("Classique", "Classic"),
     THEME_CLASSIQUE_DESCRIPTION => ("L'apparence d'origine d'Abcom", "Abcom's original look"),

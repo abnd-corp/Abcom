@@ -1076,7 +1076,7 @@ fn import_label(zone: FontZone) -> &'static str {
 
 /// Fait répondre le sélecteur de fichier de l'application avec `path` (ou l'annule).
 fn pick(session: &Session, path: Option<std::path::PathBuf>) {
-    session.app.borrow_mut().font_picker = Box::new(move || path.clone());
+    session.app.borrow_mut().font_picker = Some(Box::new(move || path.clone()));
 }
 
 fn registered_families(session: &Session) -> Vec<egui::FontFamily> {
@@ -2163,4 +2163,64 @@ fn the_online_permission_survives_a_restart() {
             .appearance
             .online_fonts_allowed
     );
+}
+
+// ── Sélecteur natif : jamais bloquant ─────────────────────────────────────
+
+/// Un sélecteur natif bloquant dans le fil de rendu faisait disparaître
+/// l'application (cf. `picker`) : sans remplaçant, le clic ne fait que demander
+/// l'ouverture de la feuille asynchrone, à la frame suivante.
+#[test]
+fn the_import_button_asks_for_the_native_sheet_instead_of_blocking() {
+    let (mut session, _) = session_in_temp_dir();
+    open_tab(&mut session, AppearanceTab::Fonts);
+    assert!(session.app.borrow().font_picker.is_none());
+    click(&mut session, import_label(FontZone::Conversations));
+    assert_eq!(
+        session.app.borrow().pending_font_pick,
+        Some(FontZone::Conversations)
+    );
+    assert!(
+        session.app.borrow().fonts.fonts().is_empty(),
+        "rien n'est importé avant le choix"
+    );
+}
+
+#[test]
+fn a_font_chosen_in_the_native_sheet_is_imported_for_the_zone_that_asked() {
+    let (mut session, _) = session_in_temp_dir();
+    open_tab(&mut session, AppearanceTab::Fonts);
+    click(&mut session, import_label(FontZone::Interface));
+    {
+        let mut app = session.app.borrow_mut();
+        app.font_pick_zone = app.pending_font_pick.take();
+        let path = std::path::PathBuf::from(ASSET_FONTS).join("Inter-Regular.ttf");
+        app.picker_tx
+            .send(super::picker::PickerOutcome::Font(path))
+            .unwrap();
+        app.apply_picker_outcomes();
+    }
+    let app = session.app.borrow();
+    assert_eq!(app.fonts.fonts().len(), 1);
+    assert_eq!(
+        app.appearance.ui_font,
+        FontChoice::Imported(app.fonts.fonts()[0].id.clone())
+    );
+    assert_eq!(
+        app.appearance.conv_font,
+        FontChoice::ThemeDefault,
+        "l'autre zone n'est pas touchée"
+    );
+}
+
+#[test]
+fn a_late_sheet_answer_with_no_zone_waiting_is_ignored() {
+    let (session, _) = session_in_temp_dir();
+    let mut app = session.app.borrow_mut();
+    let path = std::path::PathBuf::from(ASSET_FONTS).join("Inter-Regular.ttf");
+    app.picker_tx
+        .send(super::picker::PickerOutcome::Font(path))
+        .unwrap();
+    app.apply_picker_outcomes();
+    assert!(app.fonts.fonts().is_empty());
 }

@@ -918,12 +918,22 @@ impl AbcomApp {
         }
     }
 
-    /// Ouvre le sélecteur, importe le fichier choisi et l'applique à la zone.
+    /// Demande un fichier de police : la feuille native s'ouvre à la frame suivante,
+    /// sans bloquer le rendu (cf. `picker`).
     pub(crate) fn import_font(&mut self, zone: FontZone) {
-        let Some(path) = (self.font_picker)() else {
-            return;
-        };
-        match self.fonts.import(&path) {
+        match self.font_picker.as_mut() {
+            Some(pick) => {
+                if let Some(path) = pick() {
+                    self.import_font_file(zone, &path);
+                }
+            }
+            None => self.pending_font_pick = Some(zone),
+        }
+    }
+
+    /// Importe le fichier choisi et l'applique à la zone.
+    pub(crate) fn import_font_file(&mut self, zone: FontZone, path: &std::path::Path) {
+        match self.fonts.import(path) {
             Ok(ImportOutcome::Added(font)) => {
                 *zone.choice_mut(&mut self.appearance) = FontChoice::Imported(font.id.clone());
                 let message = format!("{} {}", self.t(i18n::POLICE_IMPORTEE), font.family);

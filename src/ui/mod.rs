@@ -342,8 +342,12 @@ pub(crate) struct AbcomApp {
     applied_appearance: Option<(appearance::Appearance, u64, u64, bool)>,
     /// Polices importées par l'utilisateur.
     pub(crate) fonts: fonts::FontStore,
-    /// Choisit un fichier de police ; le sélecteur natif par défaut, remplaçable par les tests.
-    pub(crate) font_picker: Box<dyn FnMut() -> Option<PathBuf>>,
+    /// Remplace le sélecteur natif de fichier de police (tests) : `None` ouvre la feuille native.
+    pub(crate) font_picker: Option<Box<dyn FnMut() -> Option<PathBuf>>>,
+    /// Zone qui attend un fichier de police : sélecteur à ouvrir à la frame suivante.
+    pub(crate) pending_font_pick: Option<appearance_tab::FontZone>,
+    /// Zone pour laquelle un sélecteur est ouvert.
+    font_pick_zone: Option<appearance_tab::FontZone>,
     /// Catalogue de polices en ligne (désactivé tant que l'utilisateur ne l'a pas autorisé).
     pub(crate) online: online_fonts::OnlineFonts,
     /// État de l'onglet Apparence des Paramètres.
@@ -562,7 +566,9 @@ impl AbcomApp {
             appearance: saved_appearance.clone(),
             applied_appearance: None,
             fonts,
-            font_picker: Box::new(pick_font_file),
+            font_picker: None,
+            pending_font_pick: None,
+            font_pick_zone: None,
             online: online_fonts::OnlineFonts::real(),
             themes,
             appearance_ui: appearance_tab::AppearanceUi::default(),
@@ -925,6 +931,11 @@ impl AbcomApp {
                     // verdict revient par `AppEvent::ConversationExported`.
                     self.state.lock_safe().export_selected_conversation(path);
                 }
+                picker::PickerOutcome::Font(path) => {
+                    if let Some(zone) = self.font_pick_zone.take() {
+                        self.import_font_file(zone, &path);
+                    }
+                }
                 picker::PickerOutcome::Avatar(path) => {
                     match avatar::load_normalized_avatar(&path) {
                         Ok(png) => {
@@ -1193,6 +1204,23 @@ impl eframe::App for AbcomApp {
                     dialog.await?.path().to_path_buf(),
                 ))
             });
+        }
+
+        // Sélection d'un fichier de police : même feuille asynchrone, jamais bloquante.
+        if let Some(zone) = self.pending_font_pick.take() {
+            if !picker::is_open() {
+                self.font_pick_zone = Some(zone);
+                let dialog = rfd::AsyncFileDialog::new()
+                    .set_parent(frame)
+                    .set_title(self.t(i18n::CHOISIR_UNE_POLICE))
+                    .add_filter("Polices", &["ttf", "otf", "ttc", "woff", "woff2"])
+                    .pick_file();
+                picker::spawn(self.picker_tx.clone(), ctx.clone(), async move {
+                    Some(picker::PickerOutcome::Font(
+                        dialog.await?.path().to_path_buf(),
+                    ))
+                });
+            }
         }
 
         // Sélection de l'image de profil.
@@ -1590,13 +1618,6 @@ pub fn run(
     crate::config::clear_gpu_backend_attempt();
 
     Ok(())
-}
-
-/// Sélecteur natif d'un fichier de police.
-fn pick_font_file() -> Option<PathBuf> {
-    rfd::FileDialog::new()
-        .add_filter("Polices", &["ttf", "otf", "ttc", "woff", "woff2"])
-        .pick_file()
 }
 
 /// Raccourcis globaux de l'application, déclarés en un seul endroit.
