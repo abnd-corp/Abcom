@@ -510,6 +510,47 @@ impl AbcomApp {
                                         ui.label("SIL Open Font License v1.1 / GPLv2+ avec exception d'embarquement");
                                         ui.end_row();
                                     });
+
+                                ui.add_space(14.0);
+                                ui.separator();
+                                ui.add_space(8.0);
+
+                                // ── Palettes ─────────────────────────────────
+                                ui.label(
+                                    egui::RichText::new(self.t(i18n::PALETTES_DE_COULEURS))
+                                        .strong()
+                                        .heading(),
+                                );
+                                ui.add_space(4.0);
+                                egui::Grid::new("credits_palettes")
+                                    .num_columns(2)
+                                    .spacing([12.0, 4.0])
+                                    .show(ui, |ui| {
+                                        let lbl = |ui: &mut egui::Ui, t: &str| {
+                                            ui.label(egui::RichText::new(t).strong());
+                                        };
+                                        lbl(ui, self.t(i18n::AUTEURS));
+                                        ui.add(
+                                            egui::Label::new(
+                                                "Nord (Arctic Ice Studio), Dracula (Zeno Rocha), \
+                                                 Solarized (Ethan Schoonover), One Dark (Atom), \
+                                                 Catppuccin, GitHub Primer",
+                                            )
+                                            .wrap_mode(egui::TextWrapMode::Wrap),
+                                        );
+                                        ui.end_row();
+                                        lbl(ui, self.t(i18n::ROLE));
+                                        ui.add(
+                                            egui::Label::new(
+                                                self.t(i18n::PALETTES_INSPIREES_DE_CES_PROJETS),
+                                            )
+                                            .wrap_mode(egui::TextWrapMode::Wrap),
+                                        );
+                                        ui.end_row();
+                                        lbl(ui, self.t(i18n::LICENCE));
+                                        ui.label("MIT");
+                                        ui.end_row();
+                                    });
                                 ui.add_space(8.0);
                             });
                     }

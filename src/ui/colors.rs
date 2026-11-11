@@ -97,6 +97,12 @@ pub(crate) fn palette_from_seed(seed: &Seed) -> Palette {
     let text_muted = ensure_contrast(on_background(text_muted), surface, MIN_TEXT_CONTRAST);
     let link = on_background(link);
     let accent = ensure_contrast(accent, background, MIN_GRAPHIC_CONTRAST);
+    // La pastille teintée recule vers le fond tant que le texte n'y tient pas.
+    let chip_mine = [0.30, 0.24, 0.18, 0.12, 0.06]
+        .into_iter()
+        .map(|share| mix(background, accent, share))
+        .find(|chip| contrast_ratio(text, *chip) >= MIN_TEXT_CONTRAST)
+        .unwrap_or(background);
     let tint_alpha = if luminance(background) < 0.5 { 7 } else { 10 };
     Palette {
         surface,
@@ -118,7 +124,7 @@ pub(crate) fn palette_from_seed(seed: &Seed) -> Palette {
         background,
         input_bg,
         chip: mix(background, text, 0.10),
-        chip_mine: mix(background, accent, 0.30),
+        chip_mine,
         chip_mine_border: accent,
         row_tint: Color32::from_rgba_unmultiplied(text.r(), text.g(), text.b(), tint_alpha),
     }

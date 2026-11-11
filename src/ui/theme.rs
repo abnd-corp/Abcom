@@ -116,17 +116,73 @@ pub(crate) const LIGHT: Palette = Palette {
     row_tint: Color32::from_rgba_premultiplied(0, 0, 0, 10),
 };
 
+/// Police de texte embarquée d'un thème.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum FontKind {
+    NotoSans,
+    Inter,
+}
+
 /// Réglages de texte du thème actif.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Typography {
+    pub(crate) small: f32,
+    pub(crate) body: f32,
+    pub(crate) button: f32,
+    pub(crate) heading: f32,
+    pub(crate) monospace: f32,
     /// Hauteur de ligne du composeur, qui place aussi les emojis de la saisie.
     pub(crate) composer_line_height: f32,
+    /// Hauteur de ligne du fil ; `None` laisse celle de la police.
+    pub(crate) body_line_height: Option<f32>,
+    /// Approche des lettres du fil, en points.
+    pub(crate) tracking: f32,
+    /// Gamma des glyphes clairs sur fond sombre ; `None` garde celui d'egui.
+    pub(crate) dark_text_gamma: Option<f32>,
+    pub(crate) font: FontKind,
 }
 
 impl Typography {
-    /// Réglages d'avant la personnalisation.
+    /// Réglages d'avant la personnalisation : les défauts d'egui.
     pub(crate) const CLASSIC: Self = Self {
+        small: 9.0,
+        body: 13.0,
+        button: 13.0,
+        heading: 18.0,
+        monospace: 13.0,
         composer_line_height: CLASSIC_COMPOSER_LINE_HEIGHT,
+        body_line_height: None,
+        tracking: 0.0,
+        dark_text_gamma: None,
+        font: FontKind::NotoSans,
+    };
+
+    /// Corps plus grand en Inter, à l'échelle des clients de discussion.
+    pub(crate) const LOUNGE: Self = Self {
+        small: 12.0,
+        body: 15.0,
+        button: 14.0,
+        heading: 18.0,
+        monospace: 13.0,
+        composer_line_height: 25.5,
+        body_line_height: Some(20.0),
+        tracking: 0.0,
+        dark_text_gamma: Some(1.0),
+        font: FontKind::Inter,
+    };
+
+    /// Texte plus grand et plus aéré, resserré par l'approche des lettres.
+    pub(crate) const READABLE: Self = Self {
+        small: 11.0,
+        body: 15.0,
+        button: 15.0,
+        heading: 18.0,
+        monospace: 13.0,
+        composer_line_height: 25.5,
+        body_line_height: Some(17.0),
+        tracking: 0.15,
+        dark_text_gamma: Some(1.0),
+        font: FontKind::Inter,
     };
 }
 

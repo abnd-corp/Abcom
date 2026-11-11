@@ -35,6 +35,7 @@ mod sidebar;
 mod snapshot;
 mod sound;
 mod theme;
+mod themes;
 
 /// Nombre de messages affichés au départ et pas de chargement du fenêtrage
 /// façon Discord (le fil charge 100 messages de plus en remontant).
