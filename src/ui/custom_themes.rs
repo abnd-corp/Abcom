@@ -5,9 +5,6 @@
 //! échoue (disque plein, dossier en lecture seule) laisse le thème utilisable
 //! pour la session.
 
-// Création, copie et édition sont appelées par l'onglet Apparence (commit suivant).
-#![allow(dead_code)]
-
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 

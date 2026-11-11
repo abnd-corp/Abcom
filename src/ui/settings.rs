@@ -26,6 +26,7 @@ impl AbcomApp {
 
         let title = self.t(i18n::PARAMETRES);
         let profile_label = self.t(i18n::PROFIL);
+        let appearance_label = self.t(i18n::APPARENCE);
         let general_label = self.t(i18n::GENERAL);
         let storage_label = self.t(i18n::STOCKAGE);
         let credits_label = self.t(i18n::CREDITS);
@@ -51,10 +52,6 @@ impl AbcomApp {
 
         // Onglet Général
         let language_label = self.t(i18n::LANGUE);
-        let theme_label = self.t(i18n::THEME);
-        let theme_system_label = self.t(i18n::SUIVRE_LE_SYSTEME);
-        let theme_light_label = self.t(i18n::CLAIR);
-        let theme_dark_label = self.t(i18n::SOMBRE);
 
         // Onglet Crédits
         let description_text = self.t(i18n::MESSAGERIE_PAIR_A_PAIR_LOCALE_DECOUVERTE);
@@ -79,6 +76,7 @@ impl AbcomApp {
                     for (tab, label) in [
                         (SettingsTab::Profile, profile_label),
                         (SettingsTab::General, general_label),
+                        (SettingsTab::Appearance, appearance_label),
                         (SettingsTab::Storage, storage_label),
                         (SettingsTab::Credits, credits_label),
                         (SettingsTab::License, license_label),
@@ -177,26 +175,6 @@ impl AbcomApp {
                                 });
                                 ui.end_row();
 
-                                ui.label(egui::RichText::new(theme_label).strong());
-                                ui.horizontal(|ui| {
-                                    ui.radio_value(
-                                        &mut self.appearance.mode,
-                                        super::appearance::Mode::System,
-                                        theme_system_label,
-                                    );
-                                    ui.radio_value(
-                                        &mut self.appearance.mode,
-                                        super::appearance::Mode::Light,
-                                        theme_light_label,
-                                    );
-                                    ui.radio_value(
-                                        &mut self.appearance.mode,
-                                        super::appearance::Mode::Dark,
-                                        theme_dark_label,
-                                    );
-                                });
-                                ui.end_row();
-
                                 ui.label(egui::RichText::new(self.t(i18n::NOTIFICATIONS)).strong());
                                 {
                                     let label = self.t(i18n::AFFICHER_UN_APERCU_DU_MESSAGE);
@@ -269,6 +247,7 @@ impl AbcomApp {
                             });
                                                 });
                     }
+                    SettingsTab::Appearance => self.render_appearance_tab(ui),
                     SettingsTab::Storage => {
                         egui::ScrollArea::vertical()
                             .id_salt("settings_scroll_storage")

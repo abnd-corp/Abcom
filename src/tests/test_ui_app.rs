@@ -139,6 +139,7 @@ fn renders_every_settings_tab() {
     for tab in [
         SettingsTab::Profile,
         SettingsTab::General,
+        SettingsTab::Appearance,
         SettingsTab::Storage,
         SettingsTab::Credits,
         SettingsTab::License,
@@ -351,6 +352,7 @@ fn settings_window_fits_in_every_window_size_and_tab() {
             for tab in [
                 SettingsTab::Profile,
                 SettingsTab::General,
+                SettingsTab::Appearance,
                 SettingsTab::Storage,
                 SettingsTab::Credits,
                 SettingsTab::License,
@@ -365,6 +367,7 @@ fn settings_window_fits_in_every_window_size_and_tab() {
                     match tab {
                         SettingsTab::Profile => "Profil",
                         SettingsTab::General => "Général",
+                        SettingsTab::Appearance => "Apparence",
                         SettingsTab::Storage => "Stockage",
                         SettingsTab::Credits => "Crédits",
                         SettingsTab::License => "Licence",

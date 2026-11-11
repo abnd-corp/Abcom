@@ -14,6 +14,7 @@ use crate::platform::tray;
 use crate::util::MutexExt;
 
 mod appearance;
+mod appearance_tab;
 mod avatar;
 mod chat_panel;
 mod colors;
@@ -75,6 +76,7 @@ pub(crate) enum UiLanguage {
 pub(crate) enum SettingsTab {
     Profile,
     General,
+    Appearance,
     Storage,
     Credits,
     License,
@@ -336,6 +338,8 @@ pub(crate) struct AbcomApp {
     pub(crate) appearance: appearance::Appearance,
     /// Dernière apparence appliquée au contexte (`None` avant la première image).
     applied_appearance: Option<(appearance::Appearance, u64)>,
+    /// État de l'onglet Apparence des Paramètres.
+    pub(crate) appearance_ui: appearance_tab::AppearanceUi,
     /// Thèmes personnels, lus dans le dossier des données.
     pub(crate) themes: custom_themes::ThemeStore,
     /// Dernière apparence écrite dans les préférences.
@@ -549,6 +553,7 @@ impl AbcomApp {
             appearance: saved_appearance.clone(),
             applied_appearance: None,
             themes,
+            appearance_ui: appearance_tab::AppearanceUi::default(),
             persisted_appearance: saved_appearance,
             storage_usage: None,
             purge_preview: None,

@@ -157,7 +157,6 @@ impl Appearance {
     }
 
     /// Choisit un thème personnel.
-    #[allow(dead_code)]
     pub(crate) fn select_custom(&mut self, id: &str) {
         self.theme = format!("{CUSTOM_PREFIX}{id}");
     }

@@ -7,7 +7,7 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 use eframe::egui;
-use egui_kittest::kittest::Queryable as _;
+use egui_kittest::kittest::{NodeT as _, Queryable as _};
 use egui_kittest::Harness;
 use tokio::sync::mpsc;
 
@@ -89,11 +89,11 @@ impl Session {
     }
 }
 
-fn open_general_settings(session: &mut Session) {
+fn open_appearance_settings(session: &mut Session) {
     {
         let mut app = session.app.borrow_mut();
         app.modals.settings_open = true;
-        app.modals.settings_tab = super::SettingsTab::General;
+        app.modals.settings_tab = super::SettingsTab::Appearance;
     }
     session.settle();
 }
@@ -125,7 +125,7 @@ fn a_saved_appearance_is_applied_on_the_first_frame() {
 #[test]
 fn clicking_dark_in_the_settings_switches_the_theme_and_is_saved() {
     let mut session = Session::new(new_app(None), egui::vec2(860.0, 600.0));
-    open_general_settings(&mut session);
+    open_appearance_settings(&mut session);
     assert_eq!(session.app.borrow().appearance.mode, Mode::System);
     assert_eq!(
         saved_pref(&session.app.borrow()),
@@ -158,7 +158,7 @@ fn clicking_dark_in_the_settings_switches_the_theme_and_is_saved() {
 #[test]
 fn the_chosen_mode_survives_a_restart() {
     let mut first = Session::new(new_app(None), egui::vec2(860.0, 600.0));
-    open_general_settings(&mut first);
+    open_appearance_settings(&mut first);
     first
         .harness
         .get_by_label(i18n::CLAIR.get(UiLanguage::French))
@@ -284,4 +284,758 @@ fn changing_the_appearance_invalidates_the_chat_cache() {
     let mut output = ctx.run_ui(Default::default(), |ui| app.sync_appearance(ui.ctx()));
     output.textures_delta.clear();
     assert!(super::theme::current(&ctx).revision > before);
+}
+
+// ── Onglet Apparence ──────────────────────────────────────────────────────
+
+use super::appearance_tab::AppearanceTab;
+use super::themes::BuiltinTheme;
+
+fn fr(entry: i18n::Entry) -> &'static str {
+    entry.get(UiLanguage::French)
+}
+
+/// Amène un contrôle dans la zone visible, comme le ferait la molette.
+fn reveal(session: &mut Session, label: &str) {
+    session.harness.get_by_label(label).scroll_to_me();
+    session.settle();
+}
+
+fn click(session: &mut Session, label: &str) {
+    reveal(session, label);
+    session.harness.get_by_label(label).click();
+    session.settle();
+}
+
+fn open_tab(session: &mut Session, tab: AppearanceTab) {
+    open_appearance_settings(session);
+    let label = match tab {
+        AppearanceTab::Themes => i18n::APPARENCE_THEMES,
+        AppearanceTab::Text => i18n::APPARENCE_TEXTE,
+        AppearanceTab::Colors => i18n::APPARENCE_COULEURS,
+    };
+    let language = session.app.borrow().ui_language;
+    click(session, label.get(language));
+}
+
+/// Remplace le contenu d'un champ de saisie, comme le ferait un utilisateur.
+fn type_into(session: &mut Session, label: &str, text: &str) {
+    session
+        .harness
+        .get_by_role_and_label(egui::accesskit::Role::TextInput, label)
+        .scroll_to_me();
+    session.settle();
+    session
+        .harness
+        .get_by_role_and_label(egui::accesskit::Role::TextInput, label)
+        .focus();
+    session.settle();
+    session
+        .harness
+        .key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::A);
+    session.settle();
+    session
+        .harness
+        .get_by_role_and_label(egui::accesskit::Role::TextInput, label)
+        .type_text(text);
+    session.settle();
+}
+
+fn desktop() -> egui::Vec2 {
+    egui::vec2(860.0, 600.0)
+}
+
+#[test]
+fn every_builtin_theme_can_be_picked_from_the_gallery_and_survives_a_restart() {
+    for theme in BuiltinTheme::ALL {
+        let mut session = Session::new(new_app(None), desktop());
+        open_tab(&mut session, AppearanceTab::Themes);
+        let label = format!("{} {}", fr(i18n::THEME), fr(theme.name()));
+        click(&mut session, &label);
+
+        assert_eq!(
+            session.app.borrow().appearance.theme,
+            theme.id(),
+            "{theme:?}"
+        );
+        let ctx = session.ctx();
+        assert_eq!(
+            super::theme::current(&ctx).dark,
+            theme.resolve().dark,
+            "{theme:?} : palette appliquée"
+        );
+        // Classique est le défaut : rien à écrire, et rien à relire.
+        let pref = saved_pref(&session.app.borrow());
+        assert_eq!(pref.is_none(), theme == BuiltinTheme::Classic, "{theme:?}");
+        drop(session);
+
+        let mut restarted = Session::new(new_app(pref.as_deref()), desktop());
+        restarted.harness.step();
+        assert_eq!(restarted.app.borrow().appearance.theme, theme.id());
+        assert_eq!(
+            super::theme::current(&restarted.ctx()).dark,
+            theme.resolve().dark
+        );
+    }
+}
+
+#[test]
+fn the_gallery_shows_all_ten_themes_with_their_translated_names() {
+    for language in [UiLanguage::French, UiLanguage::English] {
+        let mut app = new_app(None);
+        app.ui_language = language;
+        let mut session = Session::new(app, desktop());
+        open_tab(&mut session, AppearanceTab::Themes);
+        for theme in BuiltinTheme::ALL {
+            let label = format!(
+                "{} {}",
+                i18n::THEME.get(language),
+                theme.name().get(language)
+            );
+            session.harness.get_by_label(&label);
+        }
+    }
+}
+
+#[test]
+fn the_selected_card_is_announced_as_selected() {
+    let mut session = Session::new(new_app(None), desktop());
+    open_tab(&mut session, AppearanceTab::Themes);
+    let classic = format!("{} {}", fr(i18n::THEME), fr(BuiltinTheme::Classic.name()));
+    let frost = format!("{} {}", fr(i18n::THEME), fr(BuiltinTheme::Frost.name()));
+    let selected = |session: &Session, label: &str| {
+        session
+            .harness
+            .get_by_label(label)
+            .accesskit_node()
+            .toggled()
+            == Some(egui::accesskit::Toggled::True)
+    };
+    assert!(selected(&session, &classic));
+    assert!(!selected(&session, &frost));
+    click(&mut session, &frost);
+    assert!(selected(&session, &frost));
+    assert!(!selected(&session, &classic));
+}
+
+/// Le curseur lui-même, et non son libellé (egui expose les deux sous le même nom).
+fn slider<'a>(session: &'a Session, label: &'a str) -> egui_kittest::Node<'a> {
+    session
+        .harness
+        .get_by_role_and_label(egui::accesskit::Role::Slider, label)
+}
+
+/// Fait avancer un curseur au clavier : focus, puis flèches.
+fn nudge(session: &mut Session, label: &str, key: egui::Key, times: usize) {
+    slider(session, label).scroll_to_me();
+    session.settle();
+    slider(session, label).focus();
+    session.settle();
+    for _ in 0..times {
+        session.harness.key_press(key);
+        session.harness.step();
+    }
+    session.settle();
+}
+
+#[test]
+fn the_overall_size_slider_scales_interface_and_conversations_but_not_emoji() {
+    let mut session = Session::new(new_app(None), desktop());
+    open_tab(&mut session, AppearanceTab::Text);
+    nudge(
+        &mut session,
+        fr(i18n::TAILLE_GENERALE),
+        egui::Key::ArrowRight,
+        4,
+    );
+    let scale = session.app.borrow().appearance.text.global_scale;
+    assert!(scale > 1.15, "le curseur a avancé : {scale}");
+    let ctx = session.ctx();
+    let m = super::theme::current(&ctx).text;
+    assert!(
+        (m.body - 13.0 * scale).abs() < 0.01,
+        "interface : {}",
+        m.body
+    );
+    assert!(
+        (m.msg_body - 13.0 * scale).abs() < 0.01,
+        "conversations : {}",
+        m.msg_body
+    );
+    let saved = Appearance::from_pref(saved_pref(&session.app.borrow()).as_deref());
+    assert_eq!(
+        saved.text.global_scale, scale,
+        "enregistré une fois le curseur lâché"
+    );
+}
+
+#[test]
+fn interface_and_conversation_sliders_are_independent() {
+    let mut session = Session::new(new_app(None), desktop());
+    open_tab(&mut session, AppearanceTab::Text);
+    nudge(
+        &mut session,
+        fr(i18n::TAILLE_DES_CONVERSATIONS),
+        egui::Key::ArrowRight,
+        6,
+    );
+    nudge(
+        &mut session,
+        fr(i18n::TAILLE_DE_L_INTERFACE),
+        egui::Key::ArrowLeft,
+        3,
+    );
+    let m = super::theme::current(&session.ctx()).text;
+    assert!(
+        m.msg_body > 13.0 * 1.2,
+        "conversations plus grandes : {}",
+        m.msg_body
+    );
+    assert!(m.body < 13.0 * 0.95, "interface plus petite : {}", m.body);
+}
+
+#[test]
+fn sliders_stop_at_their_bounds_when_the_key_is_held() {
+    let mut session = Session::new(new_app(None), desktop());
+    open_tab(&mut session, AppearanceTab::Text);
+    nudge(
+        &mut session,
+        fr(i18n::TAILLE_GENERALE),
+        egui::Key::ArrowRight,
+        60,
+    );
+    assert_eq!(session.app.borrow().appearance.text.global_scale, 1.6);
+    nudge(
+        &mut session,
+        fr(i18n::TAILLE_GENERALE),
+        egui::Key::ArrowLeft,
+        80,
+    );
+    assert_eq!(session.app.borrow().appearance.text.global_scale, 0.8);
+}
+
+#[test]
+fn line_and_letter_spacing_follow_the_theme_until_touched_and_can_go_back() {
+    let mut session = Session::new(new_app(None), desktop());
+    open_tab(&mut session, AppearanceTab::Text);
+    assert_eq!(session.app.borrow().appearance.text.conv_line_spacing, None);
+
+    click(&mut session, fr(i18n::INTERLIGNE_DU_THEME));
+    assert!(session
+        .app
+        .borrow()
+        .appearance
+        .text
+        .conv_line_spacing
+        .is_some());
+    nudge(&mut session, fr(i18n::INTERLIGNE), egui::Key::ArrowRight, 5);
+    let line = session
+        .app
+        .borrow()
+        .appearance
+        .text
+        .conv_line_spacing
+        .unwrap();
+    assert!(line > 1.3, "{line}");
+    let height = super::theme::current(&session.ctx()).text.msg_line_height;
+    assert!((height.unwrap() - 13.0 * line).abs() < 0.01);
+
+    click(&mut session, fr(i18n::INTERLIGNE_DU_THEME));
+    assert_eq!(
+        session.app.borrow().appearance.text.conv_line_spacing,
+        None,
+        "retour au thème"
+    );
+    assert_eq!(
+        super::theme::current(&session.ctx()).text.msg_line_height,
+        None
+    );
+
+    click(&mut session, fr(i18n::ESPACEMENT_DU_THEME));
+    nudge(
+        &mut session,
+        fr(i18n::ESPACEMENT_DES_LETTRES),
+        egui::Key::ArrowRight,
+        3,
+    );
+    let letters = session
+        .app
+        .borrow()
+        .appearance
+        .text
+        .conv_letter_spacing
+        .unwrap();
+    assert!(letters > 0.0);
+    assert_eq!(
+        super::theme::current(&session.ctx()).text.msg_tracking,
+        letters
+    );
+}
+
+#[test]
+fn the_slider_is_disabled_while_the_theme_value_applies() {
+    let mut session = Session::new(new_app(None), desktop());
+    open_tab(&mut session, AppearanceTab::Text);
+    assert!(slider(&session, fr(i18n::INTERLIGNE))
+        .accesskit_node()
+        .is_disabled());
+}
+
+#[test]
+fn back_to_theme_sizes_resets_every_text_setting() {
+    let mut session = Session::new(new_app(None), desktop());
+    open_tab(&mut session, AppearanceTab::Text);
+    nudge(
+        &mut session,
+        fr(i18n::TAILLE_GENERALE),
+        egui::Key::ArrowRight,
+        5,
+    );
+    click(&mut session, fr(i18n::INTERLIGNE_DU_THEME));
+    click(&mut session, fr(i18n::REVENIR_AUX_TAILLES_DU_THEME));
+    assert_eq!(
+        session.app.borrow().appearance.text,
+        TextSettings::default()
+    );
+    assert_eq!(super::theme::current(&session.ctx()).text.body, 13.0);
+}
+
+#[test]
+fn a_message_is_sized_by_the_conversation_setting_in_the_real_preview() {
+    let mut session = Session::new(new_app(None), desktop());
+    open_tab(&mut session, AppearanceTab::Text);
+    // L'aperçu existe, dans la langue de l'interface.
+    session.harness.get_by_label(fr(i18n::APERCU));
+}
+
+fn hex_label(role: super::appearance_tab::Role) -> String {
+    format!("{} : {}", fr(role.label()), fr(i18n::CODE_COULEUR))
+}
+
+fn default_label(role: super::appearance_tab::Role) -> String {
+    format!("{} : {}", fr(role.label()), fr(i18n::PAR_DEFAUT_POUR))
+}
+
+fn themes_dir(app: &AbcomApp) -> std::path::PathBuf {
+    app.state
+        .lock()
+        .unwrap()
+        .media_dir()
+        .parent()
+        .unwrap()
+        .join("themes")
+}
+
+fn custom_files(app: &AbcomApp) -> usize {
+    std::fs::read_dir(themes_dir(app))
+        .map(|dir| {
+            dir.flatten()
+                .filter(|e| e.path().extension().is_some_and(|x| x == "json"))
+                .count()
+        })
+        .unwrap_or(0)
+}
+
+use super::appearance_tab::Role;
+
+#[test]
+fn touching_a_color_of_a_builtin_theme_makes_a_personal_copy() {
+    let mut app = new_app(None);
+    app.appearance.select_builtin(BuiltinTheme::Frost);
+    app.appearance.mode = Mode::Dark;
+    let mut session = Session::new(app, desktop());
+    open_tab(&mut session, AppearanceTab::Colors);
+    let original_frost = BuiltinTheme::Frost.resolve();
+
+    type_into(&mut session, &hex_label(Role::Background), "#102030");
+    {
+        let app = session.app.borrow();
+        let id = app
+            .appearance
+            .custom_id()
+            .expect("une copie est sélectionnée");
+        let custom = app.themes.get(id).unwrap();
+        assert_eq!(
+            custom.dark.background,
+            egui::Color32::from_rgb(0x10, 0x20, 0x30)
+        );
+        assert_eq!(custom.name, "Givre (perso)");
+        assert_eq!(
+            custom.dark.text, original_frost.dark.text,
+            "le reste est copié"
+        );
+        assert_eq!(
+            custom.light, original_frost.light,
+            "l'autre mode n'est pas touché"
+        );
+        assert!(app.last_notification.is_some(), "la copie est signalée");
+    }
+    let ctx = session.ctx();
+    assert_eq!(
+        ctx.style_of(egui::Theme::Dark).visuals.panel_fill,
+        egui::Color32::from_rgb(0x10, 0x20, 0x30),
+        "appliqué tout de suite"
+    );
+    assert_eq!(
+        super::theme::current(&ctx).dark.background,
+        egui::Color32::from_rgb(0x10, 0x20, 0x30)
+    );
+    assert_eq!(
+        custom_files(&session.app.borrow()),
+        1,
+        "écrit sur le disque"
+    );
+    // Le thème intégré, lui, n'a pas bougé.
+    assert_eq!(BuiltinTheme::Frost.resolve().dark, original_frost.dark);
+}
+
+fn frost_dark_session() -> Session {
+    let mut app = new_app(None);
+    app.appearance.select_builtin(BuiltinTheme::Frost);
+    app.appearance.mode = Mode::Dark;
+    Session::new(app, desktop())
+}
+
+fn active_custom(session: &Session) -> super::custom_themes::CustomTheme {
+    let app = session.app.borrow();
+    let id = app.appearance.custom_id().expect("thème personnel actif");
+    app.themes.get(id).unwrap().clone()
+}
+
+#[test]
+fn an_invalid_color_code_changes_nothing_and_creates_no_copy() {
+    let mut session = frost_dark_session();
+    open_tab(&mut session, AppearanceTab::Colors);
+    for junk in ["zz", "#12", "rouge", "#gg", "é", "#"] {
+        type_into(&mut session, &hex_label(Role::Accent), junk);
+        assert_eq!(
+            session.app.borrow().appearance.custom_id(),
+            None,
+            "{junk:?}"
+        );
+        assert_eq!(custom_files(&session.app.borrow()), 0);
+    }
+}
+
+#[test]
+fn short_and_hashless_color_codes_are_accepted() {
+    let mut session = frost_dark_session();
+    open_tab(&mut session, AppearanceTab::Colors);
+    type_into(&mut session, &hex_label(Role::Accent), "f80");
+    assert_eq!(
+        active_custom(&session).dark.accent,
+        egui::Color32::from_rgb(255, 136, 0)
+    );
+    type_into(&mut session, &hex_label(Role::Accent), "00ff7f");
+    assert_eq!(
+        active_custom(&session).dark.accent,
+        egui::Color32::from_rgb(0, 255, 127)
+    );
+}
+
+#[test]
+fn a_color_set_in_dark_mode_leaves_the_light_variant_alone() {
+    let mut session = frost_dark_session();
+    open_tab(&mut session, AppearanceTab::Colors);
+    type_into(&mut session, &hex_label(Role::Text), "#FFEEDD");
+    let custom = active_custom(&session);
+    assert_eq!(custom.dark.text, egui::Color32::from_rgb(255, 238, 221));
+    assert_eq!(custom.light.text, BuiltinTheme::Frost.resolve().light.text);
+
+    // Passer en clair édite l'autre variante.
+    open_tab(&mut session, AppearanceTab::Themes);
+    click(&mut session, fr(i18n::CLAIR));
+    open_tab(&mut session, AppearanceTab::Colors);
+    session
+        .harness
+        .get_by_label(fr(i18n::MODIFICATION_DU_MODE_CLAIR));
+    type_into(&mut session, &hex_label(Role::Text), "#101010");
+    let custom = active_custom(&session);
+    assert_eq!(custom.light.text, egui::Color32::from_rgb(16, 16, 16));
+    assert_eq!(
+        custom.dark.text,
+        egui::Color32::from_rgb(255, 238, 221),
+        "le sombre est intact"
+    );
+    assert_eq!(
+        custom_files(&session.app.borrow()),
+        1,
+        "toujours une seule copie"
+    );
+}
+
+#[test]
+fn a_poor_contrast_is_flagged_live_and_unflagged_once_fixed() {
+    let mut session = frost_dark_session();
+    open_tab(&mut session, AppearanceTab::Colors);
+    let warning = fr(i18n::CONTRASTE_INSUFFISANT);
+    assert!(
+        session.harness.query_by_label(warning).is_none(),
+        "Givre est lisible"
+    );
+
+    type_into(&mut session, &hex_label(Role::Background), "#808080");
+    type_into(&mut session, &hex_label(Role::Text), "#808080");
+    session.harness.get_by_label(warning);
+    session.harness.get_by_label("1,0:1");
+
+    type_into(&mut session, &hex_label(Role::Text), "#000000");
+    assert!(session.harness.query_by_label(warning).is_none());
+}
+
+#[test]
+fn contrast_is_written_with_a_decimal_point_in_english() {
+    let mut app = new_app(None);
+    app.ui_language = UiLanguage::English;
+    app.appearance.select_builtin(BuiltinTheme::Frost);
+    app.appearance.mode = Mode::Dark;
+    let mut session = Session::new(app, desktop());
+    open_tab(&mut session, AppearanceTab::Colors);
+    let ratio = super::appearance_tab::format_ratio(
+        super::colors::contrast_ratio(
+            super::themes::BuiltinTheme::Frost.resolve().dark.text,
+            BuiltinTheme::Frost.resolve().dark.background,
+        ),
+        false,
+    );
+    assert!(ratio.contains('.'));
+    session.harness.get_by_label(&ratio);
+}
+
+#[test]
+fn the_default_button_restores_a_color_and_is_disabled_when_already_default() {
+    let mut session = frost_dark_session();
+    open_tab(&mut session, AppearanceTab::Colors);
+    let label = default_label(Role::Accent);
+    assert!(
+        session
+            .harness
+            .get_by_label(&label)
+            .accesskit_node()
+            .is_disabled(),
+        "un thème intégré n'a rien à restaurer"
+    );
+    type_into(&mut session, &hex_label(Role::Accent), "#FF0000");
+    assert!(!session
+        .harness
+        .get_by_label(&label)
+        .accesskit_node()
+        .is_disabled());
+    click(&mut session, &label);
+    assert_eq!(
+        active_custom(&session).dark.accent,
+        BuiltinTheme::Frost.resolve().dark.accent
+    );
+    assert!(session
+        .harness
+        .get_by_label(&label)
+        .accesskit_node()
+        .is_disabled());
+}
+
+#[test]
+fn the_advanced_section_edits_every_role() {
+    let mut session = frost_dark_session();
+    open_tab(&mut session, AppearanceTab::Colors);
+    click(&mut session, fr(i18n::OPTIONS_AVANCEES));
+    for (n, role) in Role::ADVANCED.into_iter().enumerate() {
+        let color = egui::Color32::from_rgb(10 + n as u8, 20, 30);
+        type_into(
+            &mut session,
+            &hex_label(role),
+            &super::appearance_tab::hex_of(color),
+        );
+        assert_eq!(role.get(&active_custom(&session).dark), color, "{role:?}");
+    }
+    assert_eq!(custom_files(&session.app.borrow()), 1);
+}
+
+#[test]
+fn a_custom_theme_survives_a_restart_with_its_colors() {
+    let mut session = frost_dark_session();
+    open_tab(&mut session, AppearanceTab::Colors);
+    type_into(&mut session, &hex_label(Role::Background), "#0A0B0C");
+    let (pref, dir) = (
+        saved_pref(&session.app.borrow()).expect("préférence écrite"),
+        themes_dir(&session.app.borrow()),
+    );
+    drop(session);
+
+    // Même dossier de données : on rebranche le nouveau magasin dessus.
+    let mut app = new_app(Some(&pref));
+    app.themes = super::custom_themes::ThemeStore::load(&dir);
+    app.appearance = Appearance::from_pref(Some(&pref));
+    assert!(
+        !app.appearance.drop_missing_custom(&app.themes),
+        "le thème est retrouvé"
+    );
+    let mut restarted = Session::new(app, desktop());
+    restarted.harness.step();
+    assert_eq!(
+        super::theme::current(&restarted.ctx()).dark.background,
+        egui::Color32::from_rgb(0x0A, 0x0B, 0x0C)
+    );
+}
+
+#[test]
+fn a_custom_theme_whose_file_was_deleted_falls_back_to_classic_with_a_notice() {
+    let mut session = frost_dark_session();
+    open_tab(&mut session, AppearanceTab::Colors);
+    type_into(&mut session, &hex_label(Role::Background), "#0A0B0C");
+    let pref = saved_pref(&session.app.borrow()).unwrap();
+    drop(session);
+
+    // Le fichier a disparu : un autre dossier de données, sans le thème.
+    let app = new_app(Some(&pref));
+    assert_eq!(app.appearance.theme, "classic");
+    assert!(app.last_notification.is_some());
+}
+
+#[test]
+fn duplicate_rename_and_delete_a_personal_theme() {
+    let mut session = frost_dark_session();
+    open_tab(&mut session, AppearanceTab::Themes);
+    click(&mut session, fr(i18n::DUPLIQUER_LE_THEME_ACTIF));
+    let first = active_custom(&session);
+    assert_eq!(first.name, "Givre");
+    assert_eq!(first.base, BuiltinTheme::Frost);
+
+    click(&mut session, fr(i18n::DUPLIQUER_LE_THEME_ACTIF));
+    let second = active_custom(&session);
+    assert_ne!(second.id, first.id);
+    assert_eq!(second.name, "Givre (2)");
+
+    type_into(&mut session, fr(i18n::NOM_DU_THEME), "  Mon \n Givre  ");
+    // Valider : le champ perd le focus.
+    click(&mut session, fr(i18n::MODE_D_AFFICHAGE));
+    assert_eq!(active_custom(&session).name, "Mon Givre");
+
+    click(&mut session, fr(i18n::SUPPRIMER_LE_THEME));
+    session
+        .harness
+        .get_by_label(fr(i18n::SUPPRIMER_CE_THEME_QUESTION));
+    click(&mut session, fr(i18n::ANNULER));
+    assert!(
+        session.app.borrow().appearance.custom_id().is_some(),
+        "annulé"
+    );
+
+    click(&mut session, fr(i18n::SUPPRIMER_LE_THEME));
+    click(&mut session, fr(i18n::CONFIRMER));
+    assert_eq!(
+        session.app.borrow().appearance.theme,
+        "frost",
+        "retour au thème de base"
+    );
+    assert_eq!(session.app.borrow().themes.themes().len(), 1);
+    assert_eq!(custom_files(&session.app.borrow()), 1);
+}
+
+#[test]
+fn renaming_to_an_empty_name_keeps_the_old_one() {
+    let mut session = frost_dark_session();
+    open_tab(&mut session, AppearanceTab::Themes);
+    click(&mut session, fr(i18n::DUPLIQUER_LE_THEME_ACTIF));
+    type_into(&mut session, fr(i18n::NOM_DU_THEME), "   ");
+    click(&mut session, fr(i18n::MODE_D_AFFICHAGE));
+    assert_eq!(active_custom(&session).name, "Givre");
+}
+
+#[test]
+fn fifty_duplicates_keep_distinct_names_and_the_gallery_stays_usable() {
+    let mut session = frost_dark_session();
+    open_tab(&mut session, AppearanceTab::Themes);
+    for _ in 0..50 {
+        click(&mut session, fr(i18n::DUPLIQUER_LE_THEME_ACTIF));
+    }
+    let app = session.app.borrow();
+    let names: std::collections::HashSet<_> = app
+        .themes
+        .themes()
+        .iter()
+        .map(|t| t.name.to_lowercase())
+        .collect();
+    assert_eq!(names.len(), 50);
+}
+
+#[test]
+fn deleting_the_active_theme_then_restarting_gives_the_base_theme() {
+    let mut session = frost_dark_session();
+    open_tab(&mut session, AppearanceTab::Themes);
+    click(&mut session, fr(i18n::DUPLIQUER_LE_THEME_ACTIF));
+    click(&mut session, fr(i18n::SUPPRIMER_LE_THEME));
+    click(&mut session, fr(i18n::CONFIRMER));
+    let pref = saved_pref(&session.app.borrow()).unwrap();
+    drop(session);
+    assert_eq!(Appearance::from_pref(Some(&pref)).theme, "frost");
+}
+
+#[test]
+fn reset_asks_for_confirmation_and_keeps_personal_themes() {
+    let mut session = frost_dark_session();
+    open_tab(&mut session, AppearanceTab::Colors);
+    type_into(&mut session, &hex_label(Role::Accent), "#FF0000");
+    open_tab(&mut session, AppearanceTab::Text);
+    nudge(
+        &mut session,
+        fr(i18n::TAILLE_GENERALE),
+        egui::Key::ArrowRight,
+        4,
+    );
+
+    click(&mut session, fr(i18n::REINITIALISER_L_APPARENCE));
+    session
+        .harness
+        .get_by_label(fr(i18n::REINITIALISER_QUESTION));
+    click(&mut session, fr(i18n::ANNULER));
+    assert_ne!(
+        session.app.borrow().appearance,
+        Appearance::default(),
+        "annulé"
+    );
+
+    click(&mut session, fr(i18n::REINITIALISER_L_APPARENCE));
+    click(&mut session, fr(i18n::CONFIRMER));
+    assert_eq!(session.app.borrow().appearance, Appearance::default());
+    assert_eq!(
+        session.app.borrow().themes.themes().len(),
+        1,
+        "le thème personnel reste"
+    );
+    assert_eq!(super::theme::current(&session.ctx()).text.body, 13.0);
+    let saved = Appearance::from_pref(saved_pref(&session.app.borrow()).as_deref());
+    assert_eq!(saved, Appearance::default());
+}
+
+#[test]
+fn the_whole_tab_is_translated_in_english() {
+    let mut app = new_app(None);
+    app.ui_language = UiLanguage::English;
+    let mut session = Session::new(app, desktop());
+    for (tab, label) in [
+        (AppearanceTab::Themes, i18n::APPARENCE_THEMES),
+        (AppearanceTab::Text, i18n::APPARENCE_TEXTE),
+        (AppearanceTab::Colors, i18n::APPARENCE_COULEURS),
+    ] {
+        open_tab(&mut session, tab);
+        session.harness.get_by_label(label.get(UiLanguage::English));
+        for entry in [i18n::REINITIALISER_L_APPARENCE, i18n::APERCU] {
+            if matches!(tab, AppearanceTab::Themes) && entry.fr == i18n::APERCU.fr {
+                continue;
+            }
+            assert!(
+                session
+                    .harness
+                    .query_by_label(entry.get(UiLanguage::English))
+                    .is_some(),
+                "{} manquant en anglais",
+                entry.en
+            );
+            assert!(
+                session.harness.query_by_label(entry.fr).is_none(),
+                "{} resté en français",
+                entry.fr
+            );
+        }
+    }
 }

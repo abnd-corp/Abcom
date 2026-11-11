@@ -5,9 +5,6 @@
 //! Les palettes de Salon à Encre s'inspirent de palettes publiques sous
 //! licence MIT (cf. Crédits) ; leurs noms n'apparaissent pas dans l'interface.
 
-// Identifiants, noms et descriptions servent à la galerie, branchée avec l'onglet.
-#![allow(dead_code)]
-
 use eframe::egui::Color32;
 
 use super::appearance::TextSettings;
