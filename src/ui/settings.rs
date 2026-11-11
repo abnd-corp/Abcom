@@ -71,6 +71,14 @@ impl AbcomApp {
         super::dialog::Modal::new("settings_modal", title, self.t(i18n::FERMER), SETTINGS_SIZE.x)
             .height(SETTINGS_SIZE.y)
             .show(ctx, &mut open, |ui| {
+                // Un libellé long revient à la ligne plutôt que de pousser la fenêtre hors de l'écran.
+                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Wrap);
+                // Tout défile d'un bloc : à grande police dans une petite fenêtre, la
+                // boîte garde la taille de la fenêtre au lieu de la dépasser.
+                egui::ScrollArea::vertical()
+                    .id_salt("settings_outer_scroll")
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
                 // Bandeau d'onglets
                 ui.horizontal_wrapped(|ui| {
                     for (tab, label) in [
@@ -161,7 +169,7 @@ impl AbcomApp {
                             .spacing([16.0, 12.0])
                             .show(ui, |ui| {
                                 ui.label(egui::RichText::new(language_label).strong());
-                                ui.horizontal(|ui| {
+                                ui.horizontal_wrapped(|ui| {
                                     ui.radio_value(
                                         &mut self.ui_language,
                                         UiLanguage::French,
@@ -176,17 +184,17 @@ impl AbcomApp {
                                 ui.end_row();
 
                                 ui.label(egui::RichText::new(self.t(i18n::NOTIFICATIONS)).strong());
-                                {
+                                ui.horizontal_wrapped(|ui| {
                                     let label = self.t(i18n::AFFICHER_UN_APERCU_DU_MESSAGE);
                                     if ui.checkbox(&mut self.notif_preview, label).changed() {
                                         let v = if self.notif_preview { "1" } else { "0" };
                                         self.state.lock_safe().set_pref("notif_preview", v);
                                     }
-                                }
+                                });
                                 ui.end_row();
 
                                 ui.label(egui::RichText::new(self.t(i18n::DEMARRAGE)).strong());
-                                {
+                                ui.horizontal_wrapped(|ui| {
                                     let label = self.t(i18n::LANCER_ABCOM_A_L_OUVERTURE_DE);
                                     if ui.checkbox(&mut self.autostart_enabled, label).changed() {
                                         match crate::platform::autostart::set_enabled(
@@ -203,11 +211,11 @@ impl AbcomApp {
                                             }
                                         }
                                     }
-                                }
+                                });
                                 ui.end_row();
 
                                 ui.label(egui::RichText::new(self.t(i18n::DONNEES)).strong());
-                                ui.horizontal(|ui| {
+                                ui.horizontal_wrapped(|ui| {
                                     if ui
                                         .button(self.t(i18n::EXPORTER_LA_CONVERSATION_2))
                                         .clicked()
@@ -228,7 +236,7 @@ impl AbcomApp {
                                 // (cf. `metrics`). « Jetés » non nul = file
                                 // saturée ou pair injoignable.
                                 ui.label(egui::RichText::new(self.t(i18n::DIAGNOSTIC)).strong());
-                                {
+                                ui.horizontal_wrapped(|ui| {
                                     let m = crate::metrics::snapshot();
                                     let line = format!(
                                         "{} {} · {} {} · {} {} · {} {}",
@@ -242,7 +250,7 @@ impl AbcomApp {
                                         m.peers_seen,
                                     );
                                     ui.label(egui::RichText::new(line).small().weak());
-                                }
+                                });
                                 ui.end_row();
                             });
                                                 });
@@ -594,6 +602,7 @@ impl AbcomApp {
                             });
                     }
                 }
+                    });
             });
         self.modals.settings_open = open;
 

@@ -236,18 +236,13 @@ impl AbcomApp {
         });
         ui.separator();
 
-        let tab = self.appearance_ui.tab;
-        let footer = 44.0;
-        egui::ScrollArea::vertical()
-            .id_salt(("appearance_scroll", tab))
-            .auto_shrink([false, false])
-            .max_height((ui.available_height() - footer).max(80.0))
-            .show(ui, |ui| match tab {
-                AppearanceTab::Themes => self.themes_tab(ui),
-                AppearanceTab::Text => self.text_tab(ui),
-                AppearanceTab::Colors => self.colors_tab(ui),
-                AppearanceTab::Fonts => self.fonts_tab(ui),
-            });
+        match self.appearance_ui.tab {
+            AppearanceTab::Themes => self.themes_tab(ui),
+            AppearanceTab::Text => self.text_tab(ui),
+            AppearanceTab::Colors => self.colors_tab(ui),
+            AppearanceTab::Fonts => self.fonts_tab(ui),
+        }
+        ui.add_space(8.0);
         ui.separator();
         self.reset_footer(ui);
     }
@@ -421,13 +416,6 @@ impl AbcomApp {
             .msg_line_height
             .map_or(1.2, |height| height / metrics.msg_body);
         let theme_tracking = metrics.msg_tracking;
-        let narrow = ui.available_width() < 520.0;
-        ui.spacing_mut().slider_width = if narrow {
-            (ui.available_width() - 80.0).max(80.0)
-        } else {
-            240.0
-        };
-
         let labels = TextLabels {
             overall: self.t(i18n::TAILLE_GENERALE),
             interface: self.t(i18n::TAILLE_DE_L_INTERFACE),
@@ -1083,8 +1071,27 @@ struct TextLabels {
     letter_theme: &'static str,
 }
 
+/// Largeur du curseur pour que, avec son libellé et sa valeur, la ligne tienne
+/// dans la place disponible : egui pose le libellé à droite, sans retour à la ligne.
+fn fit_slider(ui: &mut egui::Ui, label: &str) {
+    const VALUE_BOX: f32 = 96.0;
+    let label_width = ui.fonts_mut(|fonts| {
+        fonts
+            .layout_no_wrap(
+                label.to_owned(),
+                egui::TextStyle::Body.resolve(ui.style()),
+                egui::Color32::WHITE,
+            )
+            .size()
+            .x
+    });
+    let room = ui.available_width() - label_width - VALUE_BOX - 3.0 * ui.spacing().item_spacing.x;
+    ui.spacing_mut().slider_width = room.clamp(48.0, 260.0);
+}
+
 /// Curseur de taille en pourcentage.
 fn percent_slider(ui: &mut egui::Ui, label: &'static str, value: &mut f32) {
+    fit_slider(ui, label);
     ui.add(
         egui::Slider::new(value, SCALE_RANGE)
             .step_by(0.05)

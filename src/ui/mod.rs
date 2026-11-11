@@ -732,6 +732,8 @@ impl AbcomApp {
                 self.notify(self.t(i18n::POLICE_INDISPONIBLE));
             }
             self.applied_appearance = Some(key);
+            // Les styles posés en cours d'image ne valent qu'à la suivante.
+            ctx.request_repaint();
         }
         let dragging = ctx.input(|input| input.pointer.any_down());
         if !dragging && self.themes.has_unsaved() {
@@ -1747,3 +1749,7 @@ mod font_tests;
 #[cfg(test)]
 #[path = "../tests/test_ui_appearance_e2e.rs"]
 mod appearance_e2e_tests;
+
+#[cfg(test)]
+#[path = "../tests/test_ui_appearance_matrix.rs"]
+mod appearance_matrix_tests;
