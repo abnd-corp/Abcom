@@ -68,6 +68,9 @@ jobs:
   supply-chain:
     name: Audit dépendances (vulnérabilités · licences)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
     steps:
       - uses: actions/checkout@v4
 
