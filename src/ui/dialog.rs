@@ -8,6 +8,12 @@
 
 use eframe::egui;
 
+/// Marge laissée entre une boîte modale et le bord de la fenêtre, par axe.
+const MODAL_MARGIN: f32 = 48.0;
+/// Plancher de largeur et de hauteur : en deçà, la boîte n'est plus utilisable.
+const MODAL_MIN_WIDTH: f32 = 240.0;
+const MODAL_MIN_HEIGHT: f32 = 160.0;
+
 /// Croix de fermeture peinte : le glyphe « ✕ » n'est pas rendu de façon fiable
 /// par les polices embarquées (même raison que `chip_remove_button`).
 fn close_button(ui: &mut egui::Ui, label: &str) -> bool {
@@ -81,6 +87,11 @@ impl<'a> Modal<'a> {
             width,
             height,
         } = self;
+
+        // Une boîte plus grande que la fenêtre déborderait : on la borne.
+        let available = ctx.content_rect().size() - egui::vec2(MODAL_MARGIN, MODAL_MARGIN);
+        let width = width.min(available.x).max(MODAL_MIN_WIDTH);
+        let height = height.map(|h| h.min(available.y).max(MODAL_MIN_HEIGHT));
 
         let response = egui::Modal::new(egui::Id::new(id)).show(ctx, |ui| {
             ui.set_min_width(width);

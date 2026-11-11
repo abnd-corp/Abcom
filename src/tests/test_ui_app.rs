@@ -307,3 +307,78 @@ fn enter_on_the_focused_send_button_goes_to_the_line_instead_of_sending() {
         "Cmd+Entrée doit continuer d'envoyer, focus ou pas"
     );
 }
+
+/// Rend `frames` images dans une fenêtre de `size` points à la densité `ppp`,
+/// avec les Paramètres ouverts, et renvoie le rectangle de leur boîte modale.
+fn settings_rect_in_window(
+    app: &mut AbcomApp,
+    size: egui::Vec2,
+    ppp: f32,
+    frames: usize,
+) -> Option<egui::Rect> {
+    let ctx = egui::Context::default();
+    ctx.set_pixels_per_point(ppp);
+    let raw = egui::RawInput {
+        screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, size)),
+        ..Default::default()
+    };
+    for _ in 0..frames {
+        let mut output = ctx.run_ui(raw.clone(), |root| {
+            app.show_sidebar_panel(root);
+            app.show_central_panel(root);
+            let ctx = root.ctx().clone();
+            app.render_settings(&ctx);
+        });
+        output.textures_delta.clear();
+    }
+    ctx.memory(|m| m.area_rect(egui::Id::new("settings_modal")))
+}
+
+/// La fenêtre des Paramètres faisait 640 × 480 quelle que soit la fenêtre : dans
+/// la plus petite permise (560 × 360), elle en sortait de partout.
+#[test]
+fn settings_window_fits_in_every_window_size_and_tab() {
+    use crate::ui::SettingsTab;
+
+    let mut app = test_app();
+    app.modals.settings_open = true;
+    for (width, height) in [(560.0, 360.0), (860.0, 600.0), (1440.0, 900.0)] {
+        for ppp in [1.0, 2.0] {
+            for tab in [
+                SettingsTab::Profile,
+                SettingsTab::General,
+                SettingsTab::Storage,
+                SettingsTab::Credits,
+                SettingsTab::License,
+            ] {
+                app.modals.settings_tab = tab;
+                let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(width, height));
+                let rect = settings_rect_in_window(&mut app, screen.size(), ppp, 3)
+                    .unwrap_or_else(|| panic!("Paramètres absents ({width}×{height})"));
+                assert!(
+                    screen.contains_rect(rect),
+                    "Paramètres {rect:?} hors de la fenêtre {screen:?} (onglet {}, ppp {ppp})",
+                    match tab {
+                        SettingsTab::Profile => "Profil",
+                        SettingsTab::General => "Général",
+                        SettingsTab::Storage => "Stockage",
+                        SettingsTab::Credits => "Crédits",
+                        SettingsTab::License => "Licence",
+                    }
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn settings_window_keeps_its_size_on_a_large_screen() {
+    let mut app = test_app();
+    app.modals.settings_open = true;
+    let rect = settings_rect_in_window(&mut app, egui::vec2(1440.0, 900.0), 1.0, 3)
+        .expect("Paramètres ouverts");
+    assert!(
+        rect.width() >= 760.0 && rect.height() >= 560.0,
+        "sur grand écran la fenêtre garde sa taille nominale : {rect:?}"
+    );
+}

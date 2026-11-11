@@ -66,16 +66,16 @@ impl AbcomApp {
         let noto_sans_role = self.t(i18n::POLICE_DE_TEXTE_DE_L_INTERFACE);
         let unifont_role = self.t(i18n::POLICE_DE_DERNIER_RECOURS);
 
-        // Taille fixe (celle, maximale, de l'onglet Licence) pour que la fenêtre
-        // ne change pas de dimensions quand on bascule d'un onglet à l'autre.
-        const SETTINGS_SIZE: egui::Vec2 = egui::vec2(640.0, 480.0);
+        // Taille fixe pour que la fenêtre ne change pas d'un onglet à l'autre ;
+        // `Modal` la ramène à la fenêtre de l'application si elle est plus petite.
+        const SETTINGS_SIZE: egui::Vec2 = egui::vec2(760.0, 560.0);
 
         let mut open = self.modals.settings_open;
         super::dialog::Modal::new("settings_modal", title, self.t(i18n::FERMER), SETTINGS_SIZE.x)
             .height(SETTINGS_SIZE.y)
             .show(ctx, &mut open, |ui| {
                 // Bandeau d'onglets
-                ui.horizontal(|ui| {
+                ui.horizontal_wrapped(|ui| {
                     for (tab, label) in [
                         (SettingsTab::Profile, profile_label),
                         (SettingsTab::General, general_label),
@@ -103,6 +103,10 @@ impl AbcomApp {
 
                 match self.modals.settings_tab {
                     SettingsTab::Profile => {
+                        egui::ScrollArea::vertical()
+                            .id_salt("settings_scroll_profile")
+                            .auto_shrink([false, false])
+                            .show(ui, |ui| {
                         ui.label(egui::RichText::new(profile_heading).strong());
                         ui.add_space(8.0);
                         // Empreinte de la clé d'identité (Noise) : à comparer
@@ -147,8 +151,13 @@ impl AbcomApp {
                                 });
                             });
                         });
+                                                });
                     }
                     SettingsTab::General => {
+                        egui::ScrollArea::vertical()
+                            .id_salt("settings_scroll_general")
+                            .auto_shrink([false, false])
+                            .show(ui, |ui| {
                         egui::Grid::new("settings_general")
                             .num_columns(2)
                             .spacing([16.0, 12.0])
@@ -258,8 +267,13 @@ impl AbcomApp {
                                 }
                                 ui.end_row();
                             });
+                                                });
                     }
                     SettingsTab::Storage => {
+                        egui::ScrollArea::vertical()
+                            .id_salt("settings_scroll_storage")
+                            .auto_shrink([false, false])
+                            .show(ui, |ui| {
                         storage_tab(
                             ui,
                             self.storage_usage.as_ref(),
@@ -269,6 +283,7 @@ impl AbcomApp {
                             self.ui_language,
                             &mut storage_actions,
                         );
+                                                });
                     }
                     SettingsTab::Credits => {
                         egui::ScrollArea::vertical()
