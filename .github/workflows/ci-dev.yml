@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Dépendances système
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev libgtk-3-dev libayatana-appindicator3-dev libxdo-dev
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev dbus
 
       - name: Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -37,6 +37,9 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
 
+      - name: Documentation EN/FR
+        run: python3 scripts/check_docs.py
+
       - name: Format
         run: cargo fmt --all --check
 
@@ -48,6 +51,16 @@ jobs:
 
       - name: Tests unitaires
         run: cargo test --all-features --locked
+
+      - name: Tray Linux KSNI sans GTK
+        timeout-minutes: 2
+        run: |
+          tree=$(cargo tree --all-features --locked --prefix none)
+          if printf '%s\n' "$tree" | grep -E '^(gtk|gtk-sys|libappindicator|proc-macro-error) v'; then
+            echo "La chaîne GTK/AppIndicator ne doit pas revenir dans le tray KSNI."
+            exit 1
+          fi
+          dbus-run-session -- cargo test --all-features --locked platform::tray::tests::ksni_creates_menu_and_updates_badge_without_gtk -- --ignored
 
   supply-chain:
     name: Audit dépendances (vulnérabilités · licences)
@@ -64,11 +77,23 @@ jobs:
         with:
           tool: cargo-audit,cargo-deny
 
+      - name: Suivi des exceptions de maintenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if grep -Eq 'id = "RUSTSEC-2026-037[012]"' deny.toml; then
+            state=$(gh issue view 59 --repo abnd-corp/Abcom --json state --jq '.state')
+            if [ "$state" != "OPEN" ]; then
+              echo "L'issue #59 doit rester ouverte tant qu'une exception D-Bus existe."
+              exit 1
+            fi
+          fi
+
       - name: Vulnérabilités connues (RUSTSEC)
         run: cargo audit
 
-      - name: Licences et sources des dépendances
-        run: cargo deny check licenses sources bans
+      - name: Audit complet des dépendances
+        run: cargo deny --locked check
 
   coverage:
     name: Couverture de tests
@@ -77,7 +102,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Dépendances système
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev libgtk-3-dev libayatana-appindicator3-dev libxdo-dev
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev dbus
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -97,7 +122,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Dépendances système
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev libgtk-3-dev libayatana-appindicator3-dev libxdo-dev
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev dbus
 
       - name: Lire la MSRV déclarée
         id: msrv
