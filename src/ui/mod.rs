@@ -626,6 +626,80 @@ impl AbcomApp {
         entry.get(self.ui_language)
     }
 
+    /// Rafraîchit les caches dérivés si l'état a changé (génération) — sinon la
+    /// frame se rend sans reprendre le verrou ni rien re-dériver.
+    pub(crate) fn refresh_caches(&mut self, ctx: &egui::Context) {
+        {
+            let theme = theme::current(ctx);
+            let s = self.state.lock_safe();
+            self.sidebar_cache.refresh(&s);
+            let rebuilt = self.chat_cache.refresh(
+                &s,
+                self.ui_language,
+                &self.emoji.map,
+                ctx.theme() == egui::Theme::Dark,
+                &theme,
+            );
+            drop(s);
+            if let Some(conv_changed) = rebuilt {
+                if conv_changed {
+                    self.chat_visible_count = CHAT_WINDOW_STEP;
+                    self.chat_prepend_fix = None;
+                }
+                // Les GIFs sortis du fil (changement de conversation ou
+                // expiration du ring-buffer) libèrent leurs frames décodées.
+                for url in self
+                    .media
+                    .known_gif_urls
+                    .difference(&self.chat_cache.gif_urls)
+                {
+                    ctx.forget_image(url);
+                }
+                self.media.known_gif_urls = self.chat_cache.gif_urls.clone();
+            }
+        }
+    }
+
+    /// Panneaux, fenêtres et surcouches de l'application, dans l'ordre imposé par egui.
+    pub(crate) fn show_app(&mut self, root: &mut egui::Ui) {
+        let ctx = root.ctx().clone();
+        let ctx = &ctx;
+
+        // Avant les panneaux : une combinaison consommée ici ne sera pas
+        // réinterprétée par un widget dans la même frame.
+        self.handle_shortcuts(ctx);
+        self.submit_search();
+
+        // Ordre imposé par egui : panneaux latéraux, puis bas, puis central.
+        self.show_sidebar_panel(root);
+        let (emoji_btn_clicked, gif_btn_clicked) = self.show_input_bar(root);
+        self.show_notification(ctx);
+        self.show_emoji_picker_window(ctx, emoji_btn_clicked);
+        self.show_gif_picker_window(ctx, gif_btn_clicked);
+        self.render_group_modal(ctx);
+        self.render_group_manage_modal(ctx);
+        self.show_central_panel(root);
+        self.show_reaction_emoji_picker(ctx);
+        self.render_settings(ctx);
+        self.show_media_viewer(ctx);
+        self.show_search(ctx);
+
+        // Repaint de repli : les événements réseau réveillent déjà l'UI
+        // (cf. notify.rs), il ne reste à couvrir que les états transitoires
+        // à expiration temporelle. Au repos : une frame toutes les 5 s
+        // (nettoyage des pairs inactifs), soit un CPU/GPU quasi nul.
+        let fallback = if self.last_notification.is_some() || self.highlight_message.is_some() {
+            Duration::from_millis(500) // expiration notification / flash de surlignage
+        } else if self.typing_active {
+            Duration::from_secs(1) // expiration de l'indicateur « écrit… »
+        } else if !self.window_focused {
+            Duration::from_secs(30) // visible en arrière-plan : quasi dormant
+        } else {
+            Duration::from_secs(5) // tick periodic_tasks
+        };
+        ctx.request_repaint_after(fallback);
+    }
+
     /// Applique l'apparence au contexte quand elle a changé, puis l'enregistre.
     ///
     /// L'écriture attend que le bouton de la souris soit relâché : un curseur
@@ -1077,37 +1151,7 @@ impl eframe::App for AbcomApp {
 
         self.sync_appearance(ctx);
 
-        // Rafraîchit les caches dérivés si l'état a changé (génération) —
-        // sinon la frame se rend sans reprendre le verrou ni rien re-dériver.
-        {
-            let theme = theme::current(ctx);
-            let s = self.state.lock_safe();
-            self.sidebar_cache.refresh(&s);
-            let rebuilt = self.chat_cache.refresh(
-                &s,
-                self.ui_language,
-                &self.emoji.map,
-                ctx.theme() == egui::Theme::Dark,
-                &theme,
-            );
-            drop(s);
-            if let Some(conv_changed) = rebuilt {
-                if conv_changed {
-                    self.chat_visible_count = CHAT_WINDOW_STEP;
-                    self.chat_prepend_fix = None;
-                }
-                // Les GIFs sortis du fil (changement de conversation ou
-                // expiration du ring-buffer) libèrent leurs frames décodées.
-                for url in self
-                    .media
-                    .known_gif_urls
-                    .difference(&self.chat_cache.gif_urls)
-                {
-                    ctx.forget_image(url);
-                }
-                self.media.known_gif_urls = self.chat_cache.gif_urls.clone();
-            }
-        }
+        self.refresh_caches(ctx);
 
         // Flash barre des tâches si message non lu — réinitialisé une seule fois
         // quand la fenêtre reprend le focus (pas d'envoi répété en boucle).
@@ -1237,39 +1281,7 @@ impl eframe::App for AbcomApp {
             });
         }
 
-        // Avant les panneaux : une combinaison consommée ici ne sera pas
-        // réinterprétée par un widget dans la même frame.
-        self.handle_shortcuts(ctx);
-        self.submit_search();
-
-        // Ordre imposé par egui : panneaux latéraux, puis bas, puis central.
-        self.show_sidebar_panel(root);
-        let (emoji_btn_clicked, gif_btn_clicked) = self.show_input_bar(root);
-        self.show_notification(ctx);
-        self.show_emoji_picker_window(ctx, emoji_btn_clicked);
-        self.show_gif_picker_window(ctx, gif_btn_clicked);
-        self.render_group_modal(ctx);
-        self.render_group_manage_modal(ctx);
-        self.show_central_panel(root);
-        self.show_reaction_emoji_picker(ctx);
-        self.render_settings(ctx);
-        self.show_media_viewer(ctx);
-        self.show_search(ctx);
-
-        // Repaint de repli : les événements réseau réveillent déjà l'UI
-        // (cf. notify.rs), il ne reste à couvrir que les états transitoires
-        // à expiration temporelle. Au repos : une frame toutes les 5 s
-        // (nettoyage des pairs inactifs), soit un CPU/GPU quasi nul.
-        let fallback = if self.last_notification.is_some() || self.highlight_message.is_some() {
-            Duration::from_millis(500) // expiration notification / flash de surlignage
-        } else if self.typing_active {
-            Duration::from_secs(1) // expiration de l'indicateur « écrit… »
-        } else if !self.window_focused {
-            Duration::from_secs(30) // visible en arrière-plan : quasi dormant
-        } else {
-            Duration::from_secs(5) // tick periodic_tasks
-        };
-        ctx.request_repaint_after(fallback);
+        self.show_app(root);
     }
 
     /// Flush final du stockage : attend que toutes les écritures en file
