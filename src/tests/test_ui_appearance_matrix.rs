@@ -428,3 +428,224 @@ fn matrix_every_font_in_the_smallest_window_at_the_largest_size() {
         }
     }
 }
+
+// ── Cas limites ───────────────────────────────────────────────────────────
+
+fn default_combo(name: &str, size: (f32, f32)) -> Combo {
+    Combo {
+        name: name.to_owned(),
+        appearance: Appearance::default(),
+        size,
+        ppp: 1.0,
+        custom_theme: false,
+    }
+}
+
+/// Les Paramètres se réajustent quand on redimensionne la fenêtre.
+#[test]
+fn resizing_the_window_with_the_settings_open_keeps_them_inside() {
+    let mut run = build(&default_combo("redimensionnement", (1440.0, 900.0)));
+    run.open_settings(SettingsTab::Appearance);
+    run.check_layout("grande fenêtre");
+    for size in [
+        (860.0, 600.0),
+        (560.0, 360.0),
+        (1000.0, 500.0),
+        (560.0, 360.0),
+        (1440.0, 900.0),
+    ] {
+        run.harness.set_size(egui::vec2(size.0, size.1));
+        run.screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(size.0, size.1));
+        run.settle();
+        run.check_layout(&format!("{size:?}"));
+    }
+}
+
+/// Fenêtre déplacée d'un écran Retina vers un écran ordinaire, et inversement.
+#[test]
+fn changing_the_pixel_density_does_not_break_the_layout() {
+    let mut run = build(&default_combo("densité", (860.0, 600.0)));
+    run.open_settings(SettingsTab::Appearance);
+    for ppp in [2.0, 1.0, 1.5, 2.0, 1.0] {
+        run.harness.ctx.set_pixels_per_point(ppp);
+        run.settle();
+        run.check_layout(&format!("ppp {ppp}"));
+    }
+}
+
+/// Un message très long reste replié, et son bouton accessible, à la plus grande taille.
+#[test]
+fn a_very_long_message_still_collapses_at_the_largest_size() {
+    let mut combo = default_combo("message long", (860.0, 600.0));
+    combo.appearance.text = scaled(1.6, 1.6);
+    let mut run = build(&combo);
+    {
+        let app = run.app.borrow();
+        let mut state = app.state.lock().unwrap();
+        state.messages.push(crate::message::ChatMessage {
+            from: "alice".into(),
+            content: "mot ".repeat(1500),
+            timestamp: "12:01".into(),
+            timestamp_epoch: Some(99),
+            to_user: Some("moi".into()),
+            media: None,
+            reply_to: None,
+            nonce: None,
+        });
+        state.bump_content();
+    }
+    run.settle();
+    run.check_layout("message long");
+    let show_more = run
+        .harness
+        .query_all_by_label_contains("Afficher la suite")
+        .count();
+    assert_eq!(show_more, 1, "[{}] le repli est proposé", run.name);
+}
+
+/// Au clavier seul : on atteint les cartes de thème, on en choisit une.
+#[test]
+fn the_theme_gallery_is_usable_with_the_keyboard_alone() {
+    let mut run = build(&default_combo("clavier", (860.0, 600.0)));
+    run.open_settings(SettingsTab::Appearance);
+    let classic = format!("{} {}", fr(i18n::THEME), fr(BuiltinTheme::Classic.name()));
+    run.harness.get_by_label(&classic).focus();
+    run.settle();
+    run.harness.key_press(egui::Key::Tab);
+    run.settle();
+    run.harness.key_press(egui::Key::Space);
+    run.settle();
+    assert_eq!(run.app.borrow().appearance.theme, BuiltinTheme::Lounge.id());
+    run.harness.key_press(egui::Key::Tab);
+    run.settle();
+    run.harness.key_press(egui::Key::Enter);
+    run.settle();
+    assert_eq!(run.app.borrow().appearance.theme, BuiltinTheme::Frost.id());
+}
+
+/// Chaque contrôle de l'onglet a un nom pour un lecteur d'écran.
+#[test]
+fn every_control_of_the_appearance_tab_has_an_accessible_name() {
+    use egui::accesskit::Role;
+    let mut run = build(&default_combo("accessibilité", (860.0, 600.0)));
+    run.open_settings(SettingsTab::Appearance);
+    for label in [
+        i18n::APPARENCE_THEMES,
+        i18n::APPARENCE_TEXTE,
+        i18n::APPARENCE_COULEURS,
+        i18n::APPARENCE_POLICES,
+    ] {
+        let is_colors = label.fr == i18n::APPARENCE_COULEURS.fr;
+        let title = fr(label);
+        run.click(title);
+        if is_colors {
+            run.click(fr(i18n::OPTIONS_AVANCEES));
+        }
+        for node in run.harness.root().children_recursive() {
+            let access = node.accesskit_node();
+            if !matches!(
+                access.role(),
+                Role::Button | Role::Slider | Role::RadioButton | Role::CheckBox | Role::TextInput
+            ) || access.is_hidden()
+            {
+                continue;
+            }
+            let name = access.label().unwrap_or_default();
+            assert!(
+                !name.trim().is_empty() || access.role() == Role::Button,
+                "[{}] un contrôle {:?} sans nom dans « {} »",
+                run.name,
+                access.role(),
+                title
+            );
+        }
+    }
+}
+
+/// Dossier des thèmes en lecture seule : le thème sert pour la session, un seul avis.
+#[cfg(unix)]
+#[test]
+fn a_read_only_data_folder_keeps_the_theme_for_the_session_and_warns_once() {
+    use std::os::unix::fs::PermissionsExt;
+    let mut run = build(&default_combo("lecture seule", (860.0, 600.0)));
+    let themes_dir = {
+        let app = run.app.borrow();
+        let dir = app
+            .state
+            .lock()
+            .unwrap()
+            .media_dir()
+            .parent()
+            .unwrap()
+            .to_path_buf();
+        dir
+    };
+    std::fs::set_permissions(&themes_dir, std::fs::Permissions::from_mode(0o500)).unwrap();
+    if std::fs::write(themes_dir.join("sonde"), "x").is_ok() {
+        std::fs::set_permissions(&themes_dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+        return;
+    }
+    run.open_settings(SettingsTab::Appearance);
+    run.click(fr(i18n::APPARENCE_COULEURS));
+    run.harness
+        .get_by_role_and_label(
+            egui::accesskit::Role::TextInput,
+            &format!("{} : {}", fr(i18n::ROLE_FOND), fr(i18n::CODE_COULEUR)),
+        )
+        .focus();
+    run.settle();
+    run.harness
+        .key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::A);
+    run.harness
+        .get_by_role_and_label(
+            egui::accesskit::Role::TextInput,
+            &format!("{} : {}", fr(i18n::ROLE_FOND), fr(i18n::CODE_COULEUR)),
+        )
+        .type_text("#123456");
+    run.settle();
+    let app = run.app.borrow();
+    assert!(app.appearance.custom_id().is_some(), "le thème reste actif");
+    assert_eq!(
+        app.last_notification.as_deref(),
+        Some(fr(i18n::THEME_NON_ENREGISTRE))
+    );
+    assert!(app.themes.has_unsaved());
+    drop(app);
+    std::fs::set_permissions(&themes_dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+}
+
+/// Mode Système : l'application suit le thème du système quand il change en cours de route.
+#[test]
+fn the_system_mode_follows_the_operating_system_while_running() {
+    let mut app = new_app(None);
+    assert_eq!(app.appearance.mode, Mode::System);
+    let ctx = egui::Context::default();
+    let mut previous_revision = 0;
+    for theme in [
+        egui::Theme::Dark,
+        egui::Theme::Light,
+        egui::Theme::Dark,
+        egui::Theme::Light,
+    ] {
+        let raw = egui::RawInput {
+            system_theme: Some(theme),
+            ..Default::default()
+        };
+        let mut output = ctx.run_ui(raw, |ui| {
+            app.sync_appearance(ui.ctx());
+            app.refresh_caches(ui.ctx());
+        });
+        output.textures_delta.clear();
+        assert_eq!(ctx.theme(), theme, "le thème suit celui du système");
+        previous_revision = super::theme::current(&ctx).revision.max(previous_revision);
+    }
+    // Un thème forcé ne le suit plus.
+    app.appearance.mode = Mode::Dark;
+    let raw = egui::RawInput {
+        system_theme: Some(egui::Theme::Light),
+        ..Default::default()
+    };
+    let mut output = ctx.run_ui(raw, |ui| app.sync_appearance(ui.ctx()));
+    output.textures_delta.clear();
+    assert_eq!(ctx.theme(), egui::Theme::Dark);
+}
