@@ -7,6 +7,14 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 
 ## [Non publié]
 
+### Maintenance
+- Tray Linux migré vers KSNI sans GTK/AppIndicator ; trois exceptions de maintenance D-Bus approuvées et suivies dans l’issue #59, qui doit rester ouverte jusqu’à leur retrait
+- Mise à jour des dépendances directes et transitives, avec adaptation à egui 0.37 et ZIP 9 ; les vulnérabilités signalées sont corrigées, quatre avis de dépendances Linux non maintenues restent à traiter
+
+### Documentation
+- Rangement de la racine, retrait des anciens plans et documents remplacés, conservation des décisions et du protocole de mesure dans les guides actuels
+- README courts en anglais et français, sommaires et guides bilingues, dépannage/FAQ et contrôle local des liens et des traductions
+
 ### Ajouté
 - **Onglet Apparence** (Paramètres) : dix thèmes intégrés en clair et en sombre (Classique, Salon, Givre, Nocturne, Sable, Ardoise, Guimauve, Encre, Forêt, Lisible), tailles de texte séparées pour l'interface et pour les conversations avec une taille générale qui agrandit tout d'un coup, interligne et espacement des lettres des conversations, couleurs modifiables (quatre principales et section Avancé de vingt et un rôles) avec contraste WCAG en direct, aperçu, et thèmes personnels (copie d'un thème intégré, duplication, renommage, suppression). Les emojis ne changent jamais de taille
 - **Polices au choix**, pour l'interface et pour les conversations séparément : Noto Sans, Inter, Atkinson Hyperlegible, Lexend, OpenDyslexic, Literata, Nunito et JetBrains Mono (toutes sous licence OFL), chacune affichée dans sa propre police, ou un fichier importé (`.ttf`, `.otf`, `.ttc`, `.woff`, `.woff2`). Tout fichier est décodé et validé avant d'atteindre egui, qui panique sur une police illisible
@@ -28,6 +36,7 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 - MSRV déclarée (`rust-version = "1.95"`) et vérifiée en CI ; `cargo audit` et `cargo deny` désormais exécutés sur `dev` comme sur `main`
 
 ### Corrigé
+- Paramètres : colonnes lisibles dans Stockage, Crédits et Général, actions de stockage adaptées aux petites fenêtres, défilement unique par onglet ; la licence suit la taille du texte et replie ses paragraphes à la largeur disponible
 - Le choix clair, sombre ou système **n'était pas conservé** : il revenait à « système » à chaque lancement
 - Les Paramètres faisaient 640 × 480 quelle que soit la fenêtre et en sortaient dans la plus petite : la boîte est bornée à la fenêtre, et tout l'onglet défile d'un bloc. Les libellés longs reviennent à la ligne
 - Les pastilles de réaction, le voile de survol et le surlignage d'un message étaient écrits en dur pour le thème sombre : ils suivent maintenant la palette

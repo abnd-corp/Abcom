@@ -1,5 +1,7 @@
 # 05 — Fonctionnalités en détail
 
+[English](en/05-features.md) · **Français** · [Documentation](README.fr.md)
+
 Ce document décrit le comportement attendu de l'application, fonctionnalité par fonctionnalité. C'est la référence à consulter avant de modifier une règle métier.
 
 ## Conversations
@@ -10,7 +12,7 @@ Trois types de fils, distingués par le champ `to_user` du message :
 |---|---|---|
 | `None` | « Tous » | Tous les pairs en ligne (broadcast) |
 | `Some("bob")` | Privé | Le seul destinataire |
-| `Some("#equipe")` | Salon | Les membres en ligne du groupe, personne d'autre |
+| `Some("#<id>")` | Salon | Les membres en ligne du groupe, personne d'autre |
 
 Le préfixe `#` est réservé aux salons (les pseudos ne peuvent pas en contenir). Cette convention fait que stockage, pagination, réactions, réponses et Markdown fonctionnent à l'identique pour les trois cas — seul le filtrage par conversation les distingue.
 
@@ -58,7 +60,7 @@ Abcom étant sans serveur, il n'existe pas de « vérité centrale » d'un group
 
 ### Modèle
 
-Un groupe ([message/group.rs](../src/message/group.rs)) : un nom (identifiant **et** libellé, 1 à 50 caractères alphanumériques Unicode plus `-` et `_`, unicité insensible à la casse), un propriétaire, la liste des membres dans l'ordre d'arrivée, une date de création.
+Un groupe ([message/group.rs](../src/message/group.rs)) : un identifiant immuable, un nom affiché (non vide, au plus 50 octets, caractères alphanumériques Unicode plus `-` et `_`, doublons comparés sans tenir compte de la casse ASCII), un propriétaire, la liste des membres dans l'ordre d'arrivée, une date de création.
 
 ### Rôles
 
@@ -70,7 +72,7 @@ Un groupe ([message/group.rs](../src/message/group.rs)) : un nom (identifiant **
 | Quitter le groupe | ✔ (avec succession) | ✔ |
 | Supprimer le groupe | ✔ | ✘ |
 
-Ces règles sont vérifiées chez l'initiateur ; les récepteurs appliquent les événements reçus (le rôle n'est pas authentifié au niveau protocole — cohérent avec le modèle de menace).
+Ces règles sont vérifiées chez l'initiateur et à la réception selon l'auteur authentifié de la session et le propriétaire connu localement. Les événements n'ont pas de signature transférable hors de cette session.
 
 ### Synchronisation
 
@@ -120,7 +122,7 @@ Chaque utilisateur peut choisir un avatar (PNG/JPEG ; l'import SVG existe derri�
 
 ## Paramètres
 
-Langue FR/EN, format des notifications, autostart, profil (pseudo, avatar, empreinte de clé, état de la passphrase de salon), stockage, apparence (ci-dessous), crédits et licences. La fenêtre garde la taille de la fenêtre de l'application au plus : trop petite, elle défile.
+Langue FR/EN (choix de session, retour au français au démarrage), format des notifications, autostart, profil (pseudo, avatar, empreinte de clé, état de la passphrase de salon), stockage, apparence (ci-dessous), crédits et licences. La fenêtre garde la taille de la fenêtre de l'application au plus : trop petite, elle défile.
 
 ### Apparence
 

@@ -1,7 +1,9 @@
 # Cahier de tests
 
-Tests manuels d'abcom. La suite automatique (`make test`, 329 tests) couvre la
-logique pure ; ce cahier couvre ce qu'elle ne peut pas voir : le réseau réel,
+[English](en/10-testing.md) · **Français** · [Documentation](README.fr.md)
+
+Tests manuels d'abcom. La suite automatique (`make check`, plus de 600 tests) couvre la
+logique, les sockets réelles et les interactions simulées ; ce cahier couvre le réseau réel entre postes,
 l'interface, le système de fichiers et les trois OS.
 
 ## Comment lancer
@@ -15,15 +17,9 @@ make run-multi N=4
 Chaque instance a son `ABCOM_INSTANCE` (ports 9000, 9010, 9020…) et son propre
 répertoire de données. Les GIF exigent `ABCOM_KLIPY_API_KEY` dans `.env`.
 
-**Repartir de zéro** — indispensable avant les tests de migration et de TOFU :
+Utiliser des dossiers d'instances **jetables** pour les tests destructifs et sauvegarder avant migration ou changement d'identité. Ne jamais effacer les données d'usage pour réinitialiser un test. Les chemins sont dans le [guide de stockage](04-stockage.md#répertoire-de-données).
 
-| OS | Répertoire à supprimer |
-|---|---|
-| Linux | `~/.local/share/abcom*` |
-| macOS | `~/Library/Application Support/abcom*` |
-| Windows | `%APPDATA%\abcom*` |
-
-(Instance 0 = `abcom`, instance _n_ = `abcom-n`.)
+Une fermeture par la croix masque normalement la fenêtre : utiliser « Quitter » pour tester un arrêt réel. Consigner OS, commit, options de compilation et résultat observé ; une ligne dans ce cahier ne signifie pas que le test est passé.
 
 ## Conventions
 
@@ -67,10 +63,10 @@ Priorités : **P0** bloque une livraison, **P1** défaut visible, **P2** confort
 |---|---|---|---|---|
 | 3.1 | Livraison | Alice → bob (fenêtre bob en arrière-plan) | Alice voit « reçu » | P0 |
 | 3.2 | Lecture | Bob ouvre la conversation | Alice voit « lu » | P0 |
-| 3.3 | **Retour du focus** | Fenêtre de bob **déjà ouverte sur le salon** mais en arrière-plan. Alice envoie. Bob **clique sur sa fenêtre sans changer de conversation** | Alice voit « lu » sous 1 s. Régression : il fallait sortir du salon et y revenir | P0 |
+| 3.3 | **Retour du focus** | Fenêtre de bob **déjà ouverte sur la conversation privée** mais en arrière-plan. Alice envoie. Bob **clique sur sa fenêtre sans changer de conversation** | Alice voit « lu » sous 1 s. Régression : il fallait sortir du salon et y revenir | P0 |
 | 3.4 | Retour du tray | Bob replie dans le tray, alice envoie, bob restaure | Accusé de lecture émis à la restauration | P1 |
 | 3.5 | Pas de réémission | Alt-tab plusieurs fois sur une conversation lue | Aucun accusé réémis (vérifier les logs) | P2 |
-| 3.6 | Détail en salon | Cliquer « … » sur un message de salon | Liste nominative « reçu par » / « lu par » | P1 |
+| 3.6 | Portée des accusés | Envoyer dans un salon | Aucun accusé privé de livraison/lecture affiché : les accusés de groupe ne sont pas implémentés | P1 |
 | 3.7 | **Accusé après commit** | Rendre la base non inscriptible (voir §11.2), alice → bob | Bob **n'acquitte pas**, alice réémet. Rien n'est annoncé « reçu » à tort | P0 |
 
 # 4. Groupes
@@ -78,7 +74,7 @@ Priorités : **P0** bloque une livraison, **P1** défaut visible, **P2** confort
 | # | Test | Actions | Attendu | P |
 |---|---|---|---|---|
 | 4.1 | Création | Alice crée « equipe » avec bob | Le salon apparaît chez les deux | P0 |
-| 4.2 | Nom invalide | Espaces, > 50 caractères, doublon | Refusé avec message | P1 |
+| 4.2 | Nom invalide | Espaces, > 50 octets, doublon | Refusé avec message | P1 |
 | 4.3 | Ajout de membre | Alice ajoute carol | Carol reçoit le salon **et son historique reste vide** | P0 |
 | 4.4 | Exclusion | Alice exclut carol | Le salon disparaît chez carol | P0 |
 | 4.5 | Départ volontaire | Bob quitte | Historique local effacé chez bob, conservé chez alice | P0 |
@@ -86,27 +82,12 @@ Priorités : **P0** bloque une livraison, **P1** défaut visible, **P2** confort
 | 4.7 | Suppression | Alice supprime le salon | Disparaît chez tous les membres | P0 |
 | 4.8 | Non-propriétaire | Bob tente de supprimer | Refusé | P0 |
 
-## 4.9 — Renommage (le cœur de la refonte)
+| ID | Test | Actions | Attendu | P |
+|---|---|---|---|---|
+| 4.9 | Renommage backend | Renommer avec historique, réaction et réponse existants | Nom modifié ; ID, historique, réactions et repère de lecture intacts | P0 |
+| 4.10 | Renommage puis redémarrage | Recharger après 4.9 | Nom et historique cohérents | P0 |
 
-**Préconditions** : salon « equipe » avec alice et bob, une dizaine de messages,
-au moins une **réaction**, un message **lu** (accusé visible) et une **réponse**.
-
-1. Alice renomme le salon en « equipe-2 ».
-
-**Attendu, chez alice et chez bob :**
-
-- le nom change partout : barre latérale, titre du fil, popup participants ;
-- **l'historique reste entier** — aucun message ne disparaît ;
-- **les réactions restent attachées** à leurs messages ;
-- **les accusés « reçu / lu » restent affichés** ;
-- **le compteur de non-lus reste juste** (pas de saut à zéro ni de réapparition) ;
-- envoyer un nouveau message continue de fonctionner, avec son accusé.
-
-> C'est le scénario qui cassait : le nom entrait dans le hash des messages, donc
-> le renommage orphelinait réactions, accusés et repère de lecture. **P0.**
-
-**4.10 — Renommage puis redémarrage** : après 4.9, fermer et relancer les deux
-instances. Tout doit être identique. Vérifie que la migration en base a suivi.
+**4.9/4.10 :** le déclencheur GUI de renommage n'existe pas encore. Valider les tests de groupes et de stockage (`cargo test app::groups`, puis les tests de stockage) ; le parcours manuel à deux fenêtres reste à faire quand le bouton sera câblé. Aucun accusé privé n'est un prérequis de ce test de groupe.
 
 # 5. Réactions
 
@@ -206,9 +187,10 @@ instances. Tout doit être identique. Vérifie que la migration en base a suivi.
 | 11.6 | Cache média | Laisser tourner > 15 min avec beaucoup de médias | Aucun fichier ne disparaît : plus aucune purge automatique | P1 |
 | 11.7 | Purge manuelle | Paramètres → Stockage, saisir une durée, purger | L'aperçu annonce le volume, seuls les fichiers plus vieux partent, les images du fil sont épargnées si la case est décochée | P1 |
 | 11.8 | Envoi sans doublon | Envoyer un fichier, regarder `media/` chez l'émetteur | Aucune copie créée ; l'original reste seul sur le disque | P2 |
-| 11.7 | Instance hors plage | `ABCOM_INSTANCE=999999` | Démarre sur un port valide, **sans panique** | P2 |
+| 11.9 | Instance hors plage | `ABCOM_INSTANCE=999999` | Démarre sur un port valide, **sans panique** | P2 |
+| 11.10 | Migration | Reprendre une sauvegarde de version antérieure selon la procédure ci-dessous | Historique et références conservés | P0 |
 
-## 11.8 — Migration depuis une version antérieure (P0)
+## 11.10 — Migration depuis une version antérieure (P0)
 
 À faire **une fois**, avec une vraie base d'avant la refonte des groupes.
 
@@ -229,7 +211,7 @@ salon garde son nom. Ensuite, appliquer 4.9 (renommage) : tout doit tenir.
 | # | Test | Actions | Attendu | P |
 |---|---|---|---|---|
 | 12.1 | Thèmes | Basculer clair / sombre / système | Tout reste lisible, aucun texte invisible | P1 |
-| 12.2 | Langue | Basculer FR / EN | Tous les libellés suivent | P1 |
+| 12.2 | Langue | Basculer FR / EN | Tous les libellés suivent ; la langue reste un choix de session | P1 |
 | 12.3 | Avatar | Choisir, changer, retirer | Propagé aux pairs | P1 |
 | 12.4 | Alias | Renommer un contact | Local, persistant | P2 |
 | 12.5 | Tray | Fermer la fenêtre | Repli dans le tray, l'app tourne | P0 |
@@ -257,6 +239,9 @@ salon garde son nom. Ensuite, appliquer 4.9 (renommage) : tout doit tenir.
 | 12.27 | Lecteur d'écran | VoiceOver (macOS) ou NVDA (Windows) sur Apparence | Chaque contrôle est annoncé avec son nom, une carte de thème dit si elle est sélectionnée | P2 |
 | 12.28 | Sélecteur natif | Importer une police sur chaque OS | La feuille s'ouvre sans geler la fenêtre ; annuler ne change rien | P0 |
 | 12.29 | Emojis inchangés | Fil, emoji seul, saisie, réactions, dans trois thèmes et à 80 / 160 % | Mêmes tailles et même alignement partout | P1 |
+| 12.30 | Stockage après calcul | Attendre le tableau rempli, tester en FR/EN à 100 / 160 %, réduire à 560 × 360 puis défiler jusqu'aux boutons | Catégories, tailles et nombres lisibles, aucune colonne hors fenêtre, actions de purge et d'ouverture accessibles | P1 |
+| 12.31 | Tableaux des paramètres | Parcourir Général et tous les Crédits, jusqu'aux palettes, à 100 / 160 % | Libellés lisibles, valeurs alignées, défilement sans zone imbriquée | P1 |
+| 12.32 | Lecture de la licence | À 100 puis 160 %, lire le début puis défiler jusqu'au dernier paragraphe | Texte agrandi et replié à la largeur disponible, sans indentation excessive ni coupure horizontale | P1 |
 
 ---
 
@@ -268,13 +253,14 @@ Le cœur est identique partout ; ces points diffèrent réellement.
 
 | # | Test | Attendu |
 |---|---|---|
-| L1 | `scripts/abcom-install.sh` | Binaire, service systemd et **raccourci menu fonctionnel** |
+| L1 | `scripts/abcom-install.sh` | Binaire et **raccourci menu fonctionnel**, aucun nouveau service systemd |
 | L2 | **Lancer depuis le menu** | L'app démarre. Régression : `%h` n'était pas développé, le raccourci ne lançait rien |
 | L3 | Démarrage unique | Après installation puis reconnexion de session : **une seule** instance tourne. `systemctl --user status abcom` doit répondre que l'unité n'existe pas — le démarrage passe uniquement par `~/.config/autostart/` |
 | L6 | Build minimal | `cargo build --release --no-default-features` sur une machine **sans GTK ni ALSA** : doit compiler. L'app démarre sans tray (fermer la fenêtre quitte) et sans bip |
 | L7 | Alpine / musl | Installer les paquets de [docs/06](06-installation.md), compiler, lancer. Binaire lié dynamiquement à musl |
+| L8 | KSNI et apparition du watcher | Sur un bus D-Bus privé, créer le tray, changer le badge et quitter ; sur un vrai bureau, vérifier Ouvrir/Quitter, repli/restauration et watcher démarrant après l'application |
 | L4 | Wayland et X11 | Tester les deux : tray, notifications, focus (test 3.3) |
-| L5 | Tray selon l'environnement | GNOME demande une extension AppIndicator ; KDE/XFCE fonctionnent nativement |
+| L5 | Tray selon l'environnement | StatusNotifierItem nécessaire ; GNOME peut demander une extension ; vérifier KDE/XFCE |
 
 > L3 vérifie la correction du double autostart : les installateurs ne posent
 > plus de service systemd, le démarrage est géré par l'application seule
@@ -309,12 +295,12 @@ Le cœur est identique partout ; ces points diffèrent réellement.
 Si le temps manque, ces tests seuls :
 
 1. **1.1** découverte — **2.1** message privé — **2.3** salon
-2. **3.3** accusé de lecture au retour du focus
-3. **4.9** renommage de salon *(le plus important)*
+2. **3.3** accusé de lecture privé au retour du focus
+3. **4.9** renommage de salon *(backend ; parcours GUI en attente)*
 4. **6.1**, **6.8**, **6.9** médias et seuil
 5. **7.3** rendu d'un GIF
 6. **10.3** changement de clé — **10.5** passphrase
-7. **11.1** redémarrage — **11.8** migration
+7. **11.1** redémarrage — **11.10** migration
 8. **12.5 / 12.6** tray, sur chaque OS cible
 
 # 15. Ce que la suite automatique couvre déjà
@@ -327,11 +313,14 @@ signature des annonces, path traversal, et l'apparence : persistance et redémar
 validation et décodage des polices (formats web, bombes de décompression, fichiers
 tronqués), catalogue en ligne simulé (aucune requête sans accord, annulation,
 erreurs réseau), contraste de chaque thème, et toute l'application rejouée sous
-chaque thème, taille de texte, taille de fenêtre et densité. Il reste à la main :
+chaque thème, taille de texte, taille de fenêtre et densité. Les paramètres sont
+aussi vérifiés avec le tableau de stockage rempli, les textes des grilles en
+FR/EN à 100 / 160 %, la licence agrandie sans altération de ses mots et l'accès
+aux réglages de purge en petite fenêtre. Il reste à la main :
 le rendu sur un vrai écran, le sélecteur natif de chaque OS et le lecteur d'écran
 (12.25 à 12.29).
 
 ```bash
-make test          # plus de 600 tests
-cargo test --release   # à lancer avant livraison : le debug fausse les temps
+make check         # suite complète avec toutes les fonctionnalités
+cargo test --release --all-features --locked   # mesures avant livraison
 ```

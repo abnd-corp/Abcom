@@ -1,4 +1,4 @@
-.PHONY: all build release install uninstall run run2 rung run-multi run-windows help clean check test testv test-verbose test-module test-watch deploy-bin install-bin
+.PHONY: all build release install uninstall run run2 rung run-multi run-windows help clean check test testv test-verbose test-module test-watch deploy-bin install-bin check-docs
 
 export PATH := $(HOME)/.cargo/bin:$(PATH)
 CARGO := cargo
@@ -20,10 +20,14 @@ endif
 all: build
 
 ## Vérifie le formatage, Clippy et tous les tests
-check:
+check: check-docs
 	$(CARGO) fmt --all --check
 	$(CARGO) clippy --all-targets --all-features --locked -- -D warnings
 	$(CARGO) test --all-features --locked
+
+## Vérifie les guides EN/FR et leurs liens locaux
+check-docs:
+	python3 scripts/check_docs.py
 
 ## Compile en mode développement
 build:
@@ -68,9 +72,10 @@ help:
 	@printf "  make rung             - lance 3 fenêtres pour tester les groupes\n"
 	@printf "  make run-multi N=4    - lance N fenêtres locales\n"
 	@printf "  make run-windows      - compile pour Windows depuis WSL et lance l'appli\n"
-	@printf "  make install          - installe binaire + raccourci + service systemd\n"
-	@printf "  make uninstall        - désinstalle le binaire et le service\n"
+	@printf "  make install          - installe le binaire et le raccourci Linux\n"
+	@printf "  make uninstall        - désinstalle le binaire et le service hérité\n"
 	@printf "  make clean            - supprime les artefacts de compilation\n"
+	@printf "  make check-docs       - vérifie les guides EN/FR et les liens locaux\n"
 	@printf "  make test             - lance tous les tests\n"
 	@printf "  make test-verbose     - lance les tests avec --nocapture\n"
 	@printf "  make test-module M=.. - lance un module de test spécifique\n"

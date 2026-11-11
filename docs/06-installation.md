@@ -1,8 +1,11 @@
 # 06 — Installation et déploiement
 
+[English](en/06-installation.md) · **Français** · [Documentation](README.fr.md)
+
 ## Prérequis
 
-- Rust stable (`rustup`), édition 2021.
+- Rust via `rustup`, au moins la version déclarée dans `Cargo.toml` : **1.95**.
+- Session graphique et pilote compatible. La compilation CI ne remplace pas une validation native par OS.
 - Réseau : les machines doivent être sur le même LAN, ports 9000-9001/tcp et 9001/udp ouverts entre elles.
 
 ### Dépendances système sous Linux
@@ -13,20 +16,16 @@ elles, `cargo build` échoue avant même d'atteindre notre code.
 | Besoin | Debian / Ubuntu | Fedora | Arch | Alpine |
 |---|---|---|---|---|
 | Clavier, fenêtrage | `libxkbcommon-dev` | `libxkbcommon-devel` | `libxkbcommon` | `libxkbcommon-dev` |
-| Automatisation X11 (tray) | `libxdo-dev` | `libxdo-devel` | `xdotool` | `libxdo-dev` |
 | Son des notifications | `libasound2-dev` | `alsa-lib-devel` | `alsa-lib` | `alsa-lib-dev` |
-| Icône résidente (tray) | `libgtk-3-dev libayatana-appindicator3-dev` | `gtk3-devel libayatana-appindicator-gtk3-devel` | `gtk3 libayatana-appindicator` | `gtk+3.0-dev libayatana-appindicator-dev` |
 
-**Les deux dernières lignes sont optionnelles** : voir les features ci-dessous.
+Le tray utilise KSNI/StatusNotifierItem sur D-Bus : ni GTK ni AppIndicator ne sont requis. Il faut un bus de session et un bureau compatible pour afficher l'icône. Les sélecteurs natifs passent par le portail du bureau. La dépendance de son est optionnelle : voir les features ci-dessous.
 
 ### Compiler léger : `tray` et `sound`
 
-Les deux dépendances C les plus lourdes sont derrière des features actives par
-défaut. Les désactiver permet de compiler sur un système minimal — conteneur,
-image Alpine, poste sans environnement de bureau — sans installer GTK ni ALSA.
+Les fonctionnalités `tray` et `sound` sont actives par défaut. Désactiver le son retire ALSA ; désactiver le tray retire l'icône résidente. Aucun de ces modes ne demande GTK pour le tray KSNI.
 
 ```bash
-# Sans icône résidente ni son : ni GTK, ni libappindicator, ni ALSA requis
+# Sans icône résidente ni son : ALSA non requis
 cargo build --release --no-default-features
 
 # Sans le tray uniquement
@@ -40,18 +39,15 @@ système, elles, restent (elles passent par D-Bus en Rust pur, sans dépendance 
 ### musl et Alpine
 
 **Compilation dynamique contre musl** (Alpine, `x86_64-unknown-linux-musl` sans
-lien statique) : fonctionne, avec les paquets du tableau ci-dessus. Aucun code
-d'abcom ne dépend de la glibc.
+lien statique) : fonctionne, avec les paquets du tableau ci-dessus. La configuration doit être validée avec les bibliothèques graphiques et pilotes de la machine cible.
 
-**Binaire entièrement statique** : ce n'est **pas** possible, et ce n'est pas une
-limite qu'on peut lever par configuration. Le rendu passe par `wgpu`, qui charge
+**Binaire entièrement statique** : cette configuration n'est pas prise en charge par la pile graphique actuelle. Le rendu passe par `wgpu`, qui charge
 le pilote Vulkan à l'exécution via `dlopen` — or `dlopen` ne fonctionne pas dans
-un binaire musl statique. Le tray (GTK) et le son (ALSA) ajoutent la même
-contrainte. Un binaire statique supposerait d'abandonner l'interface graphique.
+un binaire musl statique. Le son utilise aussi les bibliothèques ALSA de la plateforme. Un binaire statique supposerait d'abandonner l'interface graphique.
 
 En résumé, sur Alpine : installer les paquets, compiler normalement, obtenir un
 binaire lié dynamiquement à musl. Réduire la surface avec
-`--no-default-features` si GTK et ALSA ne sont pas souhaités.
+`--no-default-features` si le tray et le son ne sont pas souhaités.
 
 ## Lancer depuis les sources (toutes plateformes)
 
@@ -60,6 +56,10 @@ cargo run --release -- <pseudo>
 ```
 
 Sans argument, le pseudo reprend la variable `USER`/`USERNAME`. Le binaire compilé se trouve dans `target/release/abcom`.
+
+Avec le tray actif, quitter par son menu avant de tester un redémarrage : la croix masque normalement la fenêtre.
+
+Le [workflow de release](../.github/workflows/release.yml) vise Linux x86-64, macOS Apple silicon et Windows x86-64. Vérifier les [releases réellement publiées](https://github.com/abnd-corp/Abcom/releases) pour les téléchargements disponibles. Les binaires macOS nus ne sont pas signés ni notarisés : vérifier leur origine et la somme SHA-256 publiée avant de suivre les autorisations de Confidentialité et sécurité.
 
 ### Variables d'environnement
 
@@ -71,6 +71,8 @@ Lues depuis l'environnement ou un fichier `.env` à la racine du répertoire cou
 | `ABCOM_KLIPY_API_KEY` | Clé API Klipy — nécessaire au sélecteur GIF/mèmes/stickers |
 | `ABCOM_INSTANCE` | Numéro d'instance pour lancer plusieurs Abcom sur la même machine (ports et données séparés). Plafonné à ce que la plage de ports permet : une valeur trop grande est ramenée au maximum au lieu de déborder sur des ports déjà attribués |
 
+La messagerie locale ne nécessite ni clé Klipy ni passphrase. Ne pas versionner de secret ; les polices en ligne exigent un accord distinct dans les paramètres.
+
 ### Tester le P2P en local
 
 ```bash
@@ -79,6 +81,8 @@ bash scripts/run-multi.sh          # lance plusieurs instances prêtes à se dé
 ABCOM_INSTANCE=1 cargo run --release -- alice
 ABCOM_INSTANCE=2 cargo run --release -- bob
 ```
+
+Sous PowerShell, définir `$env:ABCOM_INSTANCE = '1'` avant Alice et `'2'` dans le terminal séparé de Bob. Chaque instance garde ses propres réglages.
 
 ## Linux
 
@@ -111,6 +115,8 @@ sudo ufw allow 9000:9001/tcp
 sudo ufw allow 9001/udp
 ```
 
+Le bureau doit exposer StatusNotifierItem (GNOME peut demander une extension, KDE/XFCE le fournissent généralement). KSNI enregistre l'icône lorsque le watcher apparaît. Si sa création échoue, fermer quitte ; un tray créé en attente du panneau peut ne pas encore être visible. Vérifier le repli et la réouverture sur le bureau cible avant distribution.
+
 ## macOS
 
 ```bash
@@ -137,7 +143,7 @@ cd scripts/docker
 docker compose up --build
 ```
 
-Le [Dockerfile](../scripts/docker/Dockerfile) construit une image Rust avec les dépendances graphiques d'egui ; le compose lance trois services (`alice`, `bob`, `charlie`) en `network_mode: host`. Utile pour des tests isolés ; nécessite un accès au serveur X11 de l'hôte pour l'affichage.
+Le [Dockerfile](../scripts/docker/Dockerfile) construit une image Rust avec les dépendances graphiques d'egui ; le compose lance trois services (`alice`, `bob`, `charlie`) en `network_mode: host`. Configuration de test pour un bureau Linux ; nécessite un accès au serveur X11 de l'hôte. Ce n'est ni un serveur de messagerie headless ni une recette portable Docker Desktop.
 
 ## Cibles Makefile utiles
 
@@ -146,7 +152,7 @@ Le [Dockerfile](../scripts/docker/Dockerfile) construit une image Rust avec les 
 | `make build` / `make release` | Compilation debug / release |
 | `make run` | Lance l'application |
 | `make run-multi` | Plusieurs instances locales |
-| `make install` / `make uninstall` | Installation Linux complète / retrait |
+| `make install` / `make uninstall` | Installation Linux / retrait |
 | `make check` | Formatage, Clippy toutes cibles/features et tests |
 | `make test` / `make test-verbose` | Tests (normal / sortie complète) |
 | `make test-module M=app::groups` | Tests d'un module |
