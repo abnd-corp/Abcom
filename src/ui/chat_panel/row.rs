@@ -292,7 +292,7 @@ pub(super) fn show_receipt_detail_button(
     // Sans libellé, l'œil n'existe pas pour un lecteur d'écran — et le compte,
     // retiré de l'affichage, reste accessible au survol.
     let label = format!("{} {read}/{}", i18n::LU_PAR.get(language), detail.audience);
-    btn.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, &label));
+    btn.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, &label));
     let btn = btn
         .on_hover_text(label)
         .on_hover_cursor(egui::CursorIcon::PointingHand);
@@ -612,7 +612,7 @@ pub(super) fn render_reply_quote(
             let hit = rect.expand2(egui::vec2(4.0, 2.0));
             let resp = ui.interact(
                 hit,
-                egui::Id::new(("reply_quote", row_index)),
+                egui::Id::unique(("reply_quote", row_index)),
                 egui::Sense::click(),
             );
             if resp.hovered() {

@@ -33,7 +33,7 @@ fn close_button(ui: &mut egui::Ui, label: &str) -> bool {
     }
     // Bouton entièrement peint : sans ceci, il est invisible pour un lecteur
     // d'écran et introuvable pour les tests pilotés par AccessKit.
-    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, label));
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, label));
     resp.on_hover_text(label)
         .on_hover_cursor(egui::CursorIcon::PointingHand)
         .clicked()
@@ -93,7 +93,7 @@ impl<'a> Modal<'a> {
         let width = width.min(available.x).max(MODAL_MIN_WIDTH);
         let height = height.map(|h| h.min(available.y).max(MODAL_MIN_HEIGHT));
 
-        let response = egui::Modal::new(egui::Id::new(id)).show(ctx, |ui| {
+        let response = egui::Modal::new(egui::Id::unique(id)).show(ctx, |ui| {
             ui.set_min_width(width);
             ui.set_max_width(width);
             if let Some(height) = height {

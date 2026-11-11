@@ -80,6 +80,18 @@ fn build(combo: &Combo) -> Run {
         }
         state.bump_content();
     }
+    app.storage_usage = Some(crate::app::usage::Usage {
+        media_received: crate::app::usage::Entry {
+            bytes: 1_234_567_890,
+            files: 12345,
+        },
+        media_sent: crate::app::usage::Entry {
+            bytes: 987_654_321,
+            files: 9876,
+        },
+        ..Default::default()
+    });
+    app.purge_preview = Some(crate::app::media::GcReport::default());
     app.appearance = combo.appearance.clone();
     if combo.custom_theme {
         let base = BuiltinTheme::Frost;
@@ -156,7 +168,7 @@ impl Run {
             );
         }
         let ctx = self.harness.ctx.clone();
-        if let Some(rect) = ctx.memory(|m| m.area_rect(egui::Id::new("settings_modal"))) {
+        if let Some(rect) = ctx.memory(|m| m.area_rect(egui::Id::unique("settings_modal"))) {
             assert!(
                 self.screen.expand(slack).contains_rect(rect),
                 "[{}] {step} : les Paramètres {rect:?} sortent de la fenêtre {:?}",

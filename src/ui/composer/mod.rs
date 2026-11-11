@@ -107,7 +107,7 @@ fn composer_caret_positions(
     emoji_size: f32,
     max_width: f32,
 ) -> Vec<egui::Pos2> {
-    let cache_id = egui::Id::new("composer_caret_cache");
+    let cache_id = egui::Id::unique("composer_caret_cache");
     let signature = caret_signature(text, emoji_size, max_width, ui.ctx().pixels_per_point());
     if let Some(hit) = ui.data(|d| {
         d.get_temp::<CaretCache>(cache_id).and_then(|cache| {

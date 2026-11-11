@@ -10,6 +10,12 @@ all-features = true
 # `cargo audit` couvre déjà la base RUSTSEC ; on garde le check ici pour que
 # `cargo deny check` seul soit suffisant en local.
 yanked = "warn"
+# Revue au 30 novembre 2026 ; l'issue reste ouverte tant qu'une exception subsiste.
+ignore = [
+    { id = "RUSTSEC-2026-0370", reason = "zvariant intégré à zbus 6 ; chaîne Linux AccessKit/AT-SPI/KSNI encore sur zbus 5 ; suivi https://github.com/abnd-corp/Abcom/issues/59" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names intégré à zbus 6 ; chaîne Linux AccessKit/AT-SPI/KSNI encore sur zbus 5 ; suivi https://github.com/abnd-corp/Abcom/issues/59" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive intégré à zbus 6 ; chaîne Linux AccessKit/AT-SPI/KSNI encore sur zbus 5 ; suivi https://github.com/abnd-corp/Abcom/issues/59" },
+]
 
 [licenses]
 # Licences acceptées. `AGPL-3.0-or-later` est celle d'abcom lui-même (cf. LICENSE) :

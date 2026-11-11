@@ -311,12 +311,12 @@ impl ResolvedTheme {
 
 /// Range le thème résolu dans le contexte : toute l'interface le lit de là.
 pub(crate) fn install(ctx: &egui::Context, theme: ResolvedTheme) {
-    ctx.data_mut(|data| data.insert_temp(egui::Id::new(THEME_ID), Arc::new(theme)));
+    ctx.data_mut(|data| data.insert_temp(egui::Id::unique(THEME_ID), Arc::new(theme)));
 }
 
 /// Thème résolu du contexte, ou le classique tant qu'aucun n'est installé.
 pub(crate) fn current(ctx: &egui::Context) -> Arc<ResolvedTheme> {
-    ctx.data(|data| data.get_temp::<Arc<ResolvedTheme>>(egui::Id::new(THEME_ID)))
+    ctx.data(|data| data.get_temp::<Arc<ResolvedTheme>>(egui::Id::unique(THEME_ID)))
         .unwrap_or_else(|| Arc::new(ResolvedTheme::classic()))
 }
 

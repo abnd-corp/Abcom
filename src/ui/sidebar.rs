@@ -146,7 +146,7 @@ impl AbcomApp {
                 paint_unread_badge(ui, rect, unread);
 
                 let is_pinned = peer_pinned.get(idx).copied().unwrap_or(false);
-                let pin_id = ui.id().with(("pin_peer", &peer.username));
+                let pin_id = ui.scope_id().with(("pin_peer", &peer.username));
                 let pin_tip = if is_pinned {
                     self.t(i18n::DESEPINGLER)
                 } else {
@@ -306,7 +306,7 @@ impl AbcomApp {
                 );
                 paint_unread_badge(ui, rect, group_unread.get(gidx).copied().unwrap_or(0));
                 let is_pinned = group_pinned.get(gidx).copied().unwrap_or(false);
-                let pin_id = ui.id().with(("pin_group", &conv_key));
+                let pin_id = ui.scope_id().with(("pin_group", &conv_key));
                 let pin_tip = if is_pinned {
                     self.t(i18n::DESEPINGLER)
                 } else {

@@ -336,7 +336,7 @@ fn settings_rect_in_window(
         });
         output.textures_delta.clear();
     }
-    ctx.memory(|m| m.area_rect(egui::Id::new("settings_modal")))
+    ctx.memory(|m| m.area_rect(egui::Id::unique("settings_modal")))
 }
 
 /// La fenêtre des Paramètres faisait 640 × 480 quelle que soit la fenêtre : dans

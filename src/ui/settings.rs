@@ -11,11 +11,24 @@ const PROFILE_AVATAR_SIZE: f32 = 96.0;
 
 const LICENSE_TEXT: &str = include_str!("../../LICENSE");
 
+fn license_text_for_display() -> &'static str {
+    static TEXT: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    // Le fichier est composé pour 70 colonnes ; l'écran doit replier ses propres paragraphes.
+    TEXT.get_or_init(|| {
+        LICENSE_TEXT
+            .split("\n\n")
+            .map(|paragraph| paragraph.split_whitespace().collect::<Vec<_>>().join(" "))
+            .collect::<Vec<_>>()
+            .join("\n\n")
+    })
+}
+
+#[cfg(test)]
+#[path = "../tests/test_ui_settings.rs"]
+mod tests;
+
 impl AbcomApp {
-    /// Fenêtre Paramètres : regroupe langue, thème, crédits et licence.
-    /// Ouverte depuis l'icône engrenage en bas de la barre latérale, elle
-    /// remplace l'ancien bandeau supérieur. Un bandeau d'onglets permet de
-    /// naviguer entre Général, Crédits et Licence.
+    /// Les paramètres partagent un défilement par onglet, adapté à la taille de la fenêtre.
     pub(crate) fn render_settings(&mut self, ctx: &egui::Context) {
         if !self.modals.settings_open {
             return;
@@ -76,210 +89,194 @@ impl AbcomApp {
                 // Tout défile d'un bloc : à grande police dans une petite fenêtre, la
                 // boîte garde la taille de la fenêtre au lieu de la dépasser.
                 egui::ScrollArea::vertical()
-                    .id_salt("settings_outer_scroll")
+                    .id_salt(("settings_outer_scroll", self.modals.settings_tab as u8))
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
-                // Bandeau d'onglets
-                ui.horizontal_wrapped(|ui| {
-                    for (tab, label) in [
-                        (SettingsTab::Profile, profile_label),
-                        (SettingsTab::General, general_label),
-                        (SettingsTab::Appearance, appearance_label),
-                        (SettingsTab::Storage, storage_label),
-                        (SettingsTab::Credits, credits_label),
-                        (SettingsTab::License, license_label),
-                    ] {
-                        if ui
-                            .selectable_label(self.modals.settings_tab == tab, label)
-                            .clicked()
-                        {
-                            // Revenir sur Stockage doit repartir du disque : le
-                            // dossier a pu changer depuis le dernier calcul, et
-                            // un aperçu périmé activerait « Purger » à tort.
-                            if tab == SettingsTab::Storage {
-                                storage_actions.refresh = true;
-                                storage_actions.preview = true;
+                        // Bandeau d'onglets
+                        ui.horizontal_wrapped(|ui| {
+                            for (tab, label) in [
+                                (SettingsTab::Profile, profile_label),
+                                (SettingsTab::General, general_label),
+                                (SettingsTab::Appearance, appearance_label),
+                                (SettingsTab::Storage, storage_label),
+                                (SettingsTab::Credits, credits_label),
+                                (SettingsTab::License, license_label),
+                            ] {
+                                if ui
+                                    .selectable_label(self.modals.settings_tab == tab, label)
+                                    .clicked()
+                                {
+                                    // Revenir sur Stockage doit repartir du disque : le
+                                    // dossier a pu changer depuis le dernier calcul, et
+                                    // un aperçu périmé activerait « Purger » à tort.
+                                    if tab == SettingsTab::Storage {
+                                        storage_actions.refresh = true;
+                                        storage_actions.preview = true;
+                                    }
+                                    self.modals.settings_tab = tab;
+                                }
                             }
-                            self.modals.settings_tab = tab;
-                        }
-                    }
-                });
-                ui.separator();
-                ui.add_space(8.0);
-
-                match self.modals.settings_tab {
-                    SettingsTab::Profile => {
-                        egui::ScrollArea::vertical()
-                            .id_salt("settings_scroll_profile")
-                            .auto_shrink([false, false])
-                            .show(ui, |ui| {
-                        ui.label(egui::RichText::new(profile_heading).strong());
-                        ui.add_space(8.0);
-                        // Empreinte de la clé d'identité (Noise) : à comparer
-                        // hors-bande avec un pair pour vérifier l'appairage.
-                        ui.label(
-                            egui::RichText::new(format!(
-                                "{} : {}",
-                                self.t(i18n::EMPREINTE_DE_VOTRE_CLE),
-                                self.identity_fingerprint
-                            ))
-                            .small()
-                            .weak(),
-                        );
-                        let psk_label = if self.psk_active {
-                            self.t(i18n::PASSPHRASE_DE_SALON_ACTIVE)
-                        } else {
-                            self.t(i18n::PASSPHRASE_DE_SALON_DESACTIVEE_ABCOM_PASSPHRASE)
-                        };
-                        ui.label(egui::RichText::new(psk_label).small().weak());
-                        ui.add_space(12.0);
-                        ui.horizontal(|ui| {
-                            show_avatar(ui, avatar_texture.as_ref(), &my_name, PROFILE_AVATAR_SIZE);
-                            ui.add_space(16.0);
-                            ui.vertical(|ui| {
-                                ui.add_space(4.0);
-                                ui.label(egui::RichText::new(&my_name).heading().strong());
-                                ui.add_space(2.0);
-                                ui.label(egui::RichText::new(profile_hint).small().weak());
-                                ui.add_space(10.0);
-                                ui.horizontal(|ui| {
-                                    let button_label = if has_avatar {
-                                        change_label
-                                    } else {
-                                        choose_label
-                                    };
-                                    if ui.button(button_label).clicked() {
-                                        pick_avatar = true;
-                                    }
-                                    if has_avatar && ui.button(remove_label).clicked() {
-                                        clear_avatar = true;
-                                    }
-                                });
-                            });
                         });
-                                                });
-                    }
-                    SettingsTab::General => {
-                        egui::ScrollArea::vertical()
-                            .id_salt("settings_scroll_general")
-                            .auto_shrink([false, false])
-                            .show(ui, |ui| {
-                        egui::Grid::new("settings_general")
-                            .num_columns(2)
-                            .spacing([16.0, 12.0])
-                            .show(ui, |ui| {
-                                ui.label(egui::RichText::new(language_label).strong());
-                                ui.horizontal_wrapped(|ui| {
-                                    ui.radio_value(
-                                        &mut self.ui_language,
-                                        UiLanguage::French,
-                                        "Français",
-                                    );
-                                    ui.radio_value(
-                                        &mut self.ui_language,
-                                        UiLanguage::English,
-                                        "English",
-                                    );
-                                });
-                                ui.end_row();
+                        ui.separator();
+                        ui.add_space(8.0);
 
-                                ui.label(egui::RichText::new(self.t(i18n::NOTIFICATIONS)).strong());
-                                ui.horizontal_wrapped(|ui| {
-                                    let label = self.t(i18n::AFFICHER_UN_APERCU_DU_MESSAGE);
-                                    if ui.checkbox(&mut self.notif_preview, label).changed() {
-                                        let v = if self.notif_preview { "1" } else { "0" };
-                                        self.state.lock_safe().set_pref("notif_preview", v);
-                                    }
-                                });
-                                ui.end_row();
-
-                                ui.label(egui::RichText::new(self.t(i18n::DEMARRAGE)).strong());
-                                ui.horizontal_wrapped(|ui| {
-                                    let label = self.t(i18n::LANCER_ABCOM_A_L_OUVERTURE_DE);
-                                    if ui.checkbox(&mut self.autostart_enabled, label).changed() {
-                                        match crate::platform::autostart::set_enabled(
-                                            self.autostart_enabled,
-                                        ) {
-                                            Ok(()) => {
-                                                let v =
-                                                    if self.autostart_enabled { "1" } else { "0" };
-                                                self.state.lock_safe().set_pref("autostart", v);
+                        match self.modals.settings_tab {
+                            SettingsTab::Profile => {
+                                ui.label(egui::RichText::new(profile_heading).strong());
+                                ui.add_space(8.0);
+                                // Empreinte de la clé d'identité (Noise) : à comparer
+                                // hors-bande avec un pair pour vérifier l'appairage.
+                                ui.label(
+                                    egui::RichText::new(format!(
+                                        "{} : {}",
+                                        self.t(i18n::EMPREINTE_DE_VOTRE_CLE),
+                                        self.identity_fingerprint
+                                    ))
+                                    .small()
+                                    .weak(),
+                                );
+                                let psk_label = if self.psk_active {
+                                    self.t(i18n::PASSPHRASE_DE_SALON_ACTIVE)
+                                } else {
+                                    self.t(i18n::PASSPHRASE_DE_SALON_DESACTIVEE_ABCOM_PASSPHRASE)
+                                };
+                                ui.label(egui::RichText::new(psk_label).small().weak());
+                                ui.add_space(12.0);
+                                ui.horizontal(|ui| {
+                                    show_avatar(ui, avatar_texture.as_ref(), &my_name, PROFILE_AVATAR_SIZE);
+                                    ui.add_space(16.0);
+                                    ui.vertical(|ui| {
+                                        ui.add_space(4.0);
+                                        ui.label(egui::RichText::new(&my_name).heading().strong());
+                                        ui.add_space(2.0);
+                                        ui.label(egui::RichText::new(profile_hint).small().weak());
+                                        ui.add_space(10.0);
+                                        ui.horizontal_wrapped(|ui| {
+                                            let button_label = if has_avatar {
+                                                change_label
+                                            } else {
+                                                choose_label
+                                            };
+                                            if ui.button(button_label).clicked() {
+                                                pick_avatar = true;
                                             }
-                                            Err(e) => {
-                                                tracing::warn!("échec autostart : {e}");
-                                                self.autostart_enabled = !self.autostart_enabled;
+                                            if has_avatar && ui.button(remove_label).clicked() {
+                                                clear_avatar = true;
                                             }
-                                        }
-                                    }
+                                        });
+                                    });
                                 });
-                                ui.end_row();
+                            }
+                            SettingsTab::General => {
+                                egui::Grid::new("settings_general")
+                                    .max_col_width((ui.available_width() - 16.0) / 2.0)
+                                    .num_columns(2)
+                                    .spacing([16.0, 12.0])
+                                    .show(ui, |ui| {
+                                        ui.label(egui::RichText::new(language_label).strong());
+                                        ui.horizontal_wrapped(|ui| {
+                                            ui.radio_value(
+                                                &mut self.ui_language,
+                                                UiLanguage::French,
+                                                "Français",
+                                            );
+                                            ui.radio_value(
+                                                &mut self.ui_language,
+                                                UiLanguage::English,
+                                                "English",
+                                            );
+                                        });
+                                        ui.end_row();
 
-                                ui.label(egui::RichText::new(self.t(i18n::DONNEES)).strong());
-                                ui.horizontal_wrapped(|ui| {
-                                    if ui
-                                        .button(self.t(i18n::EXPORTER_LA_CONVERSATION_2))
-                                        .clicked()
-                                    {
-                                        self.pending_export = true;
-                                    }
-                                    if ui.button(self.t(i18n::COMPACTER_LA_BASE)).clicked() {
-                                        self.state.lock_safe().compact_storage();
-                                        self.last_notification = Some(
-                                            self.t(i18n::COMPACTION_DE_LA_BASE_LANCEE).to_string(),
-                                        );
-                                        self.notification_time = std::time::Instant::now();
-                                    }
-                                });
-                                ui.end_row();
+                                        ui.label(egui::RichText::new(self.t(i18n::NOTIFICATIONS)).strong());
+                                        ui.horizontal_wrapped(|ui| {
+                                            let label = self.t(i18n::AFFICHER_UN_APERCU_DU_MESSAGE);
+                                            if ui.checkbox(&mut self.notif_preview, label).changed() {
+                                                let v = if self.notif_preview { "1" } else { "0" };
+                                                self.state.lock_safe().set_pref("notif_preview", v);
+                                            }
+                                        });
+                                        ui.end_row();
 
-                                // Diagnostic : compteurs de la session en cours
-                                // (cf. `metrics`). « Jetés » non nul = file
-                                // saturée ou pair injoignable.
-                                ui.label(egui::RichText::new(self.t(i18n::DIAGNOSTIC)).strong());
-                                ui.horizontal_wrapped(|ui| {
-                                    let m = crate::metrics::snapshot();
-                                    let line = format!(
-                                        "{} {} · {} {} · {} {} · {} {}",
-                                        self.t(i18n::ENVOYES),
-                                        m.packets_sent,
-                                        self.t(i18n::RECUS),
-                                        m.packets_received,
-                                        self.t(i18n::JETES),
-                                        m.packets_dropped,
-                                        self.t(i18n::PAIRS_VUS),
-                                        m.peers_seen,
-                                    );
-                                    ui.label(egui::RichText::new(line).small().weak());
-                                });
-                                ui.end_row();
-                            });
-                                                });
-                    }
-                    SettingsTab::Appearance => self.render_appearance_tab(ui),
-                    SettingsTab::Storage => {
-                        egui::ScrollArea::vertical()
-                            .id_salt("settings_scroll_storage")
-                            .auto_shrink([false, false])
-                            .show(ui, |ui| {
-                        storage_tab(
-                            ui,
-                            self.storage_usage.as_ref(),
-                            self.purge_preview.as_ref(),
-                            &mut self.retention_days,
-                            &mut self.purge_includes_images,
-                            self.ui_language,
-                            &mut storage_actions,
-                        );
-                                                });
-                    }
-                    SettingsTab::Credits => {
-                        egui::ScrollArea::vertical()
-                            .auto_shrink([false, false])
-                            .show(ui, |ui| {
+                                        ui.label(egui::RichText::new(self.t(i18n::DEMARRAGE)).strong());
+                                        ui.horizontal_wrapped(|ui| {
+                                            let label = self.t(i18n::LANCER_ABCOM_A_L_OUVERTURE_DE);
+                                            if ui.checkbox(&mut self.autostart_enabled, label).changed() {
+                                                match crate::platform::autostart::set_enabled(
+                                                    self.autostart_enabled,
+                                                ) {
+                                                    Ok(()) => {
+                                                        let v =
+                                                            if self.autostart_enabled { "1" } else { "0" };
+                                                        self.state.lock_safe().set_pref("autostart", v);
+                                                    }
+                                                    Err(e) => {
+                                                        tracing::warn!("échec autostart : {e}");
+                                                        self.autostart_enabled = !self.autostart_enabled;
+                                                    }
+                                                }
+                                            }
+                                        });
+                                        ui.end_row();
+
+                                        ui.label(egui::RichText::new(self.t(i18n::DONNEES)).strong());
+                                        ui.horizontal_wrapped(|ui| {
+                                            if ui
+                                                .button(self.t(i18n::EXPORTER_LA_CONVERSATION_2))
+                                                .clicked()
+                                            {
+                                                self.pending_export = true;
+                                            }
+                                            if ui.button(self.t(i18n::COMPACTER_LA_BASE)).clicked() {
+                                                self.state.lock_safe().compact_storage();
+                                                self.last_notification = Some(
+                                                    self.t(i18n::COMPACTION_DE_LA_BASE_LANCEE).to_string(),
+                                                );
+                                                self.notification_time = std::time::Instant::now();
+                                            }
+                                        });
+                                        ui.end_row();
+
+                                        // Diagnostic : compteurs de la session en cours
+                                        // (cf. `metrics`). « Jetés » non nul = file
+                                        // saturée ou pair injoignable.
+                                        ui.label(egui::RichText::new(self.t(i18n::DIAGNOSTIC)).strong());
+                                        ui.horizontal_wrapped(|ui| {
+                                            let m = crate::metrics::snapshot();
+                                            let line = format!(
+                                                "{} {} · {} {} · {} {} · {} {}",
+                                                self.t(i18n::ENVOYES),
+                                                m.packets_sent,
+                                                self.t(i18n::RECUS),
+                                                m.packets_received,
+                                                self.t(i18n::JETES),
+                                                m.packets_dropped,
+                                                self.t(i18n::PAIRS_VUS),
+                                                m.peers_seen,
+                                            );
+                                            ui.label(egui::RichText::new(line).small().weak());
+                                        });
+                                        ui.end_row();
+                                    });
+                            }
+                            SettingsTab::Appearance => self.render_appearance_tab(ui),
+                            SettingsTab::Storage => {
+                                storage_tab(
+                                    ui,
+                                    self.storage_usage.as_ref(),
+                                    self.purge_preview.as_ref(),
+                                    &mut self.retention_days,
+                                    &mut self.purge_includes_images,
+                                    self.ui_language,
+                                    &mut storage_actions,
+                                );
+                            }
+                            SettingsTab::Credits => {
                                 // ── Abcom ────────────────────────────────────
                                 ui.label(egui::RichText::new(service_name).strong().heading());
                                 ui.add_space(4.0);
                                 egui::Grid::new("credits_abcom")
+                                    .max_col_width((ui.available_width() - 12.0) / 2.0)
                                     .num_columns(2)
                                     .spacing([12.0, 4.0])
                                     .show(ui, |ui| {
@@ -316,6 +313,7 @@ impl AbcomApp {
                                 ui.label(egui::RichText::new("Klipy").strong().heading());
                                 ui.add_space(4.0);
                                 egui::Grid::new("credits_klipy")
+                                    .max_col_width((ui.available_width() - 12.0) / 2.0)
                                     .num_columns(2)
                                     .spacing([12.0, 4.0])
                                     .show(ui, |ui| {
@@ -347,6 +345,7 @@ impl AbcomApp {
                                 ui.label(egui::RichText::new("OpenEmoji").strong().heading());
                                 ui.add_space(4.0);
                                 egui::Grid::new("credits_openmoji")
+                                    .max_col_width((ui.available_width() - 12.0) / 2.0)
                                     .num_columns(2)
                                     .spacing([12.0, 4.0])
                                     .show(ui, |ui| {
@@ -382,6 +381,7 @@ impl AbcomApp {
                                 );
                                 ui.add_space(4.0);
                                 egui::Grid::new("credits_noto_sans")
+                                    .max_col_width((ui.available_width() - 12.0) / 2.0)
                                     .num_columns(2)
                                     .spacing([12.0, 4.0])
                                     .show(ui, |ui| {
@@ -414,6 +414,7 @@ impl AbcomApp {
                                 );
                                 ui.add_space(4.0);
                                 egui::Grid::new("credits_inter")
+                                    .max_col_width((ui.available_width() - 12.0) / 2.0)
                                     .num_columns(2)
                                     .spacing([12.0, 4.0])
                                     .show(ui, |ui| {
@@ -446,6 +447,7 @@ impl AbcomApp {
                                 );
                                 ui.add_space(4.0);
                                 egui::Grid::new("credits_noto_symbols")
+                                    .max_col_width((ui.available_width() - 12.0) / 2.0)
                                     .num_columns(2)
                                     .spacing([12.0, 4.0])
                                     .show(ui, |ui| {
@@ -478,6 +480,7 @@ impl AbcomApp {
                                 );
                                 ui.add_space(4.0);
                                 egui::Grid::new("credits_unifont")
+                                    .max_col_width((ui.available_width() - 12.0) / 2.0)
                                     .num_columns(2)
                                     .spacing([12.0, 4.0])
                                     .show(ui, |ui| {
@@ -510,6 +513,7 @@ impl AbcomApp {
                                 );
                                 ui.add_space(4.0);
                                 egui::Grid::new("credits_suggested_fonts")
+                                    .max_col_width((ui.available_width() - 12.0) / 2.0)
                                     .num_columns(2)
                                     .spacing([12.0, 4.0])
                                     .show(ui, |ui| {
@@ -552,6 +556,7 @@ impl AbcomApp {
                                 );
                                 ui.add_space(4.0);
                                 egui::Grid::new("credits_palettes")
+                                    .max_col_width((ui.available_width() - 12.0) / 2.0)
                                     .num_columns(2)
                                     .spacing([12.0, 4.0])
                                     .show(ui, |ui| {
@@ -581,27 +586,17 @@ impl AbcomApp {
                                         ui.end_row();
                                     });
                                 ui.add_space(8.0);
-                            });
-                    }
-                    SettingsTab::License => {
-                        ui.label(
-                            egui::RichText::new("GNU Affero General Public License v3")
-                                .strong()
-                                .heading(),
-                        );
-                        ui.add_space(6.0);
-                        egui::ScrollArea::vertical()
-                            .auto_shrink([false, false])
-                            .show(ui, |ui| {
-                                ui.add(
-                                    egui::Label::new(
-                                        egui::RichText::new(LICENSE_TEXT).monospace().size(12.0),
-                                    )
-                                    .wrap_mode(egui::TextWrapMode::Wrap),
+                            }
+                            SettingsTab::License => {
+                                ui.label(
+                                    egui::RichText::new("GNU Affero General Public License v3")
+                                        .strong()
+                                        .heading(),
                                 );
-                            });
-                    }
-                }
+                                ui.add_space(6.0);
+                                ui.add(egui::Label::new(license_text_for_display()).wrap());
+                            }
+                        }
                     });
             });
         self.modals.settings_open = open;
@@ -738,19 +733,17 @@ fn storage_tab(
     };
 
     let total = usage.total();
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         ui.label(egui::RichText::new(i18n::ESPACE_OCCUPE.get(language)).strong());
         ui.label(
             egui::RichText::new(human_bytes(total.bytes))
                 .heading()
                 .strong(),
         );
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if ui.button(i18n::RECALCULER.get(language)).clicked() {
-                actions.refresh = true;
-                actions.preview = true;
-            }
-        });
+        if ui.button(i18n::RECALCULER.get(language)).clicked() {
+            actions.refresh = true;
+            actions.preview = true;
+        }
     });
     ui.label(
         egui::RichText::new(format!(
@@ -767,6 +760,8 @@ fn storage_tab(
 
     egui::Grid::new("storage_breakdown")
         .num_columns(3)
+        .min_col_width(0.0)
+        .max_col_width((ui.available_width() - 32.0) / 3.0)
         .spacing([16.0, 8.0])
         .striped(true)
         .show(ui, |ui| {
@@ -814,14 +809,15 @@ fn storage_tab(
     );
     ui.add_space(8.0);
 
-    ui.horizontal(|ui| {
-        ui.label(i18n::SUPPRIMER_LES_PIECES_JOINTES_AU_DELA.get(language));
+    let retention_label = ui.label(i18n::SUPPRIMER_LES_PIECES_JOINTES_AU_DELA.get(language));
+    ui.horizontal_wrapped(|ui| {
         if ui
             .add(
                 egui::DragValue::new(retention_days)
                     .speed(1.0)
                     .range(0..=RETENTION_DAYS_MAX),
             )
+            .labelled_by(retention_label.id)
             .changed()
         {
             actions.save = true;
@@ -844,7 +840,7 @@ fn storage_tab(
     }
 
     ui.add_space(10.0);
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         let freed = preview.map(|report| report.freed_bytes).unwrap_or(0);
         if ui
             .add_enabled(

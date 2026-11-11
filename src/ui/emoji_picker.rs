@@ -198,7 +198,7 @@ impl AbcomApp {
         let mut picked: Option<String> = None;
         let picker_rect = show_emoji_popup(
             ctx,
-            egui::Id::new("composer_emoji_picker"),
+            egui::Id::unique("composer_emoji_picker"),
             self.emoji_btn_rect,
             &mut self.emoji.category,
             &self.emoji.textures,
@@ -305,7 +305,7 @@ pub(crate) fn show_shortcode_popup(
     }
     let popup_w = resp.rect.width().max(260.0);
     let popup_y = popup_bottom - popup_h;
-    egui::Area::new("emoji_shortcode_popup".into())
+    egui::Area::new(egui::Id::unique("emoji_shortcode_popup"))
         .order(egui::Order::Foreground)
         .fixed_pos(egui::pos2(resp.rect.left(), popup_y))
         .show(ctx, |ui| {

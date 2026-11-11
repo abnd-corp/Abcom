@@ -346,9 +346,8 @@ impl AbcomApp {
                     egui::TextEdit::singleline(buffer)
                         .char_limit(super::custom_themes::MAX_NAME_CHARS * 2),
                 );
-                response.widget_info(|| {
-                    egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, label)
-                });
+                response
+                    .widget_info(|| egui::WidgetInfo::labeled(egui::Role::TextInput, true, label));
                 if response.lost_focus() {
                     if clean_name(buffer).is_ok() {
                         rename = Some(buffer.clone());
@@ -563,7 +562,7 @@ impl AbcomApp {
             if egui::color_picker::color_edit_button_srgb(ui, &mut rgb).changed() {
                 edits.push((role, Color32::from_rgb(rgb[0], rgb[1], rgb[2])));
             }
-            let id = egui::Id::new(("appearance_hex", role, dark));
+            let id = egui::Id::unique(("appearance_hex", role, dark));
             let focused = ui.memory(|m| m.has_focus(id));
             let buffer = self
                 .appearance_ui
@@ -579,9 +578,8 @@ impl AbcomApp {
                     .desired_width(78.0)
                     .char_limit(8),
             );
-            response.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, &hex_label)
-            });
+            response
+                .widget_info(|| egui::WidgetInfo::labeled(egui::Role::TextInput, true, &hex_label));
             if response.changed() {
                 if let Some(color) = parse_hex(buffer) {
                     edits.push((role, color));
@@ -591,7 +589,7 @@ impl AbcomApp {
             let differs = base_color.is_some_and(|b| b != current);
             let button = ui.add_enabled(differs, egui::Button::new(self.t(i18n::PAR_DEFAUT)));
             button.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::WidgetType::Button, differs, &default_label)
+                egui::WidgetInfo::labeled(egui::Role::Button, differs, &default_label)
             });
             if button.clicked() {
                 if let Some(color) = base_color {
@@ -684,7 +682,7 @@ impl AbcomApp {
                     .char_limit(60),
             );
             response.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, search_label)
+                egui::WidgetInfo::labeled(egui::Role::TextInput, true, search_label)
             });
         });
         ui.horizontal_wrapped(|ui| {
@@ -694,7 +692,7 @@ impl AbcomApp {
             let chip = ui.selectable_label(selected, all);
             chip.widget_info(|| {
                 egui::WidgetInfo::selected(
-                    egui::WidgetType::RadioButton,
+                    egui::Role::RadioButton,
                     true,
                     selected,
                     format!("{prefix} : {all}"),
@@ -708,7 +706,7 @@ impl AbcomApp {
                 let chip = ui.selectable_label(selected, category);
                 chip.widget_info(|| {
                     egui::WidgetInfo::selected(
-                        egui::WidgetType::RadioButton,
+                        egui::Role::RadioButton,
                         true,
                         selected,
                         format!("{prefix} : {category}"),
@@ -752,7 +750,7 @@ impl AbcomApp {
                     let label = format!("{} : {}", font.family, text.to_lowercase());
                     let button = ui.small_button(text);
                     button.widget_info(|| {
-                        egui::WidgetInfo::labeled(egui::WidgetType::Button, true, &label)
+                        egui::WidgetInfo::labeled(egui::Role::Button, true, &label)
                     });
                     if button.clicked() {
                         request = Some((font.id.clone(), zone));
@@ -866,7 +864,7 @@ impl AbcomApp {
                 })
                 .inner;
             response.widget_info(|| {
-                egui::WidgetInfo::selected(egui::WidgetType::RadioButton, true, selected, &label)
+                egui::WidgetInfo::selected(egui::Role::RadioButton, true, selected, &label)
             });
             if response.clicked() {
                 chosen = Some(choice);
@@ -893,9 +891,7 @@ impl AbcomApp {
                 ui.label(&font.family);
                 let label = format!("{} {}", self.t(i18n::RETIRER), font.family);
                 let button = ui.button(self.t(i18n::RETIRER));
-                button.widget_info(|| {
-                    egui::WidgetInfo::labeled(egui::WidgetType::Button, true, &label)
-                });
+                button.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, &label));
                 if button.clicked() {
                     remove = Some(font.id.clone());
                 }
@@ -1152,12 +1148,7 @@ fn theme_card(
     let (rect, response) =
         ui.allocate_exact_size(egui::vec2(CARD_WIDTH, CARD_HEIGHT), egui::Sense::click());
     response.widget_info(|| {
-        egui::WidgetInfo::selected(
-            egui::WidgetType::RadioButton,
-            true,
-            selected,
-            accessible_label,
-        )
+        egui::WidgetInfo::selected(egui::Role::RadioButton, true, selected, accessible_label)
     });
     if ui.is_rect_visible(rect) {
         let painter = ui.painter();

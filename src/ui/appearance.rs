@@ -322,7 +322,7 @@ fn install_resolved(
 }
 
 fn font_choice_id() -> egui::Id {
-    egui::Id::new("abcom_font_choice")
+    egui::Id::unique("abcom_font_choice")
 }
 
 fn font_choice_changed(ctx: &egui::Context, key: &str) -> bool {
