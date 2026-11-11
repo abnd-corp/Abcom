@@ -331,7 +331,12 @@ pub(crate) struct AbcomApp {
     pub(crate) ui_language: UiLanguage,
     /// Préférence de thème : egui suit le système et détecte ses changements
     /// en cours d'exécution, ce que notre détection au démarrage ne faisait pas.
-    pub(crate) theme_preference: egui::ThemePreference,
+    /// Apparence choisie, appliquée au contexte à chaque changement.
+    pub(crate) appearance: appearance::Appearance,
+    /// Dernière apparence appliquée au contexte (`None` avant la première image).
+    applied_appearance: Option<appearance::Appearance>,
+    /// Dernière apparence écrite dans les préférences.
+    persisted_appearance: appearance::Appearance,
     /// Dernière ventilation de l'occupation disque (onglet Stockage).
     /// `None` tant que le calcul, qui parcourt des dossiers, n'a pas répondu.
     pub(crate) storage_usage: Option<crate::app::usage::Usage>,
@@ -432,13 +437,20 @@ impl AbcomApp {
         let (alias_to_char, aliases) = emoji_picker::build_emoji_shortcode_index(&characters);
         let (picker_tx, picker_rx) = std::sync::mpsc::channel();
         // Préférences persistées (table kv).
-        let (notif_preview, autostart_enabled, retention_days, purge_includes_images) = {
+        let (
+            notif_preview,
+            autostart_enabled,
+            retention_days,
+            purge_includes_images,
+            saved_appearance,
+        ) = {
             let s = state.lock_safe();
             (
                 s.pref_bool("notif_preview", true),
                 s.pref_bool("autostart", false),
                 s.retention_days(),
                 s.purge_includes_images(),
+                appearance::Appearance::from_pref(s.pref_str(appearance::Appearance::PREF_KEY)),
             )
         };
 
@@ -523,7 +535,9 @@ impl AbcomApp {
             muted_conversations: std::collections::HashSet::new(),
             pending_picker: 0,
             ui_language: UiLanguage::French,
-            theme_preference: egui::ThemePreference::System,
+            appearance: saved_appearance.clone(),
+            applied_appearance: None,
+            persisted_appearance: saved_appearance,
             storage_usage: None,
             purge_preview: None,
             storage_scan_pending: false,
@@ -571,6 +585,25 @@ impl AbcomApp {
     /// Libellé du catalogue dans la langue active.
     pub(crate) fn t(&self, entry: i18n::Entry) -> &'static str {
         entry.get(self.ui_language)
+    }
+
+    /// Applique l'apparence au contexte quand elle a changé, puis l'enregistre.
+    ///
+    /// L'écriture attend que le bouton de la souris soit relâché : un curseur
+    /// qu'on fait glisser change l'apparence à chaque image, et la base n'a pas
+    /// à garder chaque valeur intermédiaire.
+    pub(crate) fn sync_appearance(&mut self, ctx: &egui::Context) {
+        if self.applied_appearance.as_ref() != Some(&self.appearance) {
+            appearance::apply_appearance(ctx, &self.appearance);
+            self.applied_appearance = Some(self.appearance.clone());
+        }
+        let dragging = ctx.input(|input| input.pointer.any_down());
+        if !dragging && self.persisted_appearance != self.appearance {
+            self.state
+                .lock_safe()
+                .set_pref(appearance::Appearance::PREF_KEY, &self.appearance.to_pref());
+            self.persisted_appearance = self.appearance.clone();
+        }
     }
 
     /// Sauvegarde le texte courant dans les drafts pour la conversation active
@@ -969,7 +1002,7 @@ impl eframe::App for AbcomApp {
             return;
         }
 
-        ctx.set_theme(self.theme_preference);
+        self.sync_appearance(ctx);
 
         // Rafraîchit les caches dérivés si l'état a changé (génération) —
         // sinon la frame se rend sans reprendre le verrou ni rien re-dériver.
@@ -1528,3 +1561,7 @@ mod app_tests;
 #[cfg(test)]
 #[path = "../tests/test_ui_fonts.rs"]
 mod font_tests;
+
+#[cfg(test)]
+#[path = "../tests/test_ui_appearance_e2e.rs"]
+mod appearance_e2e_tests;

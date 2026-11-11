@@ -180,18 +180,18 @@ impl AbcomApp {
                                 ui.label(egui::RichText::new(theme_label).strong());
                                 ui.horizontal(|ui| {
                                     ui.radio_value(
-                                        &mut self.theme_preference,
-                                        egui::ThemePreference::System,
+                                        &mut self.appearance.mode,
+                                        super::appearance::Mode::System,
                                         theme_system_label,
                                     );
                                     ui.radio_value(
-                                        &mut self.theme_preference,
-                                        egui::ThemePreference::Light,
+                                        &mut self.appearance.mode,
+                                        super::appearance::Mode::Light,
                                         theme_light_label,
                                     );
                                     ui.radio_value(
-                                        &mut self.theme_preference,
-                                        egui::ThemePreference::Dark,
+                                        &mut self.appearance.mode,
+                                        super::appearance::Mode::Dark,
                                         theme_dark_label,
                                     );
                                 });

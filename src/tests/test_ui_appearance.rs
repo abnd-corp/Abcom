@@ -373,3 +373,119 @@ fn emoji_sizes_never_depend_on_the_text_settings() {
     assert_ne!(a, b, "le texte, lui, change");
     assert_eq!(std::mem::size_of_val(&a), std::mem::size_of_val(&b));
 }
+
+#[test]
+fn appearance_defaults_to_classic_following_the_system() {
+    let d = Appearance::default();
+    assert_eq!(d.builtin(), BuiltinTheme::Classic);
+    assert_eq!(d.mode, Mode::System);
+    assert_eq!(d.text, TextSettings::default());
+}
+
+#[test]
+fn a_missing_or_unreadable_preference_gives_the_defaults() {
+    for raw in [
+        None,
+        Some(""),
+        Some("   "),
+        Some("null"),
+        Some("{"),
+        Some("[]"),
+        Some("42"),
+        Some("\"texte\""),
+        Some(r#"{"text":{"global_scale":"grand"}}"#),
+        Some(r#"{"theme":["a"]}"#),
+        Some("\u{0}"),
+    ] {
+        assert_eq!(Appearance::from_pref(raw), Appearance::default(), "{raw:?}");
+    }
+}
+
+#[test]
+fn an_unknown_mode_follows_the_system() {
+    let a = Appearance::from_pref(Some(r#"{"mode":"crepuscule"}"#));
+    assert_eq!(a.mode, Mode::System);
+}
+
+#[test]
+fn an_unknown_theme_becomes_classic_but_other_fields_are_kept() {
+    let a = Appearance::from_pref(Some(r#"{"theme":"disparu","mode":"dark"}"#));
+    assert_eq!(a.theme, "classic");
+    assert_eq!(a.mode, Mode::Dark);
+}
+
+#[test]
+fn out_of_range_values_are_bounded_when_read() {
+    let a = Appearance::from_pref(Some(
+        r#"{"text":{"global_scale":99,"ui_scale":-1,"conv_line_spacing":0.01}}"#,
+    ));
+    assert_eq!(a.text.global_scale, 1.6);
+    assert_eq!(a.text.ui_scale, 0.8);
+    assert_eq!(a.text.conv_line_spacing, Some(1.0));
+}
+
+#[test]
+fn unknown_fields_from_a_future_version_are_tolerated() {
+    let a = Appearance::from_pref(Some(r#"{"theme":"ink","avenir":{"x":1},"mode":"light"}"#));
+    assert_eq!(a.builtin(), BuiltinTheme::Ink);
+    assert_eq!(a.mode, Mode::Light);
+}
+
+#[test]
+fn every_builtin_theme_round_trips_through_the_preference() {
+    for theme in BuiltinTheme::ALL {
+        for mode in [Mode::System, Mode::Light, Mode::Dark] {
+            let original = Appearance {
+                theme: theme.id().to_owned(),
+                mode,
+                text: TextSettings {
+                    global_scale: 1.2,
+                    ui_scale: 0.9,
+                    conv_scale: 1.5,
+                    conv_line_spacing: Some(1.6),
+                    conv_letter_spacing: Some(0.3),
+                },
+            };
+            assert_eq!(Appearance::from_pref(Some(&original.to_pref())), original);
+        }
+    }
+}
+
+#[test]
+fn modes_map_to_egui_preferences() {
+    assert_eq!(Mode::System.preference(), egui::ThemePreference::System);
+    assert_eq!(Mode::Light.preference(), egui::ThemePreference::Light);
+    assert_eq!(Mode::Dark.preference(), egui::ThemePreference::Dark);
+}
+
+#[test]
+fn the_preference_survives_a_real_database_round_trip() {
+    let dir = std::env::temp_dir().join(format!(
+        "abcom-appearance-db-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let original = Appearance {
+        theme: "marshmallow".into(),
+        mode: Mode::Dark,
+        text: TextSettings {
+            global_scale: 1.3,
+            ..TextSettings::default()
+        },
+    };
+    {
+        let storage = crate::app::Storage::open(&dir).unwrap();
+        storage
+            .set_kv(Appearance::PREF_KEY, &original.to_pref())
+            .unwrap();
+    }
+    let reopened = crate::app::Storage::open(&dir).unwrap();
+    let loaded = reopened
+        .load_all(crate::app::storage::INITIAL_WINDOW)
+        .unwrap();
+    let raw = loaded.kv.get(Appearance::PREF_KEY).map(String::as_str);
+    assert_eq!(Appearance::from_pref(raw), original);
+}

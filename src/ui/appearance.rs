@@ -84,6 +84,94 @@ fn combined(global: f32, part: f32) -> f32 {
     (global * part).clamp(*COMBINED_SCALE_RANGE.start(), *COMBINED_SCALE_RANGE.end())
 }
 
+/// Mode clair, sombre ou celui du système.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum Mode {
+    Light,
+    Dark,
+    /// Suit le système ; une valeur inconnue y revient aussi.
+    #[default]
+    #[serde(other)]
+    System,
+}
+
+impl Mode {
+    pub(crate) fn preference(self) -> egui::ThemePreference {
+        match self {
+            Self::Light => egui::ThemePreference::Light,
+            Self::Dark => egui::ThemePreference::Dark,
+            Self::System => egui::ThemePreference::System,
+        }
+    }
+}
+
+/// Apparence choisie par l'utilisateur, persistée sous une seule clé.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub(crate) struct Appearance {
+    /// Identifiant du thème (cf. [`BuiltinTheme::id`]).
+    pub(crate) theme: String,
+    pub(crate) mode: Mode,
+    pub(crate) text: TextSettings,
+}
+
+impl Default for Appearance {
+    fn default() -> Self {
+        Self {
+            theme: BuiltinTheme::Classic.id().to_owned(),
+            mode: Mode::default(),
+            text: TextSettings::default(),
+        }
+    }
+}
+
+impl Appearance {
+    /// Clé de la table des préférences.
+    pub(crate) const PREF_KEY: &'static str = "appearance";
+
+    /// Relit l'apparence enregistrée. Une valeur absente, illisible ou d'une
+    /// autre forme donne l'apparence par défaut, jamais une erreur.
+    pub(crate) fn from_pref(raw: Option<&str>) -> Self {
+        let Some(raw) = raw.map(str::trim).filter(|raw| !raw.is_empty()) else {
+            return Self::default();
+        };
+        match serde_json::from_str::<Self>(raw) {
+            Ok(appearance) => appearance.sanitized(),
+            Err(err) => {
+                tracing::warn!("apparence illisible, valeurs par défaut : {err}");
+                Self::default()
+            }
+        }
+    }
+
+    /// Forme enregistrée dans les préférences.
+    pub(crate) fn to_pref(&self) -> String {
+        serde_json::to_string(self).unwrap_or_default()
+    }
+
+    /// Ramène chaque valeur dans ses bornes ; un thème inconnu redevient Classique.
+    pub(crate) fn sanitized(mut self) -> Self {
+        self.text = self.text.sanitized();
+        if BuiltinTheme::from_id(&self.theme).is_none() {
+            tracing::warn!("thème inconnu « {} », retour à Classique", self.theme);
+            self.theme = BuiltinTheme::Classic.id().to_owned();
+        }
+        self
+    }
+
+    /// Thème intégré choisi.
+    pub(crate) fn builtin(&self) -> BuiltinTheme {
+        BuiltinTheme::from_id(&self.theme).unwrap_or(BuiltinTheme::Classic)
+    }
+}
+
+/// Installe l'apparence dans le contexte egui : mode, thème, tailles et polices.
+pub(crate) fn apply_appearance(ctx: &egui::Context, appearance: &Appearance) {
+    ctx.set_theme(appearance.mode.preference());
+    apply(ctx, appearance.builtin(), &appearance.text);
+}
+
 /// Installe un thème et ses réglages de texte dans le contexte egui.
 ///
 /// Les polices ne sont reconstruites que si le choix de police change : c'est
