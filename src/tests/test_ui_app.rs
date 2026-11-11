@@ -270,8 +270,13 @@ fn enter_on_the_focused_send_button_goes_to_the_line_instead_of_sending() {
             {
                 let s = app.state.lock().unwrap();
                 app.sidebar_cache.refresh(&s);
-                app.chat_cache
-                    .refresh(&s, app.ui_language, &app.emoji.map, true);
+                app.chat_cache.refresh(
+                    &s,
+                    app.ui_language,
+                    &app.emoji.map,
+                    true,
+                    &crate::ui::theme::ResolvedTheme::classic(),
+                );
             }
             app.show_sidebar_panel(root);
             let _ = app.show_input_bar(root);

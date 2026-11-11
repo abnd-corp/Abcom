@@ -143,7 +143,7 @@ fn compute_caret_positions(
 ) -> Vec<egui::Pos2> {
     let chars: Vec<char> = text.chars().collect();
     let mut i = 0;
-    let line_height = super::theme::LINE_HEIGHT;
+    let line_height = super::theme::typography(ui).composer_line_height;
     let mut x = 0.0;
     let mut y = 0.0;
     let mut points = Vec::with_capacity(chars.len() + 1);
@@ -409,7 +409,7 @@ pub fn custom_composer_input(
     width: f32,
     selection_anchor: &mut Option<usize>,
 ) -> (egui::Response, bool, bool, Option<String>) {
-    let line_height = super::theme::LINE_HEIGHT;
+    let line_height = super::theme::typography(ui).composer_line_height;
     let base_content_width = (width.max(120.0) - 12.0).max(20.0);
     let initial_caret_points =
         composer_caret_positions(ui, input, emoji_map, 18.0, base_content_width);

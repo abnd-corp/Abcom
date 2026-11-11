@@ -971,6 +971,7 @@ impl eframe::App for AbcomApp {
         // Rafraîchit les caches dérivés si l'état a changé (génération) —
         // sinon la frame se rend sans reprendre le verrou ni rien re-dériver.
         {
+            let theme = theme::current(ctx);
             let s = self.state.lock_safe();
             self.sidebar_cache.refresh(&s);
             let rebuilt = self.chat_cache.refresh(
@@ -978,6 +979,7 @@ impl eframe::App for AbcomApp {
                 self.ui_language,
                 &self.emoji.map,
                 ctx.theme() == egui::Theme::Dark,
+                &theme,
             );
             drop(s);
             if let Some(conv_changed) = rebuilt {
@@ -1354,6 +1356,7 @@ pub fn run(
             // événement relayé peut désormais réveiller la boucle de rendu.
             let _ = ui_ctx.set(cc.egui_ctx.clone());
             cc.egui_ctx.set_fonts(build_fonts());
+            theme::install(&cc.egui_ctx, theme::ResolvedTheme::classic());
             // Loaders d'images egui_extras : HTTP (récupération depuis le CDN
             // Klipy) + décodage GIF/WebP animés pour les vignettes et le fil.
             egui_extras::install_image_loaders(&cc.egui_ctx);

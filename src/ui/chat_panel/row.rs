@@ -454,17 +454,18 @@ pub(super) fn render_reaction_pills(
             if !ui.is_rect_visible(rect) {
                 continue;
             }
+            let palette = crate::ui::theme::palette(ui);
             let fill = if mine {
-                egui::Color32::from_rgb(70, 90, 140)
+                palette.chip_mine
             } else if resp.hovered() {
                 ui.visuals().widgets.hovered.bg_fill
             } else {
-                egui::Color32::from_rgb(50, 52, 58)
+                palette.chip
             };
             let stroke = if mine {
-                egui::Stroke::new(1.0, egui::Color32::from_rgb(120, 150, 255))
+                egui::Stroke::new(1.0, palette.chip_mine_border)
             } else {
-                egui::Stroke::new(1.0, crate::ui::theme::palette(ui).surface_strong)
+                egui::Stroke::new(1.0, palette.surface_strong)
             };
             ui.painter()
                 .rect(rect, 6.0, fill, stroke, egui::StrokeKind::Inside);

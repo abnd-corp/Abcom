@@ -102,8 +102,9 @@ pub(crate) struct ChatCache {
     language: Option<UiLanguage>,
     today: Option<NaiveDate>,
     /// Thème du cache : les couleurs d'auteur en dépendent, il faut donc le
-    /// reconstruire quand l'utilisateur bascule clair/sombre.
+    /// reconstruire quand l'utilisateur bascule clair/sombre ou le modifie.
     dark_mode: Option<bool>,
+    theme_revision: Option<u64>,
     pub(crate) rows: Arc<Vec<ChatRow>>,
     /// Auteurs uniques du fil (préchargement des avatars).
     pub(crate) authors: Vec<String>,
@@ -147,6 +148,7 @@ impl ChatCache {
         language: UiLanguage,
         emoji_map: &HashMap<String, usize>,
         dark_mode: bool,
+        theme: &theme::ResolvedTheme,
     ) -> Option<bool> {
         let today = Local::now().date_naive();
         let conv_changed = self.conversation_key.as_ref() != Some(&s.selected_conversation);
@@ -155,11 +157,13 @@ impl ChatCache {
             && self.language == Some(language)
             && self.today == Some(today)
             && self.dark_mode == Some(dark_mode)
+            && self.theme_revision == Some(theme.revision)
         {
             return None;
         }
-        let palette = theme::for_dark_mode(dark_mode);
+        let palette = theme.palette(dark_mode);
         self.dark_mode = Some(dark_mode);
+        self.theme_revision = Some(theme.revision);
         self.generation = Some(s.content_generation);
         self.conversation_key = Some(s.selected_conversation.clone());
         self.language = Some(language);

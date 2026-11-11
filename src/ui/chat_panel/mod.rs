@@ -358,118 +358,162 @@ impl AbcomApp {
             // Aire de messages. Le collage au bas est suspendu quand un saut
             // vers un message est en attente : sinon il écrase le
             // `scroll_to_rect` du saut et le fil reste en bas.
-            let scroll_out = egui::ScrollArea::vertical()
-                .id_salt("chat_scroll")
-                .auto_shrink([false; 2])
-                .stick_to_bottom(self.scroll_to_message.is_none())
-                .show(ui, |ui| {
-                    // Marge à droite : largeur figée (cf. thread_width), rien ne
-                    // colle au bord et la marge ne tremble plus.
-                    ui.set_max_width(thread_width);
+            let scroll_out =
+                egui::ScrollArea::vertical()
+                    .id_salt("chat_scroll")
+                    .auto_shrink([false; 2])
+                    .stick_to_bottom(self.scroll_to_message.is_none())
+                    .show(ui, |ui| {
+                        // Marge à droite : largeur figée (cf. thread_width), rien ne
+                        // colle au bord et la marge ne tremble plus.
+                        ui.set_max_width(thread_width);
 
-                    if rows.is_empty() {
-                        ui.add_space(50.0);
-                        ui.label(egui::RichText::new(self.t(i18n::AUCUN_MESSAGE)).weak());
-                    }
-
-                    // Une seule ligne peut revendiquer le survol par frame :
-                    // les rects de survol débordent de 2 px sur leurs voisins
-                    // (couverture des interstices), sans ce verrou deux lignes
-                    // adjacentes pouvaient se surligner en même temps.
-                    let mut hover_claimed = false;
-
-                    for (i, row) in rows[start..].iter().enumerate() {
-                        let msg = &row.msg;
-                        let hash = row.hash;
-                        // Index absolu dans le fil : désambiguïse les messages
-                        // au hash identique (anciens messages sans nonce) pour
-                        // tout ce qui est purement visuel (survol, barre
-                        // d'actions, identifiants egui).
-                        let abs_idx = start + i;
-
-                        // Première ligne d'une fenêtre tronquée : séparateur
-                        // de date forcé (situe la coupure) et en-tête forcé
-                        // (pas de continuation orpheline sans avatar).
-                        let window_head = i == 0 && start > 0;
-                        let divider = row.day_divider.as_ref().or(if window_head {
-                            row.day_label.as_ref()
-                        } else {
-                            None
-                        });
-                        if let Some(label) = divider {
-                            render_day_divider(ui, label);
+                        if rows.is_empty() {
+                            ui.add_space(50.0);
+                            ui.label(egui::RichText::new(self.t(i18n::AUCUN_MESSAGE)).weak());
                         }
-                        let starts_group = row.starts_group || window_head;
 
-                        let mut reaction_clicked: Option<String> = None;
-                        let mut reply_quote_clicked = false;
-                        let mut collapse_toggled = false;
-                        let expanded = self.expanded_messages.contains(&hash);
+                        // Une seule ligne peut revendiquer le survol par frame :
+                        // les rects de survol débordent de 2 px sur leurs voisins
+                        // (couverture des interstices), sans ce verrou deux lignes
+                        // adjacentes pouvaient se surligner en même temps.
+                        let mut hover_claimed = false;
 
-                        // Fond pleine largeur de la ligne (survol / flash de
-                        // surlignage), inséré sous le contenu et rempli après
-                        // le rendu, une fois l'état de survol connu.
-                        let row_bg = ui.painter().add(egui::Shape::Noop);
+                        for (i, row) in rows[start..].iter().enumerate() {
+                            let msg = &row.msg;
+                            let hash = row.hash;
+                            // Index absolu dans le fil : désambiguïse les messages
+                            // au hash identique (anciens messages sans nonce) pour
+                            // tout ce qui est purement visuel (survol, barre
+                            // d'actions, identifiants egui).
+                            let abs_idx = start + i;
 
-                        let reply_avatar = row.reply.as_ref().and_then(|r| {
-                            r.resolved
-                                .as_ref()
-                                .and_then(|m| author_avatars.get(&m.from))
-                                .and_then(|t| t.as_ref())
-                        });
-                        let reply_media_tex = row.reply.as_ref().and_then(|r| {
-                            r.resolved
-                                .as_ref()
-                                .and_then(|m| m.media.as_ref())
-                                .and_then(|med| {
-                                    media_textures.get(&med.id).and_then(|t| t.as_ref())
-                                })
-                        });
+                            // Première ligne d'une fenêtre tronquée : séparateur
+                            // de date forcé (situe la coupure) et en-tête forcé
+                            // (pas de continuation orpheline sans avatar).
+                            let window_head = i == 0 && start > 0;
+                            let divider = row.day_divider.as_ref().or(if window_head {
+                                row.day_label.as_ref()
+                            } else {
+                                None
+                            });
+                            if let Some(label) = divider {
+                                render_day_divider(ui, label);
+                            }
+                            let starts_group = row.starts_group || window_head;
 
-                        let mut gutter_rect: Option<egui::Rect> = None;
-                        let row_resp = if starts_group {
-                            ui.add_space(GROUP_SPACING);
-                            ui.vertical(|ui| {
-                                if let Some(reply) = &row.reply {
-                                    if render_reply_quote(
-                                        ui,
-                                        abs_idx,
-                                        reply.resolved.as_ref(),
-                                        &reply.author,
-                                        reply.author_color,
-                                        reply_avatar,
-                                        reply_media_tex,
-                                        not_found_label,
-                                    ) {
-                                        reply_quote_clicked = true;
-                                    }
-                                }
-                                ui.horizontal(|ui| {
-                                    // Retrait du texte = avatar + gouttière, sans
-                                    // espacement parasite, pour qu'il coïncide avec
-                                    // les messages de continuation (cf. branche else).
-                                    ui.spacing_mut().item_spacing.x = 0.0;
-                                    let avatar = author_avatars
-                                        .get(&msg.from)
-                                        .and_then(|texture| texture.as_ref());
-                                    super::avatar::show_avatar(
-                                        ui,
-                                        avatar,
-                                        &row.display_name,
-                                        AVATAR_SIZE,
-                                    );
-                                    ui.add_space(AVATAR_GUTTER);
-                                    ui.vertical(|ui| {
-                                        render_message_header(
+                            let mut reaction_clicked: Option<String> = None;
+                            let mut reply_quote_clicked = false;
+                            let mut collapse_toggled = false;
+                            let expanded = self.expanded_messages.contains(&hash);
+
+                            // Fond pleine largeur de la ligne (survol / flash de
+                            // surlignage), inséré sous le contenu et rempli après
+                            // le rendu, une fois l'état de survol connu.
+                            let row_bg = ui.painter().add(egui::Shape::Noop);
+
+                            let reply_avatar = row.reply.as_ref().and_then(|r| {
+                                r.resolved
+                                    .as_ref()
+                                    .and_then(|m| author_avatars.get(&m.from))
+                                    .and_then(|t| t.as_ref())
+                            });
+                            let reply_media_tex =
+                                row.reply.as_ref().and_then(|r| {
+                                    r.resolved.as_ref().and_then(|m| m.media.as_ref()).and_then(
+                                        |med| media_textures.get(&med.id).and_then(|t| t.as_ref()),
+                                    )
+                                });
+
+                            let mut gutter_rect: Option<egui::Rect> = None;
+                            let row_resp = if starts_group {
+                                ui.add_space(GROUP_SPACING);
+                                ui.vertical(|ui| {
+                                    if let Some(reply) = &row.reply {
+                                        if render_reply_quote(
                                             ui,
+                                            abs_idx,
+                                            reply.resolved.as_ref(),
+                                            &reply.author,
+                                            reply.author_color,
+                                            reply_avatar,
+                                            reply_media_tex,
+                                            not_found_label,
+                                        ) {
+                                            reply_quote_clicked = true;
+                                        }
+                                    }
+                                    ui.horizontal(|ui| {
+                                        // Retrait du texte = avatar + gouttière, sans
+                                        // espacement parasite, pour qu'il coïncide avec
+                                        // les messages de continuation (cf. branche else).
+                                        ui.spacing_mut().item_spacing.x = 0.0;
+                                        let avatar = author_avatars
+                                            .get(&msg.from)
+                                            .and_then(|texture| texture.as_ref());
+                                        super::avatar::show_avatar(
+                                            ui,
+                                            avatar,
                                             &row.display_name,
-                                            &row.header_time,
-                                            row.name_color,
-                                            row.receipt,
-                                            row.receipt_detail.as_ref(),
-                                            row.hash,
-                                            language,
+                                            AVATAR_SIZE,
                                         );
+                                        ui.add_space(AVATAR_GUTTER);
+                                        ui.vertical(|ui| {
+                                            render_message_header(
+                                                ui,
+                                                &row.display_name,
+                                                &row.header_time,
+                                                row.name_color,
+                                                row.receipt,
+                                                row.receipt_detail.as_ref(),
+                                                row.hash,
+                                                language,
+                                            );
+                                            let (media_action, toggled) = render_message_body(
+                                                ui,
+                                                msg,
+                                                &row.markdown,
+                                                row.collapse.as_ref(),
+                                                expanded,
+                                                language,
+                                                &self.emoji.map,
+                                                &self.emoji.textures,
+                                                &media_textures,
+                                                &self.media.progress,
+                                                &media_present,
+                                            );
+                                            collapse_toggled |= toggled;
+                                            if let Some(action) = media_action {
+                                                apply_media_action(
+                                                    action,
+                                                    msg,
+                                                    &mut media_view_open,
+                                                    &mut media_download,
+                                                );
+                                            }
+                                            if let Some(emoji) = render_reaction_pills(
+                                                ui,
+                                                &row.reactions,
+                                                &my_name,
+                                                &self.emoji.map,
+                                                &self.emoji.textures,
+                                            ) {
+                                                reaction_clicked = Some(emoji);
+                                            }
+                                        });
+                                    });
+                                })
+                            } else {
+                                ui.horizontal(|ui| {
+                                    ui.spacing_mut().item_spacing.x = 0.0;
+                                    let (rect, _) = ui.allocate_exact_size(
+                                        egui::vec2(AVATAR_SIZE + AVATAR_GUTTER, 20.0),
+                                        egui::Sense::hover(),
+                                    );
+                                    // L'heure est peinte après le rendu de la
+                                    // ligne, dès que celle-ci est survolée.
+                                    gutter_rect = Some(rect);
+                                    ui.vertical(|ui| {
                                         let (media_action, toggled) = render_message_body(
                                             ui,
                                             msg,
@@ -502,174 +546,129 @@ impl AbcomApp {
                                             reaction_clicked = Some(emoji);
                                         }
                                     });
-                                });
-                            })
-                        } else {
-                            ui.horizontal(|ui| {
-                                ui.spacing_mut().item_spacing.x = 0.0;
-                                let (rect, _) = ui.allocate_exact_size(
-                                    egui::vec2(AVATAR_SIZE + AVATAR_GUTTER, 20.0),
-                                    egui::Sense::hover(),
-                                );
-                                // L'heure est peinte après le rendu de la
-                                // ligne, dès que celle-ci est survolée.
-                                gutter_rect = Some(rect);
-                                ui.vertical(|ui| {
-                                    let (media_action, toggled) = render_message_body(
-                                        ui,
-                                        msg,
-                                        &row.markdown,
-                                        row.collapse.as_ref(),
-                                        expanded,
-                                        language,
-                                        &self.emoji.map,
-                                        &self.emoji.textures,
-                                        &media_textures,
-                                        &self.media.progress,
-                                        &media_present,
-                                    );
-                                    collapse_toggled |= toggled;
-                                    if let Some(action) = media_action {
-                                        apply_media_action(
-                                            action,
-                                            msg,
-                                            &mut media_view_open,
-                                            &mut media_download,
-                                        );
-                                    }
-                                    if let Some(emoji) = render_reaction_pills(
-                                        ui,
-                                        &row.reactions,
-                                        &my_name,
-                                        &self.emoji.map,
-                                        &self.emoji.textures,
-                                    ) {
-                                        reaction_clicked = Some(emoji);
-                                    }
-                                });
-                            })
-                        };
-                        // Rectangle pleine largeur de la ligne : comme sur
-                        // Discord, le survol et le fond couvrent tout le fil,
-                        // pas seulement la largeur du texte.
-                        let row_rect = egui::Rect::from_x_y_ranges(
-                            ui.max_rect().x_range(),
-                            row_resp.response.rect.y_range(),
-                        )
-                        .expand2(egui::vec2(0.0, 2.0));
-
-                        // Saut demandé vers ce message (clic sur une citation).
-                        if self.scroll_to_message == Some(hash) {
-                            ui.scroll_to_rect(row_rect, Some(egui::Align::Center));
-                            self.scroll_to_message = None;
-                            self.highlight_message = Some((hash, std::time::Instant::now()));
-                        }
-
-                        // Survol : barre d'actions flottante (emojis récents,
-                        // "+", répondre). Reste affichée tant que le pointeur
-                        // est sur la ligne ou sur la barre elle-même, pour
-                        // éviter tout clignotement en s'y déplaçant.
-                        let row_hovered = !hover_claimed && ui.rect_contains_pointer(row_rect);
-                        if row_hovered {
-                            self.hover_toolbar_target = Some((abs_idx, hash));
-                            hover_claimed = true;
-                        }
-                        // Ligne « active » : survolée, ou pointeur sur sa
-                        // barre d'actions flottante.
-                        let row_active = self.hover_toolbar_target == Some((abs_idx, hash));
-
-                        // Heure dans la gouttière des messages de continuation,
-                        // visible dès que la ligne est survolée (pas seulement
-                        // la gouttière), et centrée verticalement sur le
-                        // message — reste en face du contenu même pour un
-                        // grand média ou un long texte.
-                        if row_active {
-                            if let Some(rect) = gutter_rect {
-                                ui.painter().text(
-                                    egui::pos2(rect.center().x, row_rect.center().y),
-                                    egui::Align2::CENTER_CENTER,
-                                    &row.header_time,
-                                    egui::TextStyle::Small.resolve(ui.style()),
-                                    crate::ui::theme::palette(ui).text_muted,
-                                );
-                            }
-                        }
-
-                        // Fond de la ligne : flash de surlignage qui s'estompe
-                        // après un saut, sinon grisé de survol façon Discord.
-                        let highlight_elapsed = self
-                            .highlight_message
-                            .filter(|(h, _)| *h == hash)
-                            .map(|(_, since)| since.elapsed().as_secs_f32());
-                        if let Some(elapsed) = highlight_elapsed {
-                            if elapsed < HIGHLIGHT_SECS {
-                                let alpha = ((1.0 - elapsed / HIGHLIGHT_SECS) * 44.0) as u8;
-                                ui.painter().set(
-                                    row_bg,
-                                    egui::Shape::rect_filled(
-                                        row_rect,
-                                        0.0,
-                                        egui::Color32::from_rgba_unmultiplied(88, 101, 242, alpha),
-                                    ),
-                                );
-                                ui.ctx().request_repaint();
-                            } else {
-                                self.highlight_message = None;
-                            }
-                        } else if row_active {
-                            let tint = if ui.visuals().dark_mode {
-                                egui::Color32::from_rgba_unmultiplied(255, 255, 255, 7)
-                            } else {
-                                egui::Color32::from_rgba_unmultiplied(0, 0, 0, 10)
+                                })
                             };
-                            ui.painter()
-                                .set(row_bg, egui::Shape::rect_filled(row_rect, 0.0, tint));
+                            // Rectangle pleine largeur de la ligne : comme sur
+                            // Discord, le survol et le fond couvrent tout le fil,
+                            // pas seulement la largeur du texte.
+                            let row_rect = egui::Rect::from_x_y_ranges(
+                                ui.max_rect().x_range(),
+                                row_resp.response.rect.y_range(),
+                            )
+                            .expand2(egui::vec2(0.0, 2.0));
+
+                            // Saut demandé vers ce message (clic sur une citation).
+                            if self.scroll_to_message == Some(hash) {
+                                ui.scroll_to_rect(row_rect, Some(egui::Align::Center));
+                                self.scroll_to_message = None;
+                                self.highlight_message = Some((hash, std::time::Instant::now()));
+                            }
+
+                            // Survol : barre d'actions flottante (emojis récents,
+                            // "+", répondre). Reste affichée tant que le pointeur
+                            // est sur la ligne ou sur la barre elle-même, pour
+                            // éviter tout clignotement en s'y déplaçant.
+                            let row_hovered = !hover_claimed && ui.rect_contains_pointer(row_rect);
+                            if row_hovered {
+                                self.hover_toolbar_target = Some((abs_idx, hash));
+                                hover_claimed = true;
+                            }
+                            // Ligne « active » : survolée, ou pointeur sur sa
+                            // barre d'actions flottante.
+                            let row_active = self.hover_toolbar_target == Some((abs_idx, hash));
+
+                            // Heure dans la gouttière des messages de continuation,
+                            // visible dès que la ligne est survolée (pas seulement
+                            // la gouttière), et centrée verticalement sur le
+                            // message — reste en face du contenu même pour un
+                            // grand média ou un long texte.
+                            if row_active {
+                                if let Some(rect) = gutter_rect {
+                                    ui.painter().text(
+                                        egui::pos2(rect.center().x, row_rect.center().y),
+                                        egui::Align2::CENTER_CENTER,
+                                        &row.header_time,
+                                        egui::TextStyle::Small.resolve(ui.style()),
+                                        crate::ui::theme::palette(ui).text_muted,
+                                    );
+                                }
+                            }
+
+                            // Fond de la ligne : flash de surlignage qui s'estompe
+                            // après un saut, sinon grisé de survol façon Discord.
+                            let highlight_elapsed = self
+                                .highlight_message
+                                .filter(|(h, _)| *h == hash)
+                                .map(|(_, since)| since.elapsed().as_secs_f32());
+                            if let Some(elapsed) = highlight_elapsed {
+                                if elapsed < HIGHLIGHT_SECS {
+                                    let alpha = ((1.0 - elapsed / HIGHLIGHT_SECS) * 44.0) as u8;
+                                    ui.painter().set(
+                                        row_bg,
+                                        egui::Shape::rect_filled(row_rect, 0.0, {
+                                            let accent = crate::ui::theme::palette(ui).accent;
+                                            egui::Color32::from_rgba_unmultiplied(
+                                                accent.r(),
+                                                accent.g(),
+                                                accent.b(),
+                                                alpha,
+                                            )
+                                        }),
+                                    );
+                                    ui.ctx().request_repaint();
+                                } else {
+                                    self.highlight_message = None;
+                                }
+                            } else if row_active {
+                                let tint = crate::ui::theme::palette(ui).row_tint;
+                                ui.painter()
+                                    .set(row_bg, egui::Shape::rect_filled(row_rect, 0.0, tint));
+                            }
+
+                            let mut reply_requested = false;
+                            if row_active {
+                                let result = self.show_hover_toolbar(
+                                    ctx,
+                                    abs_idx,
+                                    hash,
+                                    row_rect,
+                                    reply_label,
+                                    add_reaction_label,
+                                );
+                                if !row_hovered && !result.pointer_over_toolbar {
+                                    self.hover_toolbar_target = None;
+                                }
+                                if let Some(emoji) = result.quick_emoji {
+                                    reaction_clicked = Some(emoji);
+                                }
+                                reply_requested = result.reply_clicked;
+                            }
+
+                            if collapse_toggled && !self.expanded_messages.remove(&hash) {
+                                self.expanded_messages.insert(hash);
+                            }
+                            if let Some(emoji) = reaction_clicked {
+                                self.send_reaction(hash, &emoji);
+                            }
+                            if reply_quote_clicked {
+                                if let Some(target) = msg.reply_to {
+                                    self.scroll_to_message = Some(target);
+                                    ctx.request_repaint();
+                                }
+                            }
+                            if reply_requested {
+                                self.replying_to = Some(ReplyTarget {
+                                    message_hash: hash,
+                                    author: row.display_name.clone(),
+                                    content_snippet: super::media::elide(&msg.content, 80),
+                                    media_thumb: msg.media.clone(),
+                                });
+                            }
                         }
 
-                        let mut reply_requested = false;
-                        if row_active {
-                            let result = self.show_hover_toolbar(
-                                ctx,
-                                abs_idx,
-                                hash,
-                                row_rect,
-                                reply_label,
-                                add_reaction_label,
-                            );
-                            if !row_hovered && !result.pointer_over_toolbar {
-                                self.hover_toolbar_target = None;
-                            }
-                            if let Some(emoji) = result.quick_emoji {
-                                reaction_clicked = Some(emoji);
-                            }
-                            reply_requested = result.reply_clicked;
-                        }
-
-                        if collapse_toggled && !self.expanded_messages.remove(&hash) {
-                            self.expanded_messages.insert(hash);
-                        }
-                        if let Some(emoji) = reaction_clicked {
-                            self.send_reaction(hash, &emoji);
-                        }
-                        if reply_quote_clicked {
-                            if let Some(target) = msg.reply_to {
-                                self.scroll_to_message = Some(target);
-                                ctx.request_repaint();
-                            }
-                        }
-                        if reply_requested {
-                            self.replying_to = Some(ReplyTarget {
-                                message_hash: hash,
-                                author: row.display_name.clone(),
-                                content_snippet: super::media::elide(&msg.content, 80),
-                                media_thumb: msg.media.clone(),
-                            });
-                        }
-                    }
-
-                    // Offres de médias volumineux (au-delà du seuil d'accord) à accepter/refuser.
-                    self.render_media_offers(ui);
-                });
+                        // Offres de médias volumineux (au-delà du seuil d'accord) à accepter/refuser.
+                        self.render_media_offers(ui);
+                    });
 
             // Pagination façon Discord : arrivé près du haut, charger les 100
             // messages précédents — d'abord depuis la fenêtre mémoire, puis
