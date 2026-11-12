@@ -384,7 +384,7 @@ impl AbcomApp {
                 ui.close();
             }
         }
-        if conv.is_some() && ui.button(self.t(i18n::EFFACER_L_HISTORIQUE)).clicked() {
+        if ui.button(self.t(i18n::EFFACER_L_HISTORIQUE)).clicked() {
             self.switch_conversation(conv.clone());
             self.state.lock_safe().clear_conversation_history();
             ui.close();
