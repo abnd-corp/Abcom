@@ -253,6 +253,46 @@ impl AbcomApp {
                 }
             }
 
+            // Confirmation de suppression d'une conversation privée (action locale et définitive)
+            if let Some(target) = self.modals.delete_conversation_target.clone() {
+                let title = self.t(i18n::SUPPRIMER_CETTE_CONVERSATION_QUESTION);
+                let warning = self.t(i18n::SUPPRESSION_DEFINITIVE_LOCALE);
+                let confirm_lbl = self.t(i18n::SUPPRIMER_LA_CONVERSATION);
+                let cancel_lbl = self.t(i18n::ANNULER);
+
+                let mut open = true;
+                let mut do_delete = false;
+                let mut do_cancel = false;
+                egui::Window::new(title)
+                    .open(&mut open)
+                    .resizable(false)
+                    .collapsible(false)
+                    .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+                    .show(ctx, |ui| {
+                        ui.label(&target);
+                        ui.add_space(6.0);
+                        ui.label(warning);
+                        ui.add_space(8.0);
+                        ui.horizontal(|ui| {
+                            do_delete = ui.button(confirm_lbl).clicked();
+                            do_cancel = ui.button(cancel_lbl).clicked();
+                        });
+                    });
+
+                if do_delete {
+                    let was_selected = self.state.lock_safe().selected_conversation.as_deref()
+                        == Some(target.as_str());
+                    if was_selected {
+                        self.switch_conversation(None);
+                    }
+                    self.composer.drafts.remove(&Some(target.clone()));
+                    self.state.lock_safe().delete_private_conversation(&target);
+                    self.modals.delete_conversation_target = None;
+                } else if do_cancel || !open {
+                    self.modals.delete_conversation_target = None;
+                }
+            }
+
             // Alerte TOFU : la clé présentée par un pair ne correspond plus à
             // celle épinglée. Deux causes possibles — usurpation, ou
             // réinstallation légitime du pair. On ne tranche pas à sa place :

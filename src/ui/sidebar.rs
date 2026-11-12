@@ -103,6 +103,13 @@ impl AbcomApp {
 
                 let desired = egui::vec2(ui.available_width(), 56.0);
                 let (rect, resp) = ui.allocate_exact_size(desired, egui::Sense::click());
+                let delete_label = self.t(i18n::SUPPRIMER_LA_CONVERSATION);
+                resp.context_menu(|ui| {
+                    if ui.button(delete_label).clicked() {
+                        self.modals.delete_conversation_target = Some(peer.username.clone());
+                        ui.close();
+                    }
+                });
                 let visuals = ui.style().interact(&resp);
                 let fill = if is_selected {
                     ui.visuals().selection.bg_fill

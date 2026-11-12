@@ -97,6 +97,41 @@ fn test_clear_conversation_history_private() {
 }
 
 #[test]
+fn test_delete_private_conversation_removes_only_that_peer() {
+    let mut s = state("alice");
+    s.messages.push(msg("bob", Some("alice"), "hi"));
+    s.messages.push(msg("alice", Some("bob"), "ok"));
+    s.messages.push(msg("charlie", Some("alice"), "hey"));
+    s.messages.push(msg("bob", None, "pour tous"));
+    s.read_marks.insert("bob".to_string(), 42);
+    s.read_marks.insert("charlie".to_string(), 7);
+    s.delete_private_conversation("bob");
+    assert_eq!(s.messages.len(), 2);
+    assert!(s.messages.iter().any(|m| m.from == "charlie"));
+    assert!(s.messages.iter().any(|m| m.to_user.is_none()));
+    assert!(!s.read_marks.contains_key("bob"));
+    assert!(s.read_marks.contains_key("charlie"));
+}
+
+#[test]
+fn test_delete_private_conversation_closes_it_when_selected() {
+    let mut s = state("alice");
+    s.messages.push(msg("bob", Some("alice"), "hi"));
+    s.selected_conversation = Some("bob".to_string());
+    s.delete_private_conversation("bob");
+    assert!(s.selected_conversation.is_none());
+}
+
+#[test]
+fn test_delete_private_conversation_keeps_other_selection() {
+    let mut s = state("alice");
+    s.messages.push(msg("bob", Some("alice"), "hi"));
+    s.selected_conversation = Some("charlie".to_string());
+    s.delete_private_conversation("bob");
+    assert_eq!(s.selected_conversation.as_deref(), Some("charlie"));
+}
+
+#[test]
 fn test_clear_conversation_history_broadcast() {
     let mut s = state("alice");
     s.messages.push(msg("bob", None, "global"));

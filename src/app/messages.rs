@@ -152,6 +152,29 @@ impl AppState {
         }
     }
 
+    /// Supprime la conversation privée avec `peer` : messages en mémoire et en base,
+    /// compteur de lecture, états annexes et messages en attente d'émission.
+    pub fn delete_private_conversation(&mut self, peer: &str) {
+        let me = self.my_username.clone();
+        self.messages.retain(|m| {
+            !((m.from == peer && m.to_user.as_deref() == Some(me.as_str()))
+                || (m.from == me && m.to_user.as_deref() == Some(peer)))
+        });
+        self.read_marks.remove(peer);
+        self.purge_stale_message_state();
+        for (hash, _) in self.outbox_for(peer) {
+            self.drop_from_outbox(hash);
+        }
+        self.persist(super::StorageCmd::DeleteConversation {
+            me,
+            conv: Some(peer.to_string()),
+        });
+        if self.selected_conversation.as_deref() == Some(peer) {
+            self.selected_conversation = None;
+        }
+        self.bump_content();
+    }
+
     pub fn clear_conversation_history(&mut self) {
         match &self.selected_conversation {
             None => self.messages.retain(|m| m.to_user.is_some()),
