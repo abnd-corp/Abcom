@@ -33,18 +33,31 @@ pub fn set_enabled(enabled: bool) -> anyhow::Result<()> {
 /// Applique la politique de premier lancement : en release, si aucune
 /// préférence n'existe encore, active l'autostart et renvoie la valeur
 /// effective à persister. En debug, ne touche jamais au système.
+/// Une préférence active réécrit le lanceur pour suivre les déplacements et mises à jour.
 pub fn init_default(existing_pref: Option<bool>) -> bool {
-    if cfg!(debug_assertions) {
+    init_preference(existing_pref, !cfg!(debug_assertions), || set_enabled(true))
+}
+
+fn init_preference(
+    existing_pref: Option<bool>,
+    release: bool,
+    enable: impl FnOnce() -> anyhow::Result<()>,
+) -> bool {
+    if !release {
         return existing_pref.unwrap_or(false);
     }
     match existing_pref {
-        Some(enabled) => enabled,
-        None => match set_enabled(true) {
+        Some(false) => false,
+        saved => match enable() {
             Ok(()) => true,
             Err(e) => {
                 tracing::warn!("activation impossible : {e}");
-                false
+                saved.unwrap_or(false)
             }
         },
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/test_platform_autostart.rs"]
+mod tests;
