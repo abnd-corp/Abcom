@@ -14,7 +14,7 @@ PNG = ROOT / "assets/branding/png"
 
 def main():
     shutil.copyfile(PNG / "abcom-app-light-512.png", ROOT / "assets/app_icon.png")
-    sizes = [16, 32, 48, 64, 128, 256]
+    sizes = [16, 20, 24, 30, 32, 36, 40, 48, 60, 64, 72, 80, 96, 128, 256]
     images = [(PNG / f"abcom-app-light-{size}.png").read_bytes() for size in sizes]
     offset = 6 + 16 * len(images)
     directory = bytearray(struct.pack("<HHH", 0, 1, len(images)))

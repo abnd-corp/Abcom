@@ -13,6 +13,12 @@ Results below are dated and do not certify every version or OS. Current procedur
 
 Superseded execution plans and documents have been removed from the current tree. Still-applicable decisions are described in the [overview](01-overview.md#design-decisions) and [architecture](02-architecture.md).
 
+## 12 November 2026 — Native size correction
+
+User screenshots revealed an oversized tray and Dock despite valid bitmaps. tray-icon treats the PNG as a native image capped at 22 points; cropping amplified the problem. The fix sets an 18-point AppKit image backed by a 36 px bitmap in a system square slot, reapplied after each badge change. The native diagnostic measures 18 × 18 pt / 36 × 36 px and a 22 × 22 pt button on this Mac, in normal/unread/read states.
+
+The ICNS body is reduced to 824/1024 for macOS only. Apple Settings, Terminal and the corrected export have a visible width of 206/256 at alpha > 128. Windows gets 15 ICO sizes and a tray sized using its DPI metrics; API types are checked against bindings 0.61.2, without Windows execution. Linux keeps sizing under its SNI panel’s control. Visual testing on other desktops remains necessary.
+
 ## 12 November 2026 — Native icons
 
 The colour logo is embedded in the window and desktop launchers. macOS uses a high-resolution Dock icon and a menu-bar template retained when changing the unread badge. Windows gets a multi-resolution ICO embedded through the build-only `winresource` dependency. Linux installers put the PNG in hicolor. The macOS packaging script and release workflow produce an `.app` bundle with ICNS and metadata.

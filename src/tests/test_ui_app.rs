@@ -20,6 +20,30 @@ fn application_icon_contains_the_coral_brand_and_transparent_corners() {
     assert!(icon.rgba.as_chunks::<4>().0.contains(&[48, 40, 48, 255]));
 }
 
+#[test]
+fn legacy_macos_dock_icon_has_its_own_optical_margins() {
+    let icon = image::load_from_memory(include_bytes!(
+        "../../assets/branding/png/abcom-dock-512.png"
+    ))
+    .unwrap()
+    .to_rgba8();
+    let ink: Vec<_> = icon
+        .enumerate_pixels()
+        .filter(|(_, _, p)| p[3] > 128)
+        .collect();
+    let left = ink.iter().map(|(x, _, _)| *x).min().unwrap();
+    let right = ink.iter().map(|(x, _, _)| *x).max().unwrap();
+    let top = ink.iter().map(|(_, y, _)| *y).min().unwrap();
+    let bottom = ink.iter().map(|(_, y, _)| *y).max().unwrap();
+    assert_eq!(icon.dimensions(), (512, 512));
+    assert!((49..=51).contains(&left) && (460..=463).contains(&right));
+    assert_eq!((left, right), (top, bottom));
+    assert!(
+        (410..=414).contains(&(right - left + 1)),
+        "le fond ICNS ne doit pas remplir son canevas"
+    );
+}
+
 fn test_app() -> AbcomApp {
     let dir = std::env::temp_dir().join(format!(
         "abcom-ui-{}",

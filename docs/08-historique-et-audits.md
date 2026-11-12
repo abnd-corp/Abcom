@@ -13,6 +13,12 @@ Les résultats ci-dessous sont datés ; ils ne certifient pas toutes les version
 
 Les anciens plans d'exécution et documents remplacés ont été retirés de l'arborescence courante. Les décisions toujours applicables figurent dans la [présentation](01-presentation.md#décisions-fondatrices) et l'[architecture](02-architecture.md).
 
+## 12 novembre 2026 — Correction des tailles natives
+
+Les captures utilisateur ont révélé un tray et un Dock surdimensionnés malgré des bitmaps valides. Le backend tray-icon traite le PNG comme une image native plafonnée à 22 points ; le recadrage accentuait le problème. Correction : image AppKit de 18 points, bitmap de 36 px et emplacement carré système, réappliqués après chaque badge. Le diagnostic natif mesure 18 × 18 pt / 36 × 36 px et un bouton de 22 × 22 pt sur ce Mac, dans les trois états normal/non lu/lu.
+
+Le corps de l’ICNS est ramené à 824/1024, uniquement pour macOS. Les icônes Apple Réglages et Terminal et le nouvel export ont une largeur visible de 206/256 à alpha > 128. Windows reçoit 15 tailles ICO et un tray dimensionné d’après ses métriques DPI ; ses types d’API sont vérifiés avec les bindings 0.61.2, sans exécution Windows. Linux conserve le dimensionnement par son panneau SNI. La vérification visuelle des autres bureaux reste nécessaire.
+
 ## 12 novembre 2026 — Logos natifs
 
 Le logo couleur est embarqué dans la fenêtre et les lanceurs. macOS utilise un Dock haute définition et un masque de barre de menus ; le masque est conservé lors des bascules du badge non lu. Windows reçoit un ICO multi-résolution intégré par `winresource`, dépendance de compilation uniquement. Les installateurs Linux posent le PNG dans hicolor. Le script de packaging macOS et le workflow de release produisent un bundle `.app` avec ICNS et métadonnées.

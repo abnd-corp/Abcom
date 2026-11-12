@@ -23,6 +23,21 @@ Conserver les proportions et l’espace entre les maillons. L’application util
 
 Les fichiers natifs sont `../app_icon.png` (512 px), `../app_icon.ico` (16 à 256 px) et `../app_icon.icns` (représentations standard/Retina). La dépendance de compilation `winresource` intègre l’ICO dans les exécutables Windows ; les raccourcis l’utilisent aussi. `scripts/package_macos.py` crée le bundle `.app` avec ICNS et métadonnées. Les installateurs Linux copient le PNG dans le thème hicolor de l’utilisateur.
 
+## Tailles natives et conventions
+
+- macOS, barre de menus : canevas logique de **18 × 18 points**, bitmap **36 × 36 px** à 2×, et `NSSquareStatusItemLength` pour laisser le système dimensionner la cible de clic. Cette taille est un choix de dessin d’Abcom ; les pixels Retina ne deviennent pas des points. Les marges du symbole sont conservées, y compris avec le badge. Le diagnostic AppKit vérifie les dimensions après chaque remplacement.
+- macOS, Dock/Finder : les exports ICNS utilisent un corps de **824 × 824 px dans un canevas 1024 × 1024**, soit 100 px de marge de chaque côté. Ce gabarit a été comparé aux icônes Réglages et Terminal présentes sur le Mac de test : largeur visible identique de 206 px sur un canevas 256 px. Il concerne le pipeline ICNS du projet ; les couches Icon Composer ont leurs propres règles de masquage.
+- Windows : ICO avec 15 représentations de 16 à 256 px, dont 20/24/40 px pour les facteurs DPI intermédiaires. Le tray consulte le DPI de la barre des tâches et `GetSystemMetricsForDpi(SM_CXSMICON)` ; il recharge ses bitmaps au prochain évènement UI si la métrique change. Les tailles usuelles 16/20/24/32/40/48/64 px sont testées avec le badge.
+- Linux : le panneau StatusNotifierItem décide de la taille physique ; un bitmap 64 px est fourni. Le lanceur utilise hicolor. Les marges ICNS ne sont pas appliquées aux ressources Windows/Linux.
+
+Sources primaires : [barre de menus Apple](https://developer.apple.com/design/human-interface-guidelines/the-menu-bar), [iconsets haute définition](https://developer.apple.com/library/archive/documentation/GraphicsAnimation/Conceptual/HighResolutionOSX/Optimizing/Optimizing.html), [tailles et DPI Windows](https://learn.microsoft.com/en-us/windows/apps/design/iconography/app-icon-construction), [StatusNotifierItem](https://www.freedesktop.org/wiki/Specifications/StatusNotifierItem/), [thèmes d’icônes freedesktop](https://specifications.freedesktop.org/icon-theme/latest/index.html).
+
+Diagnostic sur un Mac avec une session graphique ouverte :
+
+```sh
+cargo run --locked --example check_macos_icon_sizes
+```
+
 Pour régénérer depuis la racine du dépôt, avec la dépendance SVG optionnelle existante :
 
 ```sh

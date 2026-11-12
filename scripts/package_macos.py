@@ -41,6 +41,8 @@ def main():
         "NSPrincipalClass": "NSApplication",
     }
     (contents / "Info.plist").write_bytes(plistlib.dumps(metadata, sort_keys=True))
+    # Expose aussi la mise à jour au niveau du dossier du bundle.
+    args.destination.touch()
 
 
 if __name__ == "__main__":

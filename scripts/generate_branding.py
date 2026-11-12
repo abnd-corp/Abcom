@@ -57,6 +57,13 @@ def wordmark(dark=False):
     )
 
 
+def dock_tile():
+    # The legacy ICNS body uses 412 of 512 units; Windows/Linux retain their own tile.
+    scale = 412 / 496
+    inset = (512 - 512 * scale) / 2
+    return f'<g transform="translate({inset} {inset}) scale({scale})">{tile()}</g>'
+
+
 def preview(english=False):
     heading = "VISUAL IDENTITY" if english else "IDENTITÉ VISUELLE"
     pieces = [
@@ -75,7 +82,8 @@ def preview(english=False):
     labels = ("Application · light", "Application · dark") if english else ("Application · clair", "Application · sombre")
     for x, label, dark in [(58, labels[0], False), (584, labels[1], True), (1110, "macOS · Dock", False)]:
         pieces.append(f'<text x="{x}" y="171" font-size="28" font-weight="700">{label}</text>')
-        pieces.append(f'<g transform="translate({x} 208) scale(.84)">{tile(dark)}</g>')
+        artwork = dock_tile() if label == "macOS · Dock" else tile(dark)
+        pieces.append(f'<g transform="translate({x} 208) scale(.84)">{artwork}</g>')
     for x in (550, 1076):
         pieces.append(f'<path d="M{x} 143 V635" stroke="#E9DED5" stroke-width="2"/>')
     for x, dark in [(58, False), (584, True)]:
@@ -121,7 +129,7 @@ def main():
         "abcom-symbol-outline": (f'<g fill="none" stroke-width="5" stroke-linejoin="round"><path stroke="{INK}" d="{LEFT}"/><path stroke="{CORAL}" d="{RIGHT}"/></g>', 360, 260),
         "abcom-app-light": (tile(), 512, 512),
         "abcom-app-dark": (tile(True), 512, 512),
-        "abcom-dock": (tile(), 512, 512),
+        "abcom-dock": (dock_tile(), 512, 512),
         "abcom-tray-light": (symbol(INK, INK), 360, 260),
         "abcom-tray-dark": (symbol(CREAM, CREAM), 360, 260),
         "abcom-tray-template": (symbol("#000000", "#000000"), 360, 260),
@@ -134,9 +142,9 @@ def main():
         if "wordmark" in name:
             sizes = [540, 1080, 2160]
         elif "tray" in name:
-            sizes = [16, 24, 32, 48, 64]
+            sizes = [16, 18, 20, 24, 32, 36, 40, 48, 64]
         elif "app" in name or "dock" in name:
-            sizes = [16, 32, 48, 64, 128, 256, 512, 1024]
+            sizes = [16, 20, 24, 30, 32, 36, 40, 48, 60, 64, 72, 80, 96, 128, 256, 512, 1024]
         else:
             sizes = [32, 64, 128, 256, 512, 1024]
         for size in sizes:

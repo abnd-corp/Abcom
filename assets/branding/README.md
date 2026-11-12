@@ -23,6 +23,21 @@ Preserve the proportions and the space between the links. The application uses t
 
 Native files are `../app_icon.png` (512 px), `../app_icon.ico` (16–256 px) and `../app_icon.icns` (standard/Retina representations). The build-only `winresource` dependency embeds the ICO in Windows executables; shortcuts use it too. `scripts/package_macos.py` creates the `.app` bundle with ICNS and metadata. Linux installers copy the PNG into the user’s hicolor icon theme.
 
+## Native sizing and conventions
+
+- macOS menu bar: **18 × 18 logical points**, a **36 × 36 px** 2× bitmap, and `NSSquareStatusItemLength` to let the system size the click target. This is Abcom’s drawing size; Retina pixels do not become points. Symbol padding is preserved, including with the unread badge. The AppKit diagnostic checks dimensions after every replacement.
+- macOS Dock/Finder: ICNS exports use an **824 × 824 px body in a 1024 × 1024 canvas**, leaving 100 px per side. This layout was compared with Settings and Terminal icons on the test Mac: each has a visible width of 206 px on a 256 px canvas. It applies to this project’s ICNS pipeline; Icon Composer layers have their own masking rules.
+- Windows: 15 ICO representations from 16 to 256 px, including 20/24/40 px for intermediate DPI scales. The tray queries taskbar DPI and `GetSystemMetricsForDpi(SM_CXSMICON)`; it reloads its bitmaps at the next UI event when the metric changes. Common 16/20/24/32/40/48/64 px sizes are tested with the unread badge.
+- Linux: the StatusNotifierItem panel controls physical display size; a 64 px bitmap is supplied. The launcher uses hicolor. ICNS margins are kept separate from Windows/Linux artwork.
+
+Primary sources: [Apple menu bar](https://developer.apple.com/design/human-interface-guidelines/the-menu-bar), [high-resolution iconsets](https://developer.apple.com/library/archive/documentation/GraphicsAnimation/Conceptual/HighResolutionOSX/Optimizing/Optimizing.html), [Windows sizes and DPI](https://learn.microsoft.com/en-us/windows/apps/design/iconography/app-icon-construction), [StatusNotifierItem](https://www.freedesktop.org/wiki/Specifications/StatusNotifierItem/), [freedesktop icon themes](https://specifications.freedesktop.org/icon-theme/latest/index.html).
+
+Run the diagnostic in a logged-in macOS graphical session:
+
+```sh
+cargo run --locked --example check_macos_icon_sizes
+```
+
 To regenerate from the repository root, using the existing optional SVG dependency:
 
 ```sh

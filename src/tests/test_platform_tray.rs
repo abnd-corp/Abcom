@@ -3,12 +3,9 @@ use super::*;
 #[cfg(feature = "tray")]
 #[test]
 fn macos_tray_and_unread_badge_remain_alpha_templates() {
-    let (normal, badge) = tray_images(true).unwrap();
+    let (normal, badge) = tray_images(true, 36).unwrap();
     assert_eq!(normal.dimensions(), badge.dimensions());
-    assert!(
-        normal.width() > normal.height(),
-        "le masque ne doit pas réduire le symbole à un carré vide"
-    );
+    assert_eq!(normal.dimensions(), (36, 36));
     for icon in [&normal, &badge] {
         assert!(icon.pixels().any(|p| p[3] > 0));
         assert!(icon.pixels().any(|p| p[3] == 0));
@@ -23,12 +20,42 @@ fn macos_tray_and_unread_badge_remain_alpha_templates() {
 #[cfg(feature = "tray")]
 #[test]
 fn desktop_tray_uses_colour_artwork_and_a_visible_unread_badge() {
-    let (normal, badge) = tray_images(false).unwrap();
+    let (normal, badge) = tray_images(false, 64).unwrap();
     assert_eq!(normal.dimensions(), (64, 64));
     assert!(normal.pixels().any(|p| p.0 == [255, 138, 96, 255]));
     assert!(normal.pixels().any(|p| p.0 == [48, 40, 48, 255]));
     assert_ne!(normal, badge);
     assert_eq!(normal.dimensions(), badge.dimensions());
+}
+
+#[cfg(feature = "tray")]
+#[test]
+fn macos_tray_preserves_its_canvas_and_retina_ink_bounds() {
+    let (normal, _) = tray_images(true, 36).unwrap();
+    let ink: Vec<_> = normal
+        .enumerate_pixels()
+        .filter(|(_, _, p)| p[3] > 128)
+        .collect();
+    let top = ink.iter().map(|(_, y, _)| *y).min().unwrap();
+    let bottom = ink.iter().map(|(_, y, _)| *y).max().unwrap();
+    assert!(
+        top >= 5 && bottom <= 30,
+        "le symbole doit conserver ses marges dans le canevas Retina"
+    );
+    assert!(bottom - top < 26, "l'encre doit tenir dans 13 points à 2×");
+}
+
+#[cfg(feature = "tray")]
+#[test]
+fn colour_tray_and_badge_fit_the_requested_system_pixels() {
+    for size in [16, 20, 24, 32, 40, 48, 64] {
+        let (normal, badge) = tray_images(false, size).unwrap();
+        assert_eq!(normal.dimensions(), (size, size));
+        assert_eq!(normal.dimensions(), badge.dimensions());
+        assert_ne!(normal, badge, "badge non lu à {size} px");
+        assert!(normal.pixels().any(|p| p[3] > 0));
+        assert!(normal.pixels().any(|p| p[3] == 0));
+    }
 }
 
 #[cfg(feature = "tray")]
