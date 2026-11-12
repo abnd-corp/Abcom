@@ -4,6 +4,8 @@
 
 ## Requirements
 
+For Homebrew, WinGet and Nix without a public catalogue, see the [installation recipes](../../packaging/README.md). Homebrew and WinGet use release artifacts; Nix builds from source. The guide also covers a locally compiled cask and macOS signing constraints. The Rust requirements below apply to source builds.
+
 - A Rust toolchain satisfying `rust-version` in [Cargo.toml](../../Cargo.toml), currently 1.95 or newer.
 - A graphical desktop and compatible graphics driver.
 - Peers on the same LAN, with TCP 9000/9001 and UDP 9001 reachable between them.
@@ -109,7 +111,7 @@ python3 scripts/package_macos.py target/release/abcom dist/Abcom.app
 open dist/Abcom.app
 ```
 
-The release workflow archives this `.app` bundle (`corp.abnd.abcom`). It is not Developer-ID signed or notarized; review its origin and published SHA-256 before following security prompts. Notifications from a bare executable may still be attributed to the terminal; verify attribution when launching the bundle on the target system.
+The release workflow archives this `.app` bundle (`corp.abnd.abcom`). The script signs it ad hoc and verifies its integrity; it is not Developer-ID signed or notarized. A quarantined download can still be blocked even when Homebrew installs successfully: see the [local and distributed cases](../../packaging/README.md#homebrew-on-macos). Notifications from a bare executable may still be attributed to the terminal; verify attribution when launching the bundle on the target system.
 
 ## Windows
 

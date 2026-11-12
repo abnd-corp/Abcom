@@ -13,6 +13,18 @@ Results below are dated and do not certify every version or OS. Current procedur
 
 Superseded execution plans and documents have been removed from the current tree. Still-applicable decisions are described in the [overview](01-overview.md#design-decisions) and [architecture](02-architecture.md).
 
+## 12 November 2026 — Local Homebrew, WinGet and Nix distribution
+
+Installation no longer depends on public catalogue submissions: recipes are generated from actual artifacts and SHA-256 hashes, with a local-tap cask, a per-user Windows installer and a locked Nix flake. The release workflow prepares those files without publishing to Homebrew/core, winget-pkgs or nixpkgs.
+
+On the test Mac, the old executable, the Launch Agent pointing at a missing directory and two diagnostic bundles were backed up and removed. Data directories for the primary and test instances were retained. Homebrew actually installed, reinstalled, uninstalled and installed Abcom again; metadata for all 74 checked data files stayed identical, without reading their contents. A native window from the installed application was observed and normal termination was verified.
+
+The first launch was rejected. The bundle initially had an incomplete signature; the script now creates and verifies a complete ad-hoc seal after removing only incompatible Finder metadata. Gatekeeper then rejected Homebrew's quarantined download because it lacked Developer ID signing/notarization. The explicit `--local-build` mode, restricted to a local artifact, removes quarantine only from the verified application. It does not change global Gatekeeper settings and does not apply to remote release URLs. A downloaded version without user authorization or notarization can still be blocked: see the [packaging guide](../../packaging/README.md).
+
+The Nix package was built on aarch64-darwin, its bundle signature verified, then added to and removed from a temporary profile. SQLite was missing at link time and is now declared explicitly. The Linux recipe evaluates; actual graphical rendering still needs testing on Linux. A fixture-generated manifest passes Microsoft's official 1.10.0 schema; this check installs no binary. Windows installation tooling and CI tests are prepared but were not executed natively on this Mac; Windows WinGet validation remains open in issue #68.
+
+Local validation: `make check` passes with 659 Rust tests, strict Clippy and formatting; all four Python recipe tests pass. Minimal compilation and EN/FR documentation links pass. Docker's context now excludes secrets and local data, and includes the build script, license and examples. Buildx validates the Dockerfile without warnings; this is neither a containerized binary build nor Linux graphical execution.
+
 ## 12 November 2026 — Final icon checks and GIF button hover
 
 The actual GIF widget test reproduces a width changing from 33 to 31 points on hover and lettering moving by one point. The explicit border was applied after egui 0.37 compensated its margins. The button now uses the same border in this calculation for every state. The test compares its frame and lettering over 24 frames, at the centre and near the edge, in light/dark themes, at 1×, 1.5× and 2×, with the picker open or closed. The old code fails; the fix passes. Tracking: [#64](https://github.com/abnd-corp/Abcom/issues/64).

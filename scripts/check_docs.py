@@ -45,7 +45,8 @@ def anchors(text):
 def check(root=ROOT):
     errors = []
     pairs = [(root / "README.fr.md", root / "README.md"),
-             (root / "docs/README.fr.md", root / "docs/README.md")]
+             (root / "docs/README.fr.md", root / "docs/README.md"),
+             (root / "packaging/README.fr.md", root / "packaging/README.md")]
     pairs += [(root / "docs" / fr, root / "docs/en" / en) for fr, en in PAGES]
     files = [path for pair in pairs for path in pair]
     guides = set((root / "docs").glob("[0-9][0-9]-*.md"))

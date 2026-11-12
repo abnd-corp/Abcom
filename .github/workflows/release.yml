@@ -3,7 +3,7 @@ name: Release
 # Publication d'une GitHub Release sur tag `vX.Y.Z` (y compris les préversions
 # `v1.0.0-beta.1`), avec un binaire par plateforme cible.
 #
-# Limite connue et assumée : le binaire macOS n'est **ni signé ni notarisé**
+# Limite connue et assumée : signature macOS ad hoc, sans Developer ID ni notarisation
 # (aucun certificat Developer ID dans les secrets du dépôt). Gatekeeper le
 # bloquera sur une autre machine que celle de build — cf. docs/06-installation.md.
 # Ajouter la signature = fournir les secrets et une étape `codesign`/`notarytool`.
@@ -65,10 +65,19 @@ jobs:
         if: runner.os == 'Windows'
         run: Compress-Archive -Path target/${{ matrix.target }}/release/abcom.exe -DestinationPath ${{ matrix.archive }}
 
+      - name: Installateur utilisateur (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./scripts/package_windows.ps1 -BinaryPath target/${{ matrix.target }}/release/abcom.exe
+          Copy-Item dist/windows/abcom-windows-x86_64-setup.exe .
+
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.archive }}
-          path: ${{ matrix.archive }}
+          path: |
+            ${{ matrix.archive }}
+            abcom-windows-x86_64-setup.exe
 
   publish:
     name: Publier la Release
@@ -84,6 +93,14 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      - name: Recettes sans soumission aux catalogues
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          python3 scripts/prepare_packages.py --artifacts artifacts --output dist/packages --base-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}"
+          cp scripts/install-homebrew.sh dist/packages/homebrew/
+          tar -czf artifacts/abcom-package-recipes.tar.gz -C dist/packages homebrew winget
+
       - name: Empreintes SHA-256
         run: (cd artifacts && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
 
@@ -95,6 +112,7 @@ jobs:
           body: |
             Voir [CHANGELOG.md](https://github.com/abnd-corp/Abcom/blob/main/CHANGELOG.md).
 
-            ⚠️ Le binaire macOS n'est pas signé : au premier lancement, autoriser
-            l'application dans Réglages → Confidentialité et sécurité.
+            ⚠️ Signature macOS ad hoc, sans Developer ID ni notarisation :
+            un téléchargement peut être bloqué par Gatekeeper.
+            Voir les recettes d’installation et les limites dans packaging/README.fr.md.
           files: artifacts/*
