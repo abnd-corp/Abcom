@@ -15,6 +15,10 @@ repository = "https://github.com/abnd-corp/Abcom"
 name = "abcom"
 path = "src/main.rs"
 
+[[example]]
+name = "export_branding"
+required-features = ["avatar-svg"]
+
 [dependencies]
 tokio = { version = "1.54.1", features = [
     "rt-multi-thread",

@@ -1,0 +1,560 @@
+[
+  {
+    "source": "svg/abcom-symbol.svg",
+    "output": "png/abcom-symbol-32.png",
+    "width": 32,
+    "height": 32,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol.svg",
+    "output": "png/abcom-symbol-64.png",
+    "width": 64,
+    "height": 64,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol.svg",
+    "output": "png/abcom-symbol-128.png",
+    "width": 128,
+    "height": 128,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol.svg",
+    "output": "png/abcom-symbol-256.png",
+    "width": 256,
+    "height": 256,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol.svg",
+    "output": "png/abcom-symbol-512.png",
+    "width": 512,
+    "height": 512,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol.svg",
+    "output": "png/abcom-symbol-1024.png",
+    "width": 1024,
+    "height": 1024,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-on-dark.svg",
+    "output": "png/abcom-symbol-on-dark-32.png",
+    "width": 32,
+    "height": 32,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-on-dark.svg",
+    "output": "png/abcom-symbol-on-dark-64.png",
+    "width": 64,
+    "height": 64,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-on-dark.svg",
+    "output": "png/abcom-symbol-on-dark-128.png",
+    "width": 128,
+    "height": 128,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-on-dark.svg",
+    "output": "png/abcom-symbol-on-dark-256.png",
+    "width": 256,
+    "height": 256,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-on-dark.svg",
+    "output": "png/abcom-symbol-on-dark-512.png",
+    "width": 512,
+    "height": 512,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-on-dark.svg",
+    "output": "png/abcom-symbol-on-dark-1024.png",
+    "width": 1024,
+    "height": 1024,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-ink.svg",
+    "output": "png/abcom-symbol-ink-32.png",
+    "width": 32,
+    "height": 32,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-ink.svg",
+    "output": "png/abcom-symbol-ink-64.png",
+    "width": 64,
+    "height": 64,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-ink.svg",
+    "output": "png/abcom-symbol-ink-128.png",
+    "width": 128,
+    "height": 128,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-ink.svg",
+    "output": "png/abcom-symbol-ink-256.png",
+    "width": 256,
+    "height": 256,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-ink.svg",
+    "output": "png/abcom-symbol-ink-512.png",
+    "width": 512,
+    "height": 512,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-ink.svg",
+    "output": "png/abcom-symbol-ink-1024.png",
+    "width": 1024,
+    "height": 1024,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-cream.svg",
+    "output": "png/abcom-symbol-cream-32.png",
+    "width": 32,
+    "height": 32,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-cream.svg",
+    "output": "png/abcom-symbol-cream-64.png",
+    "width": 64,
+    "height": 64,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-cream.svg",
+    "output": "png/abcom-symbol-cream-128.png",
+    "width": 128,
+    "height": 128,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-cream.svg",
+    "output": "png/abcom-symbol-cream-256.png",
+    "width": 256,
+    "height": 256,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-cream.svg",
+    "output": "png/abcom-symbol-cream-512.png",
+    "width": 512,
+    "height": 512,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-cream.svg",
+    "output": "png/abcom-symbol-cream-1024.png",
+    "width": 1024,
+    "height": 1024,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-coral.svg",
+    "output": "png/abcom-symbol-coral-32.png",
+    "width": 32,
+    "height": 32,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-coral.svg",
+    "output": "png/abcom-symbol-coral-64.png",
+    "width": 64,
+    "height": 64,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-coral.svg",
+    "output": "png/abcom-symbol-coral-128.png",
+    "width": 128,
+    "height": 128,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-coral.svg",
+    "output": "png/abcom-symbol-coral-256.png",
+    "width": 256,
+    "height": 256,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-coral.svg",
+    "output": "png/abcom-symbol-coral-512.png",
+    "width": 512,
+    "height": 512,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-coral.svg",
+    "output": "png/abcom-symbol-coral-1024.png",
+    "width": 1024,
+    "height": 1024,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-outline.svg",
+    "output": "png/abcom-symbol-outline-32.png",
+    "width": 32,
+    "height": 32,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-outline.svg",
+    "output": "png/abcom-symbol-outline-64.png",
+    "width": 64,
+    "height": 64,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-outline.svg",
+    "output": "png/abcom-symbol-outline-128.png",
+    "width": 128,
+    "height": 128,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-outline.svg",
+    "output": "png/abcom-symbol-outline-256.png",
+    "width": 256,
+    "height": 256,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-outline.svg",
+    "output": "png/abcom-symbol-outline-512.png",
+    "width": 512,
+    "height": 512,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-symbol-outline.svg",
+    "output": "png/abcom-symbol-outline-1024.png",
+    "width": 1024,
+    "height": 1024,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-app-light.svg",
+    "output": "png/abcom-app-light-16.png",
+    "width": 16,
+    "height": 16,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-app-light.svg",
+    "output": "png/abcom-app-light-32.png",
+    "width": 32,
+    "height": 32,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-app-light.svg",
+    "output": "png/abcom-app-light-64.png",
+    "width": 64,
+    "height": 64,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-app-light.svg",
+    "output": "png/abcom-app-light-128.png",
+    "width": 128,
+    "height": 128,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-app-light.svg",
+    "output": "png/abcom-app-light-256.png",
+    "width": 256,
+    "height": 256,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-app-light.svg",
+    "output": "png/abcom-app-light-512.png",
+    "width": 512,
+    "height": 512,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-app-light.svg",
+    "output": "png/abcom-app-light-1024.png",
+    "width": 1024,
+    "height": 1024,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-app-dark.svg",
+    "output": "png/abcom-app-dark-16.png",
+    "width": 16,
+    "height": 16,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-app-dark.svg",
+    "output": "png/abcom-app-dark-32.png",
+    "width": 32,
+    "height": 32,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-app-dark.svg",
+    "output": "png/abcom-app-dark-64.png",
+    "width": 64,
+    "height": 64,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-app-dark.svg",
+    "output": "png/abcom-app-dark-128.png",
+    "width": 128,
+    "height": 128,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-app-dark.svg",
+    "output": "png/abcom-app-dark-256.png",
+    "width": 256,
+    "height": 256,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-app-dark.svg",
+    "output": "png/abcom-app-dark-512.png",
+    "width": 512,
+    "height": 512,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-app-dark.svg",
+    "output": "png/abcom-app-dark-1024.png",
+    "width": 1024,
+    "height": 1024,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-dock.svg",
+    "output": "png/abcom-dock-16.png",
+    "width": 16,
+    "height": 16,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-dock.svg",
+    "output": "png/abcom-dock-32.png",
+    "width": 32,
+    "height": 32,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-dock.svg",
+    "output": "png/abcom-dock-64.png",
+    "width": 64,
+    "height": 64,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-dock.svg",
+    "output": "png/abcom-dock-128.png",
+    "width": 128,
+    "height": 128,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-dock.svg",
+    "output": "png/abcom-dock-256.png",
+    "width": 256,
+    "height": 256,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-dock.svg",
+    "output": "png/abcom-dock-512.png",
+    "width": 512,
+    "height": 512,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-dock.svg",
+    "output": "png/abcom-dock-1024.png",
+    "width": 1024,
+    "height": 1024,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-tray-light.svg",
+    "output": "png/abcom-tray-light-16.png",
+    "width": 16,
+    "height": 16,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-tray-light.svg",
+    "output": "png/abcom-tray-light-24.png",
+    "width": 24,
+    "height": 24,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-tray-light.svg",
+    "output": "png/abcom-tray-light-32.png",
+    "width": 32,
+    "height": 32,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-tray-light.svg",
+    "output": "png/abcom-tray-light-48.png",
+    "width": 48,
+    "height": 48,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-tray-light.svg",
+    "output": "png/abcom-tray-light-64.png",
+    "width": 64,
+    "height": 64,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-tray-dark.svg",
+    "output": "png/abcom-tray-dark-16.png",
+    "width": 16,
+    "height": 16,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-tray-dark.svg",
+    "output": "png/abcom-tray-dark-24.png",
+    "width": 24,
+    "height": 24,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-tray-dark.svg",
+    "output": "png/abcom-tray-dark-32.png",
+    "width": 32,
+    "height": 32,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-tray-dark.svg",
+    "output": "png/abcom-tray-dark-48.png",
+    "width": 48,
+    "height": 48,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-tray-dark.svg",
+    "output": "png/abcom-tray-dark-64.png",
+    "width": 64,
+    "height": 64,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-tray-template.svg",
+    "output": "png/abcom-tray-template-16.png",
+    "width": 16,
+    "height": 16,
+    "template": true
+  },
+  {
+    "source": "svg/abcom-tray-template.svg",
+    "output": "png/abcom-tray-template-24.png",
+    "width": 24,
+    "height": 24,
+    "template": true
+  },
+  {
+    "source": "svg/abcom-tray-template.svg",
+    "output": "png/abcom-tray-template-32.png",
+    "width": 32,
+    "height": 32,
+    "template": true
+  },
+  {
+    "source": "svg/abcom-tray-template.svg",
+    "output": "png/abcom-tray-template-48.png",
+    "width": 48,
+    "height": 48,
+    "template": true
+  },
+  {
+    "source": "svg/abcom-tray-template.svg",
+    "output": "png/abcom-tray-template-64.png",
+    "width": 64,
+    "height": 64,
+    "template": true
+  },
+  {
+    "source": "svg/abcom-wordmark.svg",
+    "output": "png/abcom-wordmark-540.png",
+    "width": 540,
+    "height": 130,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-wordmark.svg",
+    "output": "png/abcom-wordmark-1080.png",
+    "width": 1080,
+    "height": 260,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-wordmark.svg",
+    "output": "png/abcom-wordmark-2160.png",
+    "width": 2160,
+    "height": 520,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-wordmark-on-dark.svg",
+    "output": "png/abcom-wordmark-on-dark-540.png",
+    "width": 540,
+    "height": 130,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-wordmark-on-dark.svg",
+    "output": "png/abcom-wordmark-on-dark-1080.png",
+    "width": 1080,
+    "height": 260,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-wordmark-on-dark.svg",
+    "output": "png/abcom-wordmark-on-dark-2160.png",
+    "width": 2160,
+    "height": 520,
+    "template": false
+  },
+  {
+    "source": "preview.svg",
+    "output": "preview.png",
+    "width": 1600,
+    "height": 1060
+  },
+  {
+    "source": "preview-en.svg",
+    "output": "preview-en.png",
+    "width": 1600,
+    "height": 1060
+  }
+]
