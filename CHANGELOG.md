@@ -40,6 +40,7 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 - MSRV déclarée (`rust-version = "1.95"`) et vérifiée en CI ; `cargo audit` et `cargo deny` désormais exécutés sur `dev` comme sur `main`
 
 ### Corrigé
+- Bouton GIF : conserve sa largeur et la position du texte au survol, y compris aux densités intermédiaires ; les marges tiennent compte de la bordure réellement dessinée
 - Paramètres : colonnes lisibles dans Stockage, Crédits et Général, actions de stockage adaptées aux petites fenêtres, défilement unique par onglet ; la licence suit la taille du texte et replie ses paragraphes à la largeur disponible
 - Le choix clair, sombre ou système **n'était pas conservé** : il revenait à « système » à chaque lancement
 - Les Paramètres faisaient 640 × 480 quelle que soit la fenêtre et en sortaient dans la plus petite : la boîte est bornée à la fenêtre, et tout l'onglet défile d'un bloc. Les libellés longs reviennent à la ligne

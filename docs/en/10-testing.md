@@ -109,6 +109,7 @@ These scenarios use **private conversations**. Group receipts are not implemente
 | 7.3 | Send GIF | Animated on recipient | P0 |
 | 7.4 | Run without Klipy key | Clear explanation, no crash | P2 |
 | 7.5 | Picker and shortcode completion | Correct insertion | P1 |
+| 7.6 | Enter, remain near the GIF button edge and leave; light/dark, 100/150/200% scaling, picker open then closed | Frame and lettering stay still; tooltip and click work | P2 |
 
 If 7.3 produces a file card, review the HTTPS Klipy host restriction and the actual provider URL. Do not widen the allowlist without checking the new host.
 

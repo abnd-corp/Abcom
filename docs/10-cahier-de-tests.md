@@ -127,6 +127,7 @@ Priorités : **P0** bloque une livraison, **P1** défaut visible, **P2** confort
 | 7.3 | **Envoi et rendu** | Envoyer un GIF | **S'anime chez le destinataire** | P0 |
 | 7.4 | Sans clé API | Retirer `ABCOM_KLIPY_API_KEY` | Message clair, pas de crash | P2 |
 | 7.5 | Emojis | Sélecteur + `:shortcode` | Insertion et complétion | P1 |
+| 7.6 | Survol du bouton GIF | Entrer, rester près du bord et ressortir, en clair/sombre aux échelles 100/150/200 %, sélecteur ouvert puis fermé | Cadre et texte immobiles ; infobulle et clic fonctionnels | P2 |
 
 > **7.3 est critique.** Le filtre d'URL n'autorise que `https://*.klipy.com` ;
 > le CDN observé est `static.klipy.com`, donc couvert. Si un GIF s'affiche en
