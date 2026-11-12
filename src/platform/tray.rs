@@ -118,16 +118,21 @@ impl Tray {
 
         let builder = TrayIconBuilder::new()
             .with_menu(Box::new(menu))
-            .with_tooltip("Abcom")
-            .with_icon(normal.clone());
+            .with_tooltip("Abcom");
         // macOS : le clic gauche ouvre le menu (convention barre de menus) ;
         // ailleurs, le clic gauche ouvre la fenêtre (géré via TrayIconEvent).
         #[cfg(target_os = "macos")]
-        let builder = builder.with_menu_on_left_click(true);
+        let builder = builder
+            .with_icon_templated(normal.clone())
+            .with_menu_on_left_click(true);
         #[cfg(not(target_os = "macos"))]
-        let builder = builder.with_menu_on_left_click(false);
+        let builder = builder
+            .with_icon(normal.clone())
+            .with_menu_on_left_click(false);
 
         let icon = builder.build().ok()?;
+        #[cfg(target_os = "macos")]
+        debug_assert!(icon.icon_is_template());
         Some(Self {
             icon,
             normal,
@@ -165,13 +170,24 @@ impl Tray {
         if unread == self.badge_shown {
             return;
         }
-        self.badge_shown = unread;
         let icon = if unread {
             self.badge.clone()
         } else {
             self.normal.clone()
         };
-        let _ = self.icon.set_icon(Some(icon));
+        // Une mise à jour ordinaire perdrait le statut template sur macOS.
+        #[cfg(target_os = "macos")]
+        let result = self.icon.set_icon_templated(Some(icon));
+        #[cfg(not(target_os = "macos"))]
+        let result = self.icon.set_icon(Some(icon));
+        match result {
+            Ok(()) => {
+                self.badge_shown = unread;
+                #[cfg(target_os = "macos")]
+                debug_assert!(self.icon.icon_is_template());
+            }
+            Err(error) => tracing::warn!(%error, "mise à jour du badge tray impossible"),
+        }
     }
 }
 
@@ -352,34 +368,64 @@ pub(crate) mod win {
     }
 }
 
-/// Taille de l'icône tray (points logiques ; les OS remettent à l'échelle).
-#[cfg(feature = "tray")]
-const TRAY_PX: u32 = 32;
-
-/// Construit les deux icônes (normale, avec pastille rouge) depuis l'icône
-/// de l'application embarquée.
+/// macOS reçoit un masque Retina ; les autres bureaux reçoivent l'icône couleur.
 #[cfg(feature = "tray")]
 fn build_icons() -> Option<(Icon, Icon)> {
-    let data = include_bytes!("../../assets/app_icon.png");
-    let img = image::load_from_memory(data).ok()?;
-    let small = img
-        .resize_exact(TRAY_PX, TRAY_PX, image::imageops::FilterType::Lanczos3)
-        .to_rgba8();
-    let normal = Icon::from_rgba(small.as_raw().clone(), TRAY_PX, TRAY_PX).ok()?;
+    let (normal, badge) = tray_images(cfg!(target_os = "macos"))?;
+    Some((
+        Icon::from_rgba(normal.as_raw().clone(), normal.width(), normal.height()).ok()?,
+        Icon::from_rgba(badge.as_raw().clone(), badge.width(), badge.height()).ok()?,
+    ))
+}
 
-    // Pastille rouge en haut à droite (badge non-lus).
-    let mut badged = small.clone();
-    let (cx, cy, r) = (TRAY_PX as i32 - 8, 8i32, 7i32);
-    for y in 0..TRAY_PX as i32 {
-        for x in 0..TRAY_PX as i32 {
+#[cfg(feature = "tray")]
+fn tray_images(templated: bool) -> Option<(image::RgbaImage, image::RgbaImage)> {
+    let data: &[u8] = if templated {
+        include_bytes!("../../assets/branding/png/abcom-tray-template-64.png")
+    } else {
+        include_bytes!("../../assets/branding/png/abcom-app-light-64.png")
+    };
+    let mut normal = image::load_from_memory(data).ok()?.to_rgba8();
+    if templated {
+        // AppKit limite la hauteur totale : retirer les marges garde le symbole lisible.
+        let (mut left, mut top, mut right, mut bottom) = (normal.width(), normal.height(), 0, 0);
+        for (x, y, _) in normal
+            .enumerate_pixels()
+            .filter(|(_, _, pixel)| pixel[3] > 0)
+        {
+            left = left.min(x);
+            top = top.min(y);
+            right = right.max(x);
+            bottom = bottom.max(y);
+        }
+        if left > right || top > bottom {
+            return None;
+        }
+        let cropped =
+            image::imageops::crop_imm(&normal, left, top, right - left + 1, bottom - top + 1)
+                .to_image();
+        let mut padded = image::RgbaImage::new(cropped.width() + 4, cropped.height() + 4);
+        image::imageops::overlay(&mut padded, &cropped, 2, 2);
+        normal = padded;
+    }
+    let mut badged = normal.clone();
+    let (cx, cy, r) = (normal.width() as i32 - 7, 7i32, 5i32);
+    let color = if templated {
+        [0, 0, 0, 255]
+    } else {
+        [255, 138, 96, 255]
+    };
+    for y in 0..normal.height() as i32 {
+        for x in 0..normal.width() as i32 {
             let (dx, dy) = (x - cx, y - cy);
             if dx * dx + dy * dy <= r * r {
-                badged.put_pixel(x as u32, y as u32, image::Rgba([220, 40, 60, 255]));
+                badged.put_pixel(x as u32, y as u32, image::Rgba(color));
+            } else if dx * dx + dy * dy <= (r + 2) * (r + 2) {
+                badged.put_pixel(x as u32, y as u32, image::Rgba([0, 0, 0, 0]));
             }
         }
     }
-    let badge = Icon::from_rgba(badged.into_raw(), TRAY_PX, TRAY_PX).ok()?;
-    Some((normal, badge))
+    Some((normal, badged))
 }
 
 #[cfg(feature = "tray")]

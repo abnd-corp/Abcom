@@ -259,6 +259,7 @@ Le cœur est identique partout ; ces points diffèrent réellement.
 | L6 | Build minimal | `cargo build --release --no-default-features` sur une machine **sans GTK ni ALSA** : doit compiler. L'app démarre sans tray (fermer la fenêtre quitte) et sans bip |
 | L7 | Alpine / musl | Installer les paquets de [docs/06](06-installation.md), compiler, lancer. Binaire lié dynamiquement à musl |
 | L8 | KSNI et apparition du watcher | Sur un bus D-Bus privé, créer le tray, changer le badge et quitter ; sur un vrai bureau, vérifier Ouvrir/Quitter, repli/restauration et watcher démarrant après l'application |
+| L9 | Logo Linux | Après installation, le lanceur utilise le nouveau logo ; tray couleur et badge non lu lisibles sur le panneau cible |
 | L4 | Wayland et X11 | Tester les deux : tray, notifications, focus (test 3.3) |
 | L5 | Tray selon l'environnement | StatusNotifierItem nécessaire ; GNOME peut demander une extension ; vérifier KDE/XFCE |
 
@@ -276,6 +277,7 @@ Le cœur est identique partout ; ces points diffèrent réellement.
 | M4 | Permissions réseau | Le pare-feu demande l'autorisation au premier lancement |
 | M5 | Focus (test 3.3) | Cliquer une fenêtre en arrière-plan déclenche l'accusé de lecture |
 | M6 | Permissions de la clé | `stat -f "%Sp" identity.key` → `-rw-------` |
+| M7 | Logos natifs | Nouveau logo Finder/Dock dans le bundle ; repli/restauration conserve le logo ; barre de menus lisible sur fonds clair/sombre et Retina, avec et sans non-lus |
 
 ## Windows
 
@@ -287,6 +289,7 @@ Le cœur est identique partout ; ces points diffèrent réellement.
 | W4 | Pare-feu | Autoriser au premier lancement, puis vérifier la découverte |
 | W5 | Chemins avec espaces | Envoyer un fichier depuis un dossier au nom espacé |
 | W6 | Focus (test 3.3) | Idem, avec la fenêtre restaurée depuis le tray |
+| W7 | Logos natifs | Explorer, raccourcis et barre des tâches utilisent le nouveau logo aux différentes échelles ; tray couleur avec badge visible |
 
 ---
 

@@ -13,6 +13,12 @@ Results below are dated and do not certify every version or OS. Current procedur
 
 Superseded execution plans and documents have been removed from the current tree. Still-applicable decisions are described in the [overview](01-overview.md#design-decisions) and [architecture](02-architecture.md).
 
+## 12 November 2026 — Native icons
+
+The colour logo is embedded in the window and desktop launchers. macOS uses a high-resolution Dock icon and a menu-bar template retained when changing the unread badge. Windows gets a multi-resolution ICO embedded through the build-only `winresource` dependency. Linux installers put the PNG in hicolor. The macOS packaging script and release workflow produce an `.app` bundle with ICNS and metadata.
+
+Local macOS validation: 645 tests passed, alongside strict Clippy, compilation without default features, Rust 1.95, release and the complete audit. The native AppKit probe decoded the ICNS and created the template tray with unread/read transitions; no failure or update error occurred. `iconutil` reads ten standard/Retina representations; all six ICO entries and bundle metadata are checked. Actual light/dark and Retina rendering, plus Windows/Linux integration, remain in L9/M7/W7. This local validation does not replace CI on the other platforms.
+
 ## 11 November 2026 — KSNI tray and tracked exceptions
 
 The AppIndicator/GTK backend is replaced by KSNI in tray-icon 0.26.1, with default features disabled. GTK, libappindicator and proc-macro-error have disappeared from the lockfile. The GTK thread and 200 ms polling are removed; menus and badge updates use the KSNI worker. The workaround for inherited Snap GTK variables is no longer needed and was removed.

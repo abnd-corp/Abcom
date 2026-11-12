@@ -99,7 +99,17 @@ GNOME may need a StatusNotifierItem-compatible extension; KDE/XFCE typically pro
 
 ## macOS
 
-Run from source with `cargo run --release -- alice`. The menu-bar integration and optional Launch Agent are managed by the application. There is no `.app` bundle yet, so notifications may be attributed to the terminal. Published bare binaries are not signed/notarized; review their origin and verify the published SHA-256 before following macOS Privacy & Security prompts. A signed `.app` bundle remains planned.
+Run from source with `cargo run --release -- alice`. The application manages menu-bar integration and its optional Launch Agent. The Dock uses the high-resolution colour logo; the menu bar uses an alpha template automatically adapted to light/dark backgrounds, including its unread badge.
+
+Create a bundle with its native Finder/Dock icon:
+
+```sh
+cargo build --release --locked
+python3 scripts/package_macos.py target/release/abcom dist/Abcom.app
+open dist/Abcom.app
+```
+
+The release workflow archives this `.app` bundle (`corp.abnd.abcom`). It is not Developer-ID signed or notarized; review its origin and published SHA-256 before following security prompts. Notifications from a bare executable may still be attributed to the terminal; verify attribution when launching the bundle on the target system.
 
 ## Windows
 
@@ -110,7 +120,7 @@ cd C:\path\to\Abcom
 powershell -ExecutionPolicy Bypass -File .\scripts\install-windows.ps1
 ```
 
-Review the script before running it. It checks Cargo, builds release when needed, installs in `%LOCALAPPDATA%\Programs\abcom` and adds desktop/Start-menu shortcuts. A full MSI installer is not provided. Native PowerShell is the documented route; WSL builds do not automatically create a native Windows GUI application.
+Review the script before running it. It checks Cargo, builds release when needed, installs in `%LOCALAPPDATA%\Programs\abcom` and adds desktop/Start-menu shortcuts. The multi-resolution ICO is embedded in the executable and used by shortcuts. A full MSI installer is not provided. Native PowerShell is the documented route; WSL builds do not automatically create a native Windows GUI application.
 
 ## Docker for multi-peer tests
 

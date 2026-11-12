@@ -136,7 +136,7 @@ def main():
         elif "tray" in name:
             sizes = [16, 24, 32, 48, 64]
         elif "app" in name or "dock" in name:
-            sizes = [16, 32, 64, 128, 256, 512, 1024]
+            sizes = [16, 32, 48, 64, 128, 256, 512, 1024]
         else:
             sizes = [32, 64, 128, 256, 512, 1024]
         for size in sizes:

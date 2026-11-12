@@ -1570,6 +1570,7 @@ pub fn run(
 
     let mut viewport = egui::ViewportBuilder::default()
         .with_title("Abcom")
+        .with_app_id("abcom")
         .with_inner_size([860.0, 600.0])
         // En dessous, la barre latérale seule occupe toute la fenêtre.
         .with_min_inner_size([560.0, 360.0]);
@@ -1612,6 +1613,8 @@ pub fn run(
             // Libère la copie CPU des images une fois téléversées en GPU.
             cc.egui_ctx
                 .options_mut(|options| options.reduce_texture_memory = true);
+            #[cfg(target_os = "macos")]
+            set_dock_visible(true);
             Ok(Box::new(AbcomApp::new(
                 state,
                 identity_fingerprint,
@@ -1726,7 +1729,9 @@ fn set_dock_visible(visible: bool) {
         app.activateIgnoringOtherApps(true);
         // Le retour en politique Regular réinitialise l'icône du Dock à
         // l'icône générique d'exécutable : ré-applique la nôtre.
-        let data = NSData::with_bytes(include_bytes!("../../assets/app_icon.png"));
+        let data = NSData::with_bytes(include_bytes!(
+            "../../assets/branding/png/abcom-dock-1024.png"
+        ));
         if let Some(image) = NSImage::initWithData(NSImage::alloc(), &data) {
             // Sûr : image valide construite ci-dessus, appel sur le thread
             // principal (garanti par le MainThreadMarker).

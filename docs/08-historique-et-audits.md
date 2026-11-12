@@ -13,6 +13,12 @@ Les résultats ci-dessous sont datés ; ils ne certifient pas toutes les version
 
 Les anciens plans d'exécution et documents remplacés ont été retirés de l'arborescence courante. Les décisions toujours applicables figurent dans la [présentation](01-presentation.md#décisions-fondatrices) et l'[architecture](02-architecture.md).
 
+## 12 novembre 2026 — Logos natifs
+
+Le logo couleur est embarqué dans la fenêtre et les lanceurs. macOS utilise un Dock haute définition et un masque de barre de menus ; le masque est conservé lors des bascules du badge non lu. Windows reçoit un ICO multi-résolution intégré par `winresource`, dépendance de compilation uniquement. Les installateurs Linux posent le PNG dans hicolor. Le script de packaging macOS et le workflow de release produisent un bundle `.app` avec ICNS et métadonnées.
+
+Validation locale macOS : 645 tests réussis, Clippy strict, compilation sans fonctionnalités par défaut, Rust 1.95, release et audit complet passent. Le test natif AppKit a décodé l'ICNS et créé le tray template avec bascule non lu/lu ; aucun échec ni erreur de mise à jour. `iconutil` relit dix représentations standard/Retina ; les six entrées ICO et les métadonnées du bundle sont contrôlées. Le rendu réel clair/sombre et Retina, ainsi que l'intégration Windows/Linux, restent à vérifier dans L9/M7/W7. Cette vérification locale ne remplace pas la CI des autres plateformes.
+
 ## 11 novembre 2026 — Tray KSNI et exceptions suivies
 
 Le backend AppIndicator/GTK est remplacé par KSNI dans tray-icon 0.26.1, avec ses fonctionnalités par défaut désactivées. GTK, libappindicator et proc-macro-error ont disparu du lockfile. Le thread GTK et son réveil toutes les 200 ms sont supprimés ; les menus et le badge passent par le worker KSNI. Le contournement des variables GTK héritées de Snap n'est plus utile et a été retiré.

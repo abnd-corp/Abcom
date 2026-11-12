@@ -96,6 +96,10 @@ libmimalloc-sys = { version = "0.1.49", features = ["extended"] }
 egui_kittest = "0.37.0"
 egui = "0.37.0"
 
+[build-dependencies]
+# Intègre l'ICO dans le PE Windows, y compris depuis une chaîne GNU croisée.
+winresource = "0.1.34"
+
 [features]
 default = ["tray", "sound"]
 # Icône résidente ; KSNI sur Linux, intégrations natives sur macOS/Windows.

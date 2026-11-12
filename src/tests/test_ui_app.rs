@@ -11,6 +11,15 @@ use super::{i18n, AbcomApp, UiLanguage, UiRuntimeChannels};
 use crate::app::AppState;
 use crate::network::secure::TrustStore;
 
+#[test]
+fn application_icon_contains_the_coral_brand_and_transparent_corners() {
+    let icon = super::app_icon_data().unwrap();
+    assert_eq!((icon.width, icon.height), (512, 512));
+    assert_eq!(icon.rgba[3], 0);
+    assert!(icon.rgba.as_chunks::<4>().0.contains(&[255, 138, 96, 255]));
+    assert!(icon.rgba.as_chunks::<4>().0.contains(&[48, 40, 48, 255]));
+}
+
 fn test_app() -> AbcomApp {
     let dir = std::env::temp_dir().join(format!(
         "abcom-ui-{}",

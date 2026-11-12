@@ -267,6 +267,13 @@
   },
   {
     "source": "svg/abcom-app-light.svg",
+    "output": "png/abcom-app-light-48.png",
+    "width": 48,
+    "height": 48,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-app-light.svg",
     "output": "png/abcom-app-light-64.png",
     "width": 64,
     "height": 64,
@@ -316,6 +323,13 @@
   },
   {
     "source": "svg/abcom-app-dark.svg",
+    "output": "png/abcom-app-dark-48.png",
+    "width": 48,
+    "height": 48,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-app-dark.svg",
     "output": "png/abcom-app-dark-64.png",
     "width": 64,
     "height": 64,
@@ -361,6 +375,13 @@
     "output": "png/abcom-dock-32.png",
     "width": 32,
     "height": 32,
+    "template": false
+  },
+  {
+    "source": "svg/abcom-dock.svg",
+    "output": "png/abcom-dock-48.png",
+    "width": 48,
+    "height": 48,
     "template": false
   },
   {

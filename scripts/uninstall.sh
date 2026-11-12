@@ -12,6 +12,7 @@ systemctl --user daemon-reload 2>/dev/null || true
 echo "→ Suppression du démarrage automatique et du raccourci..."
 rm -f "$HOME/.config/autostart/Abcom.desktop"
 rm -f "$HOME/.local/share/applications/abcom.desktop"
+rm -f "$HOME/.local/share/icons/hicolor/512x512/apps/abcom.png"
 
 echo "→ Suppression du binaire..."
 rm -f "$HOME/.local/bin/abcom"

@@ -219,6 +219,7 @@ For 11.10, use a disposable copy of a real older database containing a group and
 | L6 | Minimal build without GTK/ALSA | Builds; no tray/sound; closing exits |
 | L7 | Dynamic musl/Alpine | Builds with documented packages and runs with a GUI/driver |
 | L8 | KSNI startup and watcher arrival | On a private D-Bus session create the tray, change the badge and quit; on a real desktop test Open/Quit, hide/restore and a watcher appearing after startup |
+| L9 | Linux branding | Installed launcher uses the new logo; colour tray and unread badge remain visible on the target panel |
 
 | ID | macOS check | Expected |
 |---|---|---|
@@ -228,6 +229,7 @@ For 11.10, use a disposable copy of a real older database containing a group and
 | M4 | First network access | System firewall authorization handled |
 | M5 | Refocus open conversation | Read receipt sent |
 | M6 | Inspect `identity.key` | Owner-only permissions |
+| M7 | Native icons | New Finder/Dock logo in the bundle; hide/restore retains it; menu-bar template readable on light/dark backgrounds and Retina, with/without unread messages |
 
 | ID | Windows check | Expected |
 |---|---|---|
@@ -237,6 +239,7 @@ For 11.10, use a disposable copy of a real older database containing a group and
 | W4 | Allow in firewall | Discovery works |
 | W5 | Send file with spaces in path | Correct transfer |
 | W6 | Refocus restored window | Read receipt sent |
+| W7 | Native icons | Explorer, shortcuts and taskbar use the new logo at different scales; colour tray has a visible badge |
 
 ## 14. Minimum pre-release pass
 

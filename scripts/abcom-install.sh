@@ -6,6 +6,7 @@ BINARY_SOURCE="${1:-.}"
 BINARY_DIR="$HOME/.local/bin"
 DATA_DIR="$HOME/.local/share/abcom"
 APPS_DIR="$HOME/.local/share/applications"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "╔════════════════════════════════════╗"
 echo "║  Installation d'Abcom (v2)         ║"
@@ -41,6 +42,17 @@ cp "$BINARY_FILE" "$BINARY_DIR/abcom"
 chmod +x "$BINARY_DIR/abcom"
 echo "  ✓ Binaire → $BINARY_DIR/abcom"
 
+# Les archives de release et le dépôt fournissent la même icône de lanceur.
+ICON_NAME=chat
+for candidate in "$SCRIPT_DIR/../assets/app_icon.png" "$SCRIPT_DIR/assets/app_icon.png" "$(dirname "$BINARY_FILE")/assets/app_icon.png" "$SCRIPT_DIR/abcom-icon.png"; do
+  if [ -f "$candidate" ]; then
+    mkdir -p "$HOME/.local/share/icons/hicolor/512x512/apps"
+    cp "$candidate" "$HOME/.local/share/icons/hicolor/512x512/apps/abcom.png"
+    ICON_NAME=abcom
+    break
+  fi
+done
+
 # Dossier de données
 mkdir -p "$DATA_DIR"
 echo "  ✓ Dossier de données → $DATA_DIR"
@@ -61,9 +73,10 @@ Type=Application
 Name=Abcom
 Comment=Chat LAN P2P et découverte automatique des pairs
 Exec=bash -c 'read -p "Ton pseudonyme: " username; "$BINARY_DIR/abcom" "\$username"'
-Icon=chat
+Icon=$ICON_NAME
 Terminal=true
 Categories=Network;Chat;
+StartupWMClass=abcom
 Keywords=chat;lan;p2p;distributed;
 EOF
 echo "  ✓ Raccourci menu créé"
