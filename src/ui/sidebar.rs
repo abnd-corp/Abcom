@@ -103,6 +103,7 @@ impl AbcomApp {
 
                 let desired = egui::vec2(ui.available_width(), 56.0);
                 let (rect, resp) = ui.allocate_exact_size(desired, egui::Sense::click());
+                resp.context_menu(|ui| self.conversation_menu(ui, Some(peer.username.clone())));
                 let visuals = ui.style().interact(&resp);
                 let fill = if is_selected {
                     ui.visuals().selection.bg_fill
@@ -253,6 +254,7 @@ impl AbcomApp {
                 font_id,
                 ui.visuals().text_color(),
             );
+            resp.context_menu(|ui| self.conversation_menu(ui, None));
             if resp.clicked() {
                 self.switch_conversation(None);
             }
@@ -269,6 +271,7 @@ impl AbcomApp {
                 let is_selected = selected_conv.as_deref() == Some(conv_key.as_str());
                 let desired = egui::vec2(ui.available_width(), 56.0);
                 let (rect, resp) = ui.allocate_exact_size(desired, egui::Sense::click());
+                resp.context_menu(|ui| self.conversation_menu(ui, Some(conv_key.clone())));
                 let visuals = ui.style().interact(&resp);
                 let fill = if is_selected {
                     ui.visuals().selection.bg_fill
@@ -324,6 +327,81 @@ impl AbcomApp {
                     }
                 }
                 ui.add_space(4.0);
+            }
+        }
+    }
+}
+
+impl AbcomApp {
+    /// Menu du clic droit d'une conversation : `None` = « Tous », `#id` = salon, sinon un pair.
+    fn conversation_menu(&mut self, ui: &mut egui::Ui, conv: Option<String>) {
+        let group_id = conv
+            .as_deref()
+            .and_then(|c| c.strip_prefix('#'))
+            .map(str::to_string);
+        let peer = conv
+            .as_deref()
+            .filter(|c| !c.starts_with('#'))
+            .map(str::to_string);
+
+        let sound_text = if self.enable_sound_notifications {
+            self.t(i18n::DESACTIVER_TOUS_LES_SONS)
+        } else {
+            self.t(i18n::ACTIVER_TOUS_LES_SONS)
+        };
+        if ui.button(sound_text).clicked() {
+            self.enable_sound_notifications = !self.enable_sound_notifications;
+            ui.close();
+        }
+        let is_muted = self.muted_conversations.contains(&conv);
+        let mute_text = if is_muted {
+            self.t(i18n::REACTIVER_LES_SONS_DE_CE_SALON)
+        } else {
+            self.t(i18n::MUET_POUR_CE_SALON)
+        };
+        if ui.button(mute_text).clicked() {
+            if is_muted {
+                self.muted_conversations.remove(&conv);
+            } else {
+                self.muted_conversations.insert(conv.clone());
+            }
+            ui.close();
+        }
+        if ui.button(self.t(i18n::VOIR_LES_PARTICIPANTS)).clicked() {
+            self.switch_conversation(conv.clone());
+            self.modals.participants_open = true;
+            ui.close();
+        }
+        if let Some(gid) = &group_id {
+            if ui.button(self.t(i18n::GERER_LE_GROUPE)).clicked() {
+                self.modals.group_manage_target = Some(gid.clone());
+                self.modals.group_manage_confirm = None;
+                ui.close();
+            }
+        }
+        if let Some(user) = &peer {
+            if ui.button(self.t(i18n::RENOMMER_CE_CONTACT)).clicked() {
+                self.modals.rename_input = self
+                    .state
+                    .lock_safe()
+                    .peer_records
+                    .iter()
+                    .find(|r| &r.username == user)
+                    .and_then(|r| r.alias.clone())
+                    .unwrap_or_default();
+                self.modals.rename_target = Some(user.clone());
+                ui.close();
+            }
+        }
+        if ui.button(self.t(i18n::EFFACER_L_HISTORIQUE)).clicked() {
+            self.switch_conversation(conv.clone());
+            self.state.lock_safe().clear_conversation_history();
+            ui.close();
+        }
+        if let Some(user) = &peer {
+            if ui.button(self.t(i18n::SUPPRIMER_LA_CONVERSATION)).clicked() {
+                self.modals.delete_conversation_target = Some(user.clone());
+                ui.close();
             }
         }
     }

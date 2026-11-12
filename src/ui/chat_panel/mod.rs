@@ -32,11 +32,6 @@ impl AbcomApp {
             let rows = self.chat_cache.rows.clone();
             let my_name = self.chat_cache.my_name.clone();
             let selected_conv: Option<String> = self.chat_cache.conversation().map(str::to_string);
-            let private_peer = selected_conv
-                .as_deref()
-                .filter(|c| !c.starts_with('#'))
-                .map(str::to_string);
-            let is_broadcast = selected_conv.is_none();
 
             // Salon sélectionné : la clé porte l'identifiant, jamais le libellé.
             let selected_group_id = selected_conv
@@ -71,65 +66,6 @@ impl AbcomApp {
                     if let Some(subtitle) = &group_subtitle {
                         ui.label(egui::RichText::new(subtitle).small().weak());
                     }
-                });
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.menu_button(self.t(i18n::ACTIONS), |ui| {
-                        let sound_text = if self.enable_sound_notifications {
-                            self.t(i18n::DESACTIVER_TOUS_LES_SONS)
-                        } else {
-                            self.t(i18n::ACTIVER_TOUS_LES_SONS)
-                        };
-                        if ui.button(sound_text).clicked() {
-                            self.enable_sound_notifications = !self.enable_sound_notifications;
-                            ui.close();
-                        }
-                        let this_conv = selected_conv.clone();
-                        let is_muted = self.muted_conversations.contains(&this_conv);
-                        let mute_text = if is_muted {
-                            self.t(i18n::REACTIVER_LES_SONS_DE_CE_SALON)
-                        } else {
-                            self.t(i18n::MUET_POUR_CE_SALON)
-                        };
-                        if ui.button(mute_text).clicked() {
-                            if is_muted {
-                                self.muted_conversations.remove(&this_conv);
-                            } else {
-                                self.muted_conversations.insert(this_conv);
-                            }
-                            ui.close();
-                        }
-                        if ui.button(self.t(i18n::VOIR_LES_PARTICIPANTS)).clicked() {
-                            self.modals.participants_open = true;
-                            ui.close();
-                        }
-                        if let Some(gid) = &selected_group_id {
-                            if ui.button(self.t(i18n::GERER_LE_GROUPE)).clicked() {
-                                self.modals.group_manage_target = Some(gid.clone());
-                                self.modals.group_manage_confirm = None;
-                                ui.close();
-                            }
-                        }
-                        if let Some(user) = &private_peer {
-                            if ui.button(self.t(i18n::RENOMMER_CE_CONTACT)).clicked() {
-                                self.modals.rename_input = self
-                                    .state
-                                    .lock()
-                                    .unwrap()
-                                    .peer_records
-                                    .iter()
-                                    .find(|r| &r.username == user)
-                                    .and_then(|r| r.alias.clone())
-                                    .unwrap_or_default();
-                                self.modals.rename_target = Some(user.clone());
-                                ui.close();
-                            }
-                        }
-                        if !is_broadcast && ui.button(self.t(i18n::EFFACER_L_HISTORIQUE)).clicked()
-                        {
-                            self.state.lock_safe().clear_conversation_history();
-                            ui.close();
-                        }
-                    });
                 });
             });
             ui.separator();
@@ -250,6 +186,46 @@ impl AbcomApp {
                     self.modals.rename_target = None;
                 } else if !open {
                     self.modals.rename_target = None;
+                }
+            }
+
+            // Confirmation de suppression d'une conversation privée (action locale et définitive)
+            if let Some(target) = self.modals.delete_conversation_target.clone() {
+                let title = self.t(i18n::SUPPRIMER_CETTE_CONVERSATION_QUESTION);
+                let warning = self.t(i18n::SUPPRESSION_DEFINITIVE_LOCALE);
+                let confirm_lbl = self.t(i18n::SUPPRIMER_LA_CONVERSATION);
+                let cancel_lbl = self.t(i18n::ANNULER);
+
+                let mut open = true;
+                let mut do_delete = false;
+                let mut do_cancel = false;
+                egui::Window::new(title)
+                    .open(&mut open)
+                    .resizable(false)
+                    .collapsible(false)
+                    .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+                    .show(ctx, |ui| {
+                        ui.label(&target);
+                        ui.add_space(6.0);
+                        ui.label(warning);
+                        ui.add_space(8.0);
+                        ui.horizontal(|ui| {
+                            do_delete = ui.button(confirm_lbl).clicked();
+                            do_cancel = ui.button(cancel_lbl).clicked();
+                        });
+                    });
+
+                if do_delete {
+                    let was_selected = self.state.lock_safe().selected_conversation.as_deref()
+                        == Some(target.as_str());
+                    if was_selected {
+                        self.switch_conversation(None);
+                    }
+                    self.composer.drafts.remove(&Some(target.clone()));
+                    self.state.lock_safe().delete_private_conversation(&target);
+                    self.modals.delete_conversation_target = None;
+                } else if do_cancel || !open {
+                    self.modals.delete_conversation_target = None;
                 }
             }
 

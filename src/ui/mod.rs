@@ -254,6 +254,8 @@ pub(crate) struct ModalsState {
     /// Renommage de contact : pair ciblé par la modale (None = fermée).
     pub(crate) rename_target: Option<String>,
     pub(crate) rename_input: String,
+    /// Suppression de conversation : pair ciblé par la confirmation (None = fermée).
+    pub(crate) delete_conversation_target: Option<String>,
     pub(crate) settings_open: bool,
     pub(crate) settings_tab: SettingsTab,
     /// Pair dont la clé a changé (TOFU `Mismatch`) et clé qu'il a présentée :
@@ -552,6 +554,7 @@ impl AbcomApp {
                 group_manage_target: None,
                 group_manage_confirm: None,
                 rename_target: None,
+                delete_conversation_target: None,
                 rename_input: String::new(),
                 settings_open: false,
                 settings_tab: SettingsTab::General,
@@ -829,6 +832,7 @@ impl AbcomApp {
             }
         }
         self.modals.rename_target = None;
+        self.modals.delete_conversation_target = None;
         self.modals.group_manage_target = None;
     }
 
