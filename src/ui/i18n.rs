@@ -169,6 +169,7 @@ catalog! {
     NOTIFICATIONS => ("Notifications", "Notifications"),
     AFFICHER_UN_APERCU_DU_MESSAGE => ("Afficher un aperçu du message", "Show a message preview"),
     DEMARRAGE => ("Démarrage", "Startup"),
+    FLATPAK_AUTOSTART_UNAVAILABLE => ("Le démarrage automatique n’est pas disponible dans cette version Flatpak.", "Autostart is not available in this Flatpak build."),
     LANCER_ABCOM_A_L_OUVERTURE_DE => ("Lancer Abcom à l'ouverture de session", "Launch Abcom at login"),
     DONNEES => ("Données", "Data"),
     EXPORTER_LA_CONVERSATION_2 => ("Exporter la conversation…", "Export conversation…"),

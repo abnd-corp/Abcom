@@ -2,7 +2,58 @@
 
 # Install without public package catalogues
 
-No Homebrew/core, microsoft/winget-pkgs or nixpkgs submission is required. Recipes stay with Abcom. Binary recipes require actual versioned release files with matching SHA-256 hashes; they never advertise a missing artifact. There is no published release yet.
+No Homebrew/core, microsoft/winget-pkgs or nixpkgs submission is required. Recipes stay with Abcom. Binary recipes require actual versioned release files with matching SHA-256 hashes; they never advertise a missing artifact. Check [GitHub releases](https://github.com/abnd-corp/Abcom/releases) for available downloads; preparing a recipe does not publish it.
+
+## Direct GitHub installation versus catalogue names
+
+`winget install --exact --id cjpais.Handy` works because [Handy has a manifest in Microsoft's catalogue](https://github.com/microsoft/winget-pkgs/tree/master/manifests/c/cjpais/Handy). That manifest downloads the installer from Handy's GitHub release. WinGet does not turn an arbitrary GitHub repository name into an application: Abcom still needs a local manifest, a configured package source, or a future catalogue entry. A catalogue entry can point to our GitHub files; it need not host our binaries.
+
+Nix can directly use `github:abnd-corp/Abcom/<revision>#abcom` once that revision contains this flake and is available remotely. Homebrew needs its cask in a configured tap, or the local-tap helper below; it does not discover our GitHub release automatically. Flatpak needs a bundle or an OSTree remote, not a source-repository URL. None of these commands require a new GitHub repository, but a bare `brew install abcom`, `winget install Abnd.Abcom` or `flatpak install corp.abnd.abcom` is not globally available without configuring or registering a source first.
+
+## Linux AppImage and Flatpak
+
+Both formats are produced locally by `scripts/package_appimage.py` and `scripts/package_flatpak.sh`. They submit nothing to AppImageHub or Flathub. The dedicated Linux workflow creates test artifacts; the existing release workflow attaches them only when a release is explicitly triggered. Until then, use locally built files.
+
+After an actual release exists, download the matching architecture (`x86_64` or `aarch64`) from its GitHub release. For example, with `VERSION` set to the released number without `v`:
+
+```sh
+BASE="https://github.com/abnd-corp/Abcom/releases/download/v$VERSION"
+ARCH=$(uname -m)
+curl --fail --location --remote-name "$BASE/Abcom-$VERSION-$ARCH.AppImage"
+curl --fail --location --remote-name "$BASE/SHA256SUMS.txt"
+sha256sum --check --ignore-missing SHA256SUMS.txt
+chmod +x "Abcom-$VERSION-$ARCH.AppImage"
+"./Abcom-$VERSION-$ARCH.AppImage"
+```
+
+AppImage requires no package catalogue or Rust installation. It is a portable executable, not a `.deb`/`.rpm` and not a Docker image. On hosts without FUSE, use `APPIMAGE_EXTRACT_AND_RUN=1 ./Abcom-…AppImage`. The bundled runtime and packaging tools have pinned SHA-256 hashes in `linux/appimage-tools.json`; an upstream moving asset fails verification instead of being silently trusted. Builds use Ubuntu 22.04 as the compatibility baseline. Windowing libraries loaded through `dlopen` are included explicitly. Sound uses the desktop's PulseAudio/compatible PipeWire service; GPU drivers still come from the host. Keep the AppImage at a durable path when enabling autostart.
+
+With Flatpak already installed on Linux:
+
+```sh
+curl --fail --location --remote-name "$BASE/Abcom-$VERSION-$ARCH.flatpak"
+# Verify with the release's SHA256SUMS.txt as above.
+flatpak install --user "./Abcom-$VERSION-$ARCH.flatpak"
+flatpak run corp.abnd.abcom
+# Uninstall without deleting personal data:
+flatpak uninstall --user corp.abnd.abcom
+```
+
+The bundle supplies the application's files and the Freedesktop 25.08 runtime reference. Flatpak obtains missing runtime/graphics extensions from Flathub; Abcom itself is not published there. A single-file bundle is not an offline runtime bundle and does not provide automatic Abcom updates; download and install the next version explicitly. An updateable remote could be added later without using Flathub, but an ordinary GitHub source tree is not an OSTree repository.
+
+Flatpak grants LAN networking, graphics/audio, X11/Wayland and specific tray/notification D-Bus access. It grants neither the whole home directory nor the whole session bus. Attach files through the portal-backed picker; dropping a host path not granted by the portal may fail. Data stays in the application's sandbox, separate from native/AppImage data. Autostart is disabled and labelled unavailable in this Flatpak build until a Background portal integration exists. It does not write a misleading sandbox-only autostart file.
+
+To build on Linux with the dependencies listed in `linux/Dockerfile`:
+
+```sh
+cargo build --release --locked
+python3 scripts/package_appimage.py target/release/abcom
+bash scripts/package_flatpak.sh target/release/abcom
+```
+
+The scripts reject architecture mismatches. AppImage tools are checksum-verified and extracted without FUSE. `test_linux_appimage.sh` and `test_linux_flatpak.sh` run with an isolated Xvfb display and disposable data; the latter downloads its runtime into a temporary user installation. Docker needs nested namespace capabilities for Flatpak export/tests, not personal folders or the Docker socket. `stage_linux_source.py` exports only declared public build inputs, excluding `.env`, `.git`, personal data and build directories. Tests in a virtual display do not validate every physical Linux desktop, portal or LAN.
+
+Run the installation tests only on disposable CI runners/containers; both scripts require `CI=true`. The optional `ABCOM_FLATPAK_TEST_INSTALLATION` points to a dedicated test runtime cache, never a personal Flatpak installation. No additional application is installed on the macOS host for these Linux tests.
 
 ## Homebrew on macOS
 

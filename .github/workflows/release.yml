@@ -79,9 +79,14 @@ jobs:
             ${{ matrix.archive }}
             abcom-windows-x86_64-setup.exe
 
+  linux-formats:
+    uses: ./.github/workflows/linux-packages.yml
+    permissions:
+      contents: read
+
   publish:
     name: Publier la Release
-    needs: build
+    needs: [build, linux-formats]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -102,7 +107,9 @@ jobs:
           tar -czf artifacts/abcom-package-recipes.tar.gz -C dist/packages homebrew winget
 
       - name: Empreintes SHA-256
-        run: (cd artifacts && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+        run: |
+          python3 scripts/write_checksums.py artifacts
+          cat artifacts/SHA256SUMS.txt
 
       - uses: softprops/action-gh-release@v2
         with:

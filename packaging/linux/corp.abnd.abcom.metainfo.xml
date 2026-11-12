@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>corp.abnd.abcom</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-or-later</project_license>
+  <name>Abcom</name>
+  <summary>Encrypted peer-to-peer LAN messenger</summary>
+  <summary xml:lang="fr">Messagerie LAN chiffrée en pair-à-pair</summary>
+  <description>
+    <p>Chat privately, create groups and share files with computers on the same local network, without a server or an account.</p>
+    <p xml:lang="fr">Discutez, créez des groupes et partagez des fichiers entre ordinateurs du même réseau local, sans serveur ni compte.</p>
+  </description>
+  <launchable type="desktop-id">corp.abnd.abcom.desktop</launchable>
+  <developer id="corp.abnd"><name>Abnd</name></developer>
+  <url type="homepage">https://github.com/abnd-corp/Abcom</url>
+  <url type="bugtracker">https://github.com/abnd-corp/Abcom/issues</url>
+  <provides><binary>abcom</binary></provides>
+</component>

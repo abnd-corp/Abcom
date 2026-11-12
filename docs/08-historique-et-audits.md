@@ -13,6 +13,18 @@ Les résultats ci-dessous sont datés ; ils ne certifient pas toutes les version
 
 Les anciens plans d'exécution et documents remplacés ont été retirés de l'arborescence courante. Les décisions toujours applicables figurent dans la [présentation](01-presentation.md#décisions-fondatrices) et l'[architecture](02-architecture.md).
 
+## 12 novembre 2026 — AppImage et Flatpak sans catalogue public
+
+Les scripts produisent de vrais fichiers `.AppImage` et `.flatpak`, sans soumission à AppImageHub ou Flathub. Le workflow Linux construit et teste les formats sur Ubuntu 22.04 ; le workflow de release pourra les joindre aux artefacts GitHub seulement lors d’un déclenchement explicite. Les outils AppImage et leur runtime sont vérifiés par SHA-256. Les empreintes finales excluent leur propre fichier, y compris lorsque celui-ci vient d’un artefact de workflow précédent.
+
+Essais locaux aarch64 dans une VM Docker Linux : compilation release, AppImage de 18 Mo et Flatpak de 10 Mo environ, métadonnées de bureau/AppStream valides. L’AppImage reste ouverte après initialisation sous Xvfb, sans montage FUSE, et son autostart pointe vers le fichier durable. Les premiers essais ont trouvé des bibliothèques chargées dynamiquement manquantes, notamment XKB X11 ; elles sont désormais incluses, avec le client audio PulseAudio et les notices des bibliothèques.
+
+Le Flatpak est installé dans un profil de test dédié avec Freedesktop 25.08, ouvert sous Xvfb puis désinstallé. Son WM_CLASS correspond à `corp.abnd.abcom`. Il n’expose ni tout le dossier personnel ni tout le bus de session. Le démarrage automatique est signalé indisponible sans intégration Background ; le test vérifie l’absence de faux lanceur dans sa configuration. L’environnement de test Docker a besoin de bus système/session et des capacités nécessaires aux namespaces ; ces capacités concernent le conteneur de test, pas les permissions demandées à l’utilisateur de l’application.
+
+Barrière locale : 661 tests Rust, sept tests Python de packaging, Clippy strict, formatage, compilation minimale et MSRV passent. Les deux guides sont contrôlés avec leurs liens et les identifiants de tests. Les fichiers testés sont aarch64 ; la CI x86_64 est préparée, sans exécution déclarée avant push. Ces essais n’attestent pas le rendu de chaque bureau physique, le tray, le son, les portails ou la découverte sur un LAN réel.
+
+La comparaison avec Handy confirme que `cjpais.Handy` figure dans winget-pkgs et que son manifeste télécharge ses installateurs depuis GitHub. Cela ne rend pas un dépôt GitHub arbitraire installable par nom dans WinGet. Les voies directes GitHub, le tap Homebrew local, le flake Nix et les bundles Linux sont distingués dans les [recettes](../packaging/README.fr.md).
+
 ## 12 novembre 2026 — Distribution locale Homebrew, WinGet et Nix
 
 L’installation ne dépend plus d’une soumission aux catalogues publics : recettes générées depuis les artefacts réels et leurs SHA-256, cask dans un tap local, installateur Windows par utilisateur et flake Nix verrouillé. Le workflow de release prépare ces fichiers sans publier dans Homebrew/core, winget-pkgs ou nixpkgs.

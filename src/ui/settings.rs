@@ -201,7 +201,10 @@ impl AbcomApp {
                                         ui.label(egui::RichText::new(self.t(i18n::DEMARRAGE)).strong());
                                         ui.horizontal_wrapped(|ui| {
                                             let label = self.t(i18n::LANCER_ABCOM_A_L_OUVERTURE_DE);
-                                            if ui.checkbox(&mut self.autostart_enabled, label).changed() {
+                                            let supported = crate::platform::autostart::is_supported();
+                                            let response = ui.add_enabled(supported, egui::Checkbox::new(&mut self.autostart_enabled, label));
+                                            let response = response.on_disabled_hover_text(self.t(i18n::FLATPAK_AUTOSTART_UNAVAILABLE));
+                                            if response.changed() {
                                                 match crate::platform::autostart::set_enabled(
                                                     self.autostart_enabled,
                                                 ) {

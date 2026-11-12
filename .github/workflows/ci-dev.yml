@@ -41,7 +41,7 @@ jobs:
         run: python3 scripts/check_docs.py
 
       - name: Générateurs de paquets
-        run: python3 -m unittest discover -s src/tests -p test_packaging.py
+        run: python3 -m unittest discover -s src/tests -p 'test*packaging.py'
 
       - name: Format
         run: cargo fmt --all --check

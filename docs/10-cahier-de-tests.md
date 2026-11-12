@@ -261,6 +261,8 @@ Le cœur est identique partout ; ces points diffèrent réellement.
 | L7 | Alpine / musl | Installer les paquets de [docs/06](06-installation.md), compiler, lancer. Binaire lié dynamiquement à musl |
 | L8 | KSNI et apparition du watcher | Sur un bus D-Bus privé, créer le tray, changer le badge et quitter ; sur un vrai bureau, vérifier Ouvrir/Quitter, repli/restauration et watcher démarrant après l'application |
 | L9 | Logo Linux | Après installation, le lanceur utilise le nouveau logo ; tray couleur et badge non lu lisibles sur le panneau cible |
+| L10 | AppImage | Télécharger/vérifier le fichier, lancer avec et sans FUSE, vérifier le chemin d’autostart, le tray, le son et les échanges LAN sur le bureau cible |
+| L11 | Flatpak | Installer le bundle, lancer, joindre/exporter par portail, vérifier données isolées et absence d’autostart trompeur ; tester tray/notifications/LAN, puis désinstaller sans effacer les données |
 | L4 | Wayland et X11 | Tester les deux : tray, notifications, focus (test 3.3) |
 | L5 | Tray selon l'environnement | StatusNotifierItem nécessaire ; GNOME peut demander une extension ; vérifier KDE/XFCE |
 

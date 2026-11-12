@@ -221,6 +221,8 @@ For 11.10, use a disposable copy of a real older database containing a group and
 | L7 | Dynamic musl/Alpine | Builds with documented packages and runs with a GUI/driver |
 | L8 | KSNI startup and watcher arrival | On a private D-Bus session create the tray, change the badge and quit; on a real desktop test Open/Quit, hide/restore and a watcher appearing after startup |
 | L9 | Linux branding | Installed launcher uses the new logo; colour tray and unread badge remain visible on the target panel |
+| L10 | AppImage | Download/verify, launch with and without FUSE, check autostart path, tray, audio and LAN exchanges on the target desktop |
+| L11 | Flatpak | Install bundle, launch, attach/export through portals, verify isolated data and no misleading autostart; test tray/notifications/LAN, then uninstall retaining data |
 
 | ID | macOS check | Expected |
 |---|---|---|

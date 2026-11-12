@@ -19,6 +19,7 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 - README courts en anglais et français, sommaires et guides bilingues, dépannage/FAQ et contrôle local des liens et des traductions
 
 ### Ajouté
+- Linux : AppImage et bundle Flatpak construits sans catalogue public, avec icônes, licences, empreintes et tests de fenêtre sous Xvfb ; téléchargements GitHub documentés en EN/FR
 - Distribution sans catalogue public : cask Homebrew local, installateur Windows par utilisateur et manifeste WinGet, flake Nix verrouillé ; recettes et empreintes produites depuis les artefacts réels de release
 - **Logos natifs** : nouvelle icône embarquée, masque adaptatif du tray macOS avec badge monochrome, Dock Retina et bundle `.app`, ICO intégré au binaire Windows et aux raccourcis, logo de lanceur Linux
 - **Identité visuelle** : symbole bicolore, variantes monochromes et au trait, logotype vectorisé, icônes clair/sombre et tray avec exports PNG jusqu’à 1024 px, aperçus et documentation EN/FR ; génération reproductible avec le moteur SVG existant
@@ -42,6 +43,7 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 - MSRV déclarée (`rust-version = "1.95"`) et vérifiée en CI ; `cargo audit` et `cargo deny` désormais exécutés sur `dev` comme sur `main`
 
 ### Corrigé
+- AppImage : le démarrage automatique vise le fichier durable ; Flatpak : identifiant de bureau cohérent et démarrage automatique signalé indisponible sans portail Background
 - Installation macOS : signature ad hoc complète du bundle et vérification d’intégrité ; distinction entre compilation locale et téléchargement en quarantaine
 - Démarrage automatique : réécrit le chemin d’une préférence active après déplacement ou mise à jour de l’application
 - Bouton GIF : conserve sa largeur et la position du texte au survol, y compris aux densités intermédiaires ; les marges tiennent compte de la bordure réellement dessinée

@@ -13,6 +13,18 @@ Results below are dated and do not certify every version or OS. Current procedur
 
 Superseded execution plans and documents have been removed from the current tree. Still-applicable decisions are described in the [overview](01-overview.md#design-decisions) and [architecture](02-architecture.md).
 
+## 12 November 2026 — AppImage and Flatpak without public catalogues
+
+The scripts produce actual `.AppImage` and `.flatpak` files without submitting to AppImageHub or Flathub. The Linux workflow builds and tests them on Ubuntu 22.04; the release workflow can attach them to GitHub artifacts only when explicitly triggered. AppImage tools and runtime are SHA-256 checked. Final checksums exclude their own file, including when it comes from an earlier workflow artifact.
+
+Local aarch64 tests in a Docker Linux VM: release compilation, approximately 18 MB AppImage and 10 MB Flatpak, valid desktop/AppStream metadata. The AppImage remains open after initialization under Xvfb without FUSE mounting, and its autostart points to the durable image file. Early tests found missing dynamically loaded libraries, notably XKB X11; these are now included alongside the PulseAudio client and library notices.
+
+The Flatpak is installed in a dedicated test installation with Freedesktop 25.08, opened under Xvfb and uninstalled. Its WM_CLASS matches `corp.abnd.abcom`. Neither the entire home directory nor the entire session bus is exposed. Autostart is labelled unavailable without Background integration; the test checks that no misleading autostart file is written in its configuration. Docker testing requires system/session buses and namespace capabilities; these belong to the test container, not application-user permissions.
+
+Local checks: 661 Rust tests, seven Python packaging tests, strict Clippy, formatting, minimal compilation and MSRV pass. Both guides are checked for links and test identifiers. The tested files are aarch64; x86_64 CI is prepared, not claimed executed before pushing. These tests do not certify every physical desktop, tray, audio, portal or real-LAN discovery setup.
+
+The Handy comparison confirms that `cjpais.Handy` is in winget-pkgs and its manifest downloads installers from GitHub. That does not make an arbitrary GitHub repository installable by name in WinGet. Direct GitHub routes, the local Homebrew tap, Nix flake and Linux bundles are distinguished in the [recipes](../../packaging/README.md).
+
 ## 12 November 2026 — Local Homebrew, WinGet and Nix distribution
 
 Installation no longer depends on public catalogue submissions: recipes are generated from actual artifacts and SHA-256 hashes, with a local-tap cask, a per-user Windows installer and a locked Nix flake. The release workflow prepares those files without publishing to Homebrew/core, winget-pkgs or nixpkgs.

@@ -1,5 +1,11 @@
 use super::*;
 
+#[test]
+fn flatpak_uses_the_exported_desktop_identifier() {
+    assert_eq!(desktop_app_id(true), "corp.abnd.abcom");
+    assert_eq!(desktop_app_id(false), "abcom");
+}
+
 #[cfg(target_os = "macos")]
 #[test]
 fn macos_window_icon_explicitly_disables_eframe_dock_replacement() {

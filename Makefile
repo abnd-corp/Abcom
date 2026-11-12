@@ -21,7 +21,7 @@ all: build
 
 ## Vérifie le formatage, Clippy et tous les tests
 check: check-docs
-	python3 -m unittest discover -s src/tests -p test_packaging.py
+	python3 -m unittest discover -s src/tests -p 'test*packaging.py'
 	$(CARGO) fmt --all --check
 	$(CARGO) clippy --all-targets --all-features --locked -- -D warnings
 	$(CARGO) test --all-features --locked
