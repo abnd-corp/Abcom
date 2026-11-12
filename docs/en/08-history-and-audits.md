@@ -13,6 +13,14 @@ Results below are dated and do not certify every version or OS. Current procedur
 
 Superseded execution plans and documents have been removed from the current tree. Still-applicable decisions are described in the [overview](01-overview.md#design-decisions) and [architecture](02-architecture.md).
 
+## 12 November 2026 — Final icon checks and GIF button hover
+
+The actual GIF widget test reproduces a width changing from 33 to 31 points on hover and lettering moving by one point. The explicit border was applied after egui 0.37 compensated its margins. The button now uses the same border in this calculation for every state. The test compares its frame and lettering over 24 frames, at the centre and near the edge, in light/dark themes, at 1×, 1.5× and 2×, with the picker open or closed. The old code fails; the fix passes. Tracking: [#64](https://github.com/abnd-corp/Abcom/issues/64).
+
+Repeated checks: 650 tests passed, alongside formatting, strict Clippy, EN/FR documentation, minimal compilation, Rust 1.95 and the release build. Native diagnostics again measure an 18-point tray in all three states and a visible Dock width of 80.7% outside a bundle, 81.2% inside one. All 124 exports, 15 ICO representations, the ICNS structure and Linux launcher are checked; Windows/Linux graphical execution still needs testing on those systems.
+
+Two 1280 × 640 px EN/FR sharing cards use the new logo. The generator checks dimensions, opacity and the size limit of 1 MB. Both were visually inspected; GitHub activation instructions are in the [branding guide](../../assets/branding/README.md#github-social-preview). Their presence in the repository does not change GitHub’s Social preview setting.
+
 ## 12 November 2026 — Dock icon after eframe rendering
 
 New screenshots showed that fixing the ICNS files was insufficient. eframe 0.37 reapplied the unpadded window icon during `pre_update`, after the startup AppKit assignment. The earlier check validated artwork and tray geometry, not this lifecycle stage, so it did not prove the displayed Dock size.

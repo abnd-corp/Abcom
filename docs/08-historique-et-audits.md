@@ -13,6 +13,14 @@ Les résultats ci-dessous sont datés ; ils ne certifient pas toutes les version
 
 Les anciens plans d'exécution et documents remplacés ont été retirés de l'arborescence courante. Les décisions toujours applicables figurent dans la [présentation](01-presentation.md#décisions-fondatrices) et l'[architecture](02-architecture.md).
 
+## 12 novembre 2026 — Contrôle final des icônes et survol du bouton GIF
+
+Le test du widget GIF reproduit une largeur passant de 33 à 31 points au survol et un décalage du texte d’un point. La bordure explicite était appliquée après la compensation des marges d’egui 0.37. Le bouton utilise désormais la même bordure dans ce calcul pour tous ses états. Le test compare le cadre et le texte sur 24 frames, au centre et près du bord, en clair/sombre, à 1×, 1,5× et 2×, sélecteur ouvert ou fermé. L’ancien code échoue ; le correctif passe. Suivi : [#64](https://github.com/abnd-corp/Abcom/issues/64).
+
+Contrôles relancés : 650 tests réussis, formatage, Clippy strict, documentation EN/FR, compilation minimale, Rust 1.95 et build release. Les diagnostics natifs retrouvent un tray de 18 points dans les trois états et une largeur visible du Dock de 80,7 % hors bundle, 81,2 % dans le bundle. Les 124 exports, les 15 représentations ICO, la structure ICNS et le lanceur Linux sont contrôlés ; l’exécution graphique Windows/Linux reste à vérifier sur ces systèmes.
+
+Deux cartes de partage EN/FR de 1280 × 640 px reprennent le nouveau logo. Le générateur contrôle leurs dimensions, leur opacité et leur poids inférieur à 1 Mo. Elles sont inspectées visuellement et accompagnées de la procédure d’activation GitHub dans le [guide graphique](../assets/branding/README.fr.md#aperçu-de-partage-github). Leur présence dans le dépôt ne modifie pas le réglage Social preview sur GitHub.
+
 ## 12 novembre 2026 — Icône du Dock après le rendu eframe
 
 Les nouvelles captures montrent que corriger les fichiers ICNS ne suffisait pas. eframe 0.37 réappliquait l’icône de fenêtre sans marges lors de `pre_update`, après le réglage AppKit de démarrage. Le contrôle précédent validait les ressources et le tray, pas cette étape du cycle de vie ; son résultat ne prouvait donc pas la taille du Dock affiché.

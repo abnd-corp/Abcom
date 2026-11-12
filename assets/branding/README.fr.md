@@ -60,6 +60,12 @@ python3 scripts/build_native_icons.py
 
 `exports.json` donne les noms et dimensions exacts ; `palette.json` contient la palette. Le moteur vérifie que les exports sont visibles, que le fond des icônes reste transparent et que le masque reste monochrome. Contrôler `preview.png` et les PNG du tray à leur taille réelle après toute modification des tracés.
 
+## Aperçu de partage GitHub
+
+Utiliser [social-preview.png](social-preview.png) comme carte de partage par défaut du dépôt ; [social-preview-fr.png](social-preview-fr.png) est la version française. Les deux sont des PNG opaques de **1280 × 640 px**, sous la limite GitHub de **1 Mo**. Le même générateur produit leurs sources SVG vectorisées. La composition suit [la carte d’AbDNS](https://github.com/abnd-corp/Abdns/blob/dev/docs/assets/social-preview.svg), avec le logo et la palette propres à Abcom.
+
+Dans les réglages du dépôt, **Settings → General → Social preview → Edit → Upload an image**, sélectionner `social-preview.png`. GitHub accepte une seule image par dépôt, sans choix automatique de langue. Commiter ce fichier ne l’active pas : le téléversement est un réglage distinct, décrit dans [la documentation GitHub](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/customizing-your-repositorys-social-media-preview). Après le téléversement, contrôler un lien partagé ; les services tiers peuvent conserver l’ancienne carte en cache.
+
 La régénération ICNS utilise `iconutil` sous macOS ; les autres systèmes conservent le fichier ICNS versionné. Voir les recommandations Apple sur les [iconsets](https://developer.apple.com/library/archive/documentation/GraphicsAnimation/Conceptual/HighResolutionOSX/Optimizing/Optimizing.html) et les [images modèles](https://developer.apple.com/documentation/appkit/nsimage/istemplate).
 
 Sous la [licence du dépôt](../../LICENSE). Le lettrage utilise la [police Inter embarquée](../fonts/Inter-OFL.txt).

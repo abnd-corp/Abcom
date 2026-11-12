@@ -850,5 +850,17 @@
     "output": "preview-en.png",
     "width": 1600,
     "height": 1060
+  },
+  {
+    "source": "social-preview.svg",
+    "output": "social-preview.png",
+    "width": 1280,
+    "height": 640
+  },
+  {
+    "source": "social-preview-fr.svg",
+    "output": "social-preview-fr.png",
+    "width": 1280,
+    "height": 640
   }
 ]

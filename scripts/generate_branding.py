@@ -64,6 +64,27 @@ def dock_tile():
     return f'<g transform="translate({inset} {inset}) scale({scale})">{tile()}</g>'
 
 
+def social_preview(english=True):
+    title = "Encrypted LAN messaging" if english else "Messagerie LAN chiffrée"
+    features = "Chats, groups and file sharing" if english else "Discussions, groupes et partage de fichiers"
+    promise = "No server. No account." if english else "Sans serveur. Sans compte."
+    content = (
+        f'<rect width="1280" height="640" fill="{INK}"/>'
+        f'<g transform="translate(80 198) scale(1.05)">{symbol(CREAM)}</g>'
+        f'<g font-family="Inter" fill="{CREAM}">'
+        '<text x="550" y="218" font-size="100" font-weight="700" letter-spacing="-3">Abcom</text>'
+        f'<text x="554" y="284" font-size="36" font-weight="600">{title}</text>'
+        f'<text x="554" y="338" font-size="25" fill="#D6CDD3">{features}</text>'
+        f'<text x="554" y="383" font-size="25" fill="#FF8A60">{promise}</text>'
+        '<path d="M554 428 H1200" stroke="#635660"/>'
+        '<text x="554" y="476" font-size="23">macOS · Windows · Linux</text>'
+        '<text x="554" y="566" font-size="20" fill="#D6CDD3">github.com/abnd-corp/Abcom</text>'
+        '<text x="80" y="566" font-size="20" fill="#D6CDD3">Rust · AGPL-3.0</text>'
+        '</g>'
+    )
+    return svg(content, f"Abcom — {title}", 1280, 640)
+
+
 def preview(english=False):
     heading = "VISUAL IDENTITY" if english else "IDENTITÉ VISUELLE"
     pieces = [
@@ -153,6 +174,9 @@ def main():
     for name, english in [("preview", False), ("preview-en", True)]:
         (PACK / f"{name}.svg").write_text(preview(english), encoding="utf-8")
         exports.append({"source": f"{name}.svg", "output": f"{name}.png", "width": 1600, "height": 1060})
+    for name, english in [("social-preview", True), ("social-preview-fr", False)]:
+        (PACK / f"{name}.svg").write_text(social_preview(english), encoding="utf-8")
+        exports.append({"source": f"{name}.svg", "output": f"{name}.png", "width": 1280, "height": 640})
     (PACK / "exports.json").write_text(json.dumps(exports, indent=2) + "\n", encoding="utf-8")
     (PACK / "palette.json").write_text(json.dumps({"coral": CORAL, "ink": INK, "cream": CREAM}, indent=2) + "\n", encoding="utf-8")
 

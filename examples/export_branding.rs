@@ -61,8 +61,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         if !pixels.iter().any(|pixel| pixel[3] > 0) {
             return Err(format!("empty render: {}", export.output).into());
         }
-        if !export.source.starts_with("preview") && !pixels.iter().any(|pixel| pixel[3] == 0) {
+        let social_preview = export.source.starts_with("social-preview");
+        if !export.source.starts_with("preview")
+            && !social_preview
+            && !pixels.iter().any(|pixel| pixel[3] == 0)
+        {
             return Err(format!("missing transparent background: {}", export.output).into());
+        }
+        if social_preview
+            && (export.width != 1280
+                || export.height != 640
+                || pixels.iter().any(|pixel| pixel[3] != 255))
+        {
+            return Err("social previews must be opaque 1280x640 images".into());
         }
         if export.template
             && pixels
@@ -73,7 +84,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
         let output = pack.join(&export.output);
         std::fs::create_dir_all(output.parent().ok_or("missing output directory")?)?;
-        pixmap.save_png(output)?;
+        pixmap.save_png(&output)?;
+        if social_preview && std::fs::metadata(output)?.len() >= 1_000_000 {
+            return Err("GitHub social previews must stay below 1 MB".into());
+        }
     }
     Ok(())
 }

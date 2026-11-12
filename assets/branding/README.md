@@ -60,6 +60,12 @@ python3 scripts/build_native_icons.py
 
 `exports.json` lists the exact filenames and dimensions; `palette.json` holds the palette. The renderer checks that exports are visible, that icon backgrounds remain transparent and that the template stays monochrome. Inspect `preview.png` and the native-size tray PNGs after changing the geometry.
 
+## GitHub social preview
+
+Use [social-preview.png](social-preview.png) as the repository’s default sharing card; [social-preview-fr.png](social-preview-fr.png) is the French version. Both are opaque **1280 × 640 px** PNGs, below GitHub’s **1 MB** limit. The same generator produces their outlined SVG sources. The layout follows [AbDNS’s sharing card](https://github.com/abnd-corp/Abdns/blob/dev/docs/assets/social-preview.svg), using Abcom’s own logo and palette.
+
+In the repository’s **Settings → General → Social preview → Edit → Upload an image**, select `social-preview.png`. GitHub accepts one image per repository, without language negotiation. Committing this file does not activate it: the upload is a separate repository setting, as described in [GitHub’s instructions](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/customizing-your-repositorys-social-media-preview). After uploading, check a shared link; third-party services may retain the previous card in their cache.
+
 ICNS regeneration uses macOS `iconutil`; other systems retain the committed ICNS. See [Apple’s iconset guidance](https://developer.apple.com/library/archive/documentation/GraphicsAnimation/Conceptual/HighResolutionOSX/Optimizing/Optimizing.html) and [template images](https://developer.apple.com/documentation/appkit/nsimage/istemplate).
 
 Covered by the repository [license](../../LICENSE). Lettering uses the bundled [Inter font](../fonts/Inter-OFL.txt).
