@@ -13,6 +13,16 @@ Les résultats ci-dessous sont datés ; ils ne certifient pas toutes les version
 
 Les anciens plans d'exécution et documents remplacés ont été retirés de l'arborescence courante. Les décisions toujours applicables figurent dans la [présentation](01-presentation.md#décisions-fondatrices) et l'[architecture](02-architecture.md).
 
+## 12 novembre 2026 — Icône du Dock après le rendu eframe
+
+Les nouvelles captures montrent que corriger les fichiers ICNS ne suffisait pas. eframe 0.37 réappliquait l’icône de fenêtre sans marges lors de `pre_update`, après le réglage AppKit de démarrage. Le contrôle précédent validait les ressources et le tray, pas cette étape du cycle de vie ; son résultat ne prouvait donc pas la taille du Dock affiché.
+
+Handy déclare son ICNS dans le bundle et conserve cette ressource lors du retour en politique Regular. Abcom suit désormais cette approche : l’icône de fenêtre macOS est explicitement vide pour désactiver le remplacement eframe ; le bundle récupère son ICNS d’origine. Un binaire lancé avec `cargo run` reçoit le même ICNS embarqué en repli. Windows/Linux conservent leur icône de fenêtre couleur.
+
+Le nouveau diagnostic `check_macos_dock_after_frame` lance eframe, attend trois frames puis lit et exporte l’icône réelle de `NSApplication`. L’option `--reproduce-old` réactive volontairement le chemin fautif et doit échouer ; le mode normal doit réussir, y compris depuis un bundle `.app`. Les relevés de ce diagnostic remplacent la seule inspection des PNG pour le contrôle du Dock.
+
+Résultats : ancien chemin refusé avec 97,3 % de largeur visible ; chemin corrigé accepté à 80,7 % depuis le binaire nu et 81,2 % depuis le bundle. Les images proviennent de l’icône native après trois frames eframe. Barrière locale : 649 tests réussis, Clippy strict, compilation minimale, Rust 1.95 et build release au vert.
+
 ## 12 novembre 2026 — Correction des tailles natives
 
 Les captures utilisateur ont révélé un tray et un Dock surdimensionnés malgré des bitmaps valides. Le backend tray-icon traite le PNG comme une image native plafonnée à 22 points ; le recadrage accentuait le problème. Correction : image AppKit de 18 points, bitmap de 36 px et emplacement carré système, réappliqués après chaque badge. Le diagnostic natif mesure 18 × 18 pt / 36 × 36 px et un bouton de 22 × 22 pt sur ce Mac, dans les trois états normal/non lu/lu.

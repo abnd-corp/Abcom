@@ -229,7 +229,7 @@ For 11.10, use a disposable copy of a real older database containing a group and
 | M4 | First network access | System firewall authorization handled |
 | M5 | Refocus open conversation | Read receipt sent |
 | M6 | Inspect `identity.key` | Owner-only permissions |
-| M7 | Native icons | New Finder/Dock logo in the bundle; hide/restore retains it; menu-bar template readable on light/dark backgrounds and Retina, with/without unread messages |
+| M7 | Native icons | New Finder/Dock logo in the bundle; hide/restore retains it; menu-bar template readable on light/dark backgrounds and Retina, with/without unread messages Also run `cargo run --locked --example check_macos_dock_after_frame` to inspect the icon after framework rendering. |
 
 | ID | Windows check | Expected |
 |---|---|---|

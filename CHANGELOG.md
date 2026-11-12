@@ -8,6 +8,7 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 ## [Non publié]
 
 ### Maintenance
+- Dock macOS : empêche eframe de remplacer l’ICNS du bundle par le PNG de fenêtre ; contrôle natif de l’icône après trois frames, avec contre-épreuve de l’ancien défaut
 - Tailles natives corrigées : tray macOS de 18 points avec cible de clic système, marges optiques du Dock, ICO Windows enrichi et tray adapté au DPI
 - Tray Linux migré vers KSNI sans GTK/AppIndicator ; trois exceptions de maintenance D-Bus approuvées et suivies dans l’issue #59, qui doit rester ouverte jusqu’à leur retrait
 - Mise à jour des dépendances directes et transitives, avec adaptation à egui 0.37 et ZIP 9 ; les vulnérabilités signalées sont corrigées

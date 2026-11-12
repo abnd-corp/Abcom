@@ -277,7 +277,7 @@ Le cœur est identique partout ; ces points diffèrent réellement.
 | M4 | Permissions réseau | Le pare-feu demande l'autorisation au premier lancement |
 | M5 | Focus (test 3.3) | Cliquer une fenêtre en arrière-plan déclenche l'accusé de lecture |
 | M6 | Permissions de la clé | `stat -f "%Sp" identity.key` → `-rw-------` |
-| M7 | Logos natifs | Nouveau logo Finder/Dock dans le bundle ; repli/restauration conserve le logo ; barre de menus lisible sur fonds clair/sombre et Retina, avec et sans non-lus |
+| M7 | Logos natifs | Nouveau logo Finder/Dock dans le bundle ; repli/restauration conserve le logo ; barre de menus lisible sur fonds clair/sombre et Retina, avec et sans non-lus Exécuter aussi `cargo run --locked --example check_macos_dock_after_frame` pour contrôler l’icône après le rendu du framework. |
 
 ## Windows
 

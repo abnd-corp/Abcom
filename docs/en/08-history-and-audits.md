@@ -13,6 +13,16 @@ Results below are dated and do not certify every version or OS. Current procedur
 
 Superseded execution plans and documents have been removed from the current tree. Still-applicable decisions are described in the [overview](01-overview.md#design-decisions) and [architecture](02-architecture.md).
 
+## 12 November 2026 — Dock icon after eframe rendering
+
+New screenshots showed that fixing the ICNS files was insufficient. eframe 0.37 reapplied the unpadded window icon during `pre_update`, after the startup AppKit assignment. The earlier check validated artwork and tray geometry, not this lifecycle stage, so it did not prove the displayed Dock size.
+
+Handy declares its ICNS in the bundle and retains that resource when returning to Regular activation policy. Abcom now follows this approach: an explicit empty macOS window icon disables eframe replacement; the bundle restores its original ICNS. A bare executable launched with `cargo run` uses the same embedded ICNS as a fallback. Windows/Linux keep their colour window icon.
+
+The new `check_macos_dock_after_frame` diagnostic runs eframe, waits three frames, then reads and exports the actual `NSApplication` icon. `--reproduce-old` deliberately enables the faulty path and must fail; normal mode must pass, including inside an `.app` bundle. These runtime measurements replace PNG-only inspection for Dock validation.
+
+Results: the old path fails at 97.3% visible width; the fixed path passes at 80.7% from the bare executable and 81.2% from the bundle. Images come from the native icon after three eframe frames. Local checks: 649 tests passed, strict Clippy, minimal compilation, Rust 1.95 and release build passed.
+
 ## 12 November 2026 — Native size correction
 
 User screenshots revealed an oversized tray and Dock despite valid bitmaps. tray-icon treats the PNG as a native image capped at 22 points; cropping amplified the problem. The fix sets an 18-point AppKit image backed by a 36 px bitmap in a system square slot, reapplied after each badge change. The native diagnostic measures 18 × 18 pt / 36 × 36 px and a 22 × 22 pt button on this Mac, in normal/unread/read states.

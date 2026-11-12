@@ -23,6 +23,9 @@ required-features = ["avatar-svg"]
 name = "check_macos_icon_sizes"
 required-features = ["tray"]
 
+[[example]]
+name = "check_macos_dock_after_frame"
+
 [dependencies]
 tokio = { version = "1.54.1", features = [
     "rt-multi-thread",
@@ -130,7 +133,7 @@ windows-sys = { version = "0.61.2", features = [
 # Bascule Dock/Accessory quand la fenêtre est repliée dans la barre de menus
 # (versions alignées sur celles déjà présentes via tray-icon/winit).
 objc2 = "0.6.5"
-objc2-foundation = { version = "0.3.2", features = ["NSThread", "NSData"] }
+objc2-foundation = { version = "0.3.2", features = ["NSThread", "NSData", "NSBundle"] }
 objc2-app-kit = { version = "0.3.2", features = [
     "NSApplication",
     "NSResponder",

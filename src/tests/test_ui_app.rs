@@ -12,8 +12,15 @@ use crate::app::AppState;
 use crate::network::secure::TrustStore;
 
 #[test]
-fn application_icon_contains_the_coral_brand_and_transparent_corners() {
-    let icon = super::app_icon_data().unwrap();
+fn application_png_contains_the_coral_brand_and_transparent_corners() {
+    let rgba = image::load_from_memory(include_bytes!("../../assets/app_icon.png"))
+        .unwrap()
+        .to_rgba8();
+    let icon = egui::IconData {
+        width: rgba.width(),
+        height: rgba.height(),
+        rgba: rgba.into_raw(),
+    };
     assert_eq!((icon.width, icon.height), (512, 512));
     assert_eq!(icon.rgba[3], 0);
     assert!(icon.rgba.as_chunks::<4>().0.contains(&[255, 138, 96, 255]));

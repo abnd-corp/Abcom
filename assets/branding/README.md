@@ -23,6 +23,18 @@ Preserve the proportions and the space between the links. The application uses t
 
 Native files are `../app_icon.png` (512 px), `../app_icon.ico` (16–256 px) and `../app_icon.icns` (standard/Retina representations). The build-only `winresource` dependency embeds the ICO in Windows executables; shortcuts use it too. `scripts/package_macos.py` creates the `.app` bundle with ICNS and metadata. Linux installers copy the PNG into the user’s hicolor icon theme.
 
+## Loading the actual Dock icon
+
+Like [Handy](https://github.com/cjpais/Handy/blob/main/src-tauri/tauri.conf.json), the macOS bundle supplies its ICNS. The macOS window icon passed to eframe is explicitly empty: in eframe 0.37, `None` selects its default logo, while `Some(IconData::default())` disables Dock replacement. When leaving resident mode, AppKit restores the original bundle icon. `cargo run` uses the same embedded ICNS as a fallback.
+
+This policy lives in `src/platform/icons.rs`. The following diagnostic opens a short-lived window, waits three frames, then measures the actual icon pixels loaded by AppKit:
+
+```sh
+cargo run --locked --example check_macos_dock_after_frame
+```
+
+It must also pass when this diagnostic executable is packaged with `scripts/package_macos.py`. `--reproduce-old` is the negative control: it re-enables replacement with the window PNG and must fail. Diagnostic images are written to the system temporary directory. [AppKit icon restoration API](https://developer.apple.com/documentation/appkit/nsapplication/applicationiconimage).
+
 ## Native sizing and conventions
 
 - macOS menu bar: **18 × 18 logical points**, a **36 × 36 px** 2× bitmap, and `NSSquareStatusItemLength` to let the system size the click target. This is Abcom’s drawing size; Retina pixels do not become points. Symbol padding is preserved, including with the unread badge. The AppKit diagnostic checks dimensions after every replacement.

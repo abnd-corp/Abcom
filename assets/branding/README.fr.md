@@ -23,6 +23,18 @@ Conserver les proportions et l’espace entre les maillons. L’application util
 
 Les fichiers natifs sont `../app_icon.png` (512 px), `../app_icon.ico` (16 à 256 px) et `../app_icon.icns` (représentations standard/Retina). La dépendance de compilation `winresource` intègre l’ICO dans les exécutables Windows ; les raccourcis l’utilisent aussi. `scripts/package_macos.py` crée le bundle `.app` avec ICNS et métadonnées. Les installateurs Linux copient le PNG dans le thème hicolor de l’utilisateur.
 
+## Chargement de l’icône réelle du Dock
+
+Comme [Handy](https://github.com/cjpais/Handy/blob/main/src-tauri/tauri.conf.json), le bundle macOS fournit son ICNS. L’icône de fenêtre macOS passée à eframe est explicitement vide : dans eframe 0.37, `None` choisit le logo par défaut, tandis que `Some(IconData::default())` désactive le remplacement du Dock. Au retour du mode résident, AppKit restaure l’icône d’origine du bundle. `cargo run` utilise le même ICNS embarqué en repli.
+
+Cette politique est centralisée dans `src/platform/icons.rs`. Le diagnostic suivant ouvre une courte fenêtre, attend trois frames puis mesure les pixels de l’icône réellement chargée par AppKit :
+
+```sh
+cargo run --locked --example check_macos_dock_after_frame
+```
+
+Le contrôle doit aussi passer après avoir empaqueté cet exécutable de diagnostic avec `scripts/package_macos.py`. L’option `--reproduce-old` sert de contre-épreuve : elle réactive le remplacement par le PNG de fenêtre et doit échouer. Les images de diagnostic sont écrites dans le dossier temporaire du système. [API AppKit de restauration](https://developer.apple.com/documentation/appkit/nsapplication/applicationiconimage).
+
 ## Tailles natives et conventions
 
 - macOS, barre de menus : canevas logique de **18 × 18 points**, bitmap **36 × 36 px** à 2×, et `NSSquareStatusItemLength` pour laisser le système dimensionner la cible de clic. Cette taille est un choix de dessin d’Abcom ; les pixels Retina ne deviennent pas des points. Les marges du symbole sont conservées, y compris avec le badge. Le diagnostic AppKit vérifie les dimensions après chaque remplacement.
