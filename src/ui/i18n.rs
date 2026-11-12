@@ -190,7 +190,6 @@ catalog! {
     AUTEURS => ("Auteurs", "Authors"),
     AUTEUR => ("Auteur", "Author"),
     TOUS_2 => ("Tous", "All"),
-    ACTIONS => ("Actions", "Actions"),
     DESACTIVER_TOUS_LES_SONS => ("🔊 Désactiver tous les sons", "🔊 Disable all sounds"),
     ACTIVER_TOUS_LES_SONS => ("🔇 Activer tous les sons", "🔇 Enable all sounds"),
     REACTIVER_LES_SONS_DE_CE_SALON => ("🔔 Réactiver les sons de ce salon", "🔔 Re-enable sounds for this chat"),

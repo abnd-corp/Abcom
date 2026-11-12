@@ -67,19 +67,6 @@ impl AbcomApp {
                         ui.label(egui::RichText::new(subtitle).small().weak());
                     }
                 });
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.menu_button(self.t(i18n::ACTIONS), |ui| {
-                        let sound_text = if self.enable_sound_notifications {
-                            self.t(i18n::DESACTIVER_TOUS_LES_SONS)
-                        } else {
-                            self.t(i18n::ACTIVER_TOUS_LES_SONS)
-                        };
-                        if ui.button(sound_text).clicked() {
-                            self.enable_sound_notifications = !self.enable_sound_notifications;
-                            ui.close();
-                        }
-                    });
-                });
             });
             ui.separator();
 

@@ -344,6 +344,15 @@ impl AbcomApp {
             .filter(|c| !c.starts_with('#'))
             .map(str::to_string);
 
+        let sound_text = if self.enable_sound_notifications {
+            self.t(i18n::DESACTIVER_TOUS_LES_SONS)
+        } else {
+            self.t(i18n::ACTIVER_TOUS_LES_SONS)
+        };
+        if ui.button(sound_text).clicked() {
+            self.enable_sound_notifications = !self.enable_sound_notifications;
+            ui.close();
+        }
         let is_muted = self.muted_conversations.contains(&conv);
         let mute_text = if is_muted {
             self.t(i18n::REACTIVER_LES_SONS_DE_CE_SALON)
