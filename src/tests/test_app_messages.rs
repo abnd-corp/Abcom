@@ -131,6 +131,36 @@ fn test_delete_private_conversation_keeps_other_selection() {
     assert_eq!(s.selected_conversation.as_deref(), Some("charlie"));
 }
 
+fn peer(name: &str, online: bool) -> crate::app::Peer {
+    crate::app::Peer {
+        username: name.to_string(),
+        addr: "0.0.0.0:0".parse().unwrap(),
+        last_seen: 0,
+        online,
+    }
+}
+
+#[test]
+fn test_delete_private_conversation_removes_offline_contact() {
+    let mut s = state("alice");
+    s.messages.push(msg("bob", Some("alice"), "hi"));
+    s.peers.push(peer("bob", false));
+    s.peers.push(peer("charlie", false));
+    s.delete_private_conversation("bob");
+    assert!(s.peers.iter().all(|p| p.username != "bob"));
+    assert!(s.peers.iter().any(|p| p.username == "charlie"));
+}
+
+#[test]
+fn test_delete_private_conversation_keeps_online_contact() {
+    let mut s = state("alice");
+    s.messages.push(msg("bob", Some("alice"), "hi"));
+    s.peers.push(peer("bob", true));
+    s.delete_private_conversation("bob");
+    assert!(s.peers.iter().any(|p| p.username == "bob"));
+    assert!(s.messages.is_empty());
+}
+
 #[test]
 fn test_clear_conversation_history_broadcast() {
     let mut s = state("alice");

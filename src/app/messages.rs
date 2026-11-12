@@ -152,8 +152,8 @@ impl AppState {
         }
     }
 
-    /// Supprime la conversation privée avec `peer` : messages en mémoire et en base,
-    /// compteur de lecture, états annexes et messages en attente d'émission.
+    /// Supprime la conversation privée avec `peer` et, s'il est hors ligne, le contact : messages en
+    /// mémoire et en base, compteur de lecture, états annexes, file d'émission et épingle.
     pub fn delete_private_conversation(&mut self, peer: &str) {
         let me = self.my_username.clone();
         self.messages.retain(|m| {
@@ -171,6 +171,16 @@ impl AppState {
         });
         if self.selected_conversation.as_deref() == Some(peer) {
             self.selected_conversation = None;
+        }
+        // Un contact hors ligne n'existe plus que par cet historique : il quitte la liste. Un contact
+        // connecté y reste, la découverte le rajouterait aussitôt.
+        let before = self.peers.len();
+        self.peers.retain(|p| p.username != peer || p.online);
+        if self.peers.len() != before {
+            self.bump_presence();
+        }
+        if self.is_pinned(peer) {
+            self.toggle_pinned(peer);
         }
         self.bump_content();
     }
