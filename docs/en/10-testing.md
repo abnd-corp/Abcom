@@ -109,6 +109,7 @@ These scenarios use **private conversations**. Group receipts are not implemente
 | 7.3 | Send GIF | Animated on recipient | P0 |
 | 7.4 | Run without Klipy key | Clear explanation, no crash | P2 |
 | 7.5 | Picker and shortcode completion | Correct insertion | P1 |
+| 7.6 | Enter, remain near the GIF button edge and leave; light/dark, 100/150/200% scaling, picker open then closed | Frame and lettering stay still; tooltip and click work | P2 |
 
 If 7.3 produces a file card, review the HTTPS Klipy host restriction and the actual provider URL. Do not widen the allowlist without checking the new host.
 
@@ -219,6 +220,7 @@ For 11.10, use a disposable copy of a real older database containing a group and
 | L6 | Minimal build without GTK/ALSA | Builds; no tray/sound; closing exits |
 | L7 | Dynamic musl/Alpine | Builds with documented packages and runs with a GUI/driver |
 | L8 | KSNI startup and watcher arrival | On a private D-Bus session create the tray, change the badge and quit; on a real desktop test Open/Quit, hide/restore and a watcher appearing after startup |
+| L9 | Linux branding | Installed launcher uses the new logo; colour tray and unread badge remain visible on the target panel |
 
 | ID | macOS check | Expected |
 |---|---|---|
@@ -228,6 +230,7 @@ For 11.10, use a disposable copy of a real older database containing a group and
 | M4 | First network access | System firewall authorization handled |
 | M5 | Refocus open conversation | Read receipt sent |
 | M6 | Inspect `identity.key` | Owner-only permissions |
+| M7 | Native icons | New Finder/Dock logo in the bundle; hide/restore retains it; menu-bar template readable on light/dark backgrounds and Retina, with/without unread messages Also run `cargo run --locked --example check_macos_dock_after_frame` to inspect the icon after framework rendering. |
 
 | ID | Windows check | Expected |
 |---|---|---|
@@ -237,6 +240,7 @@ For 11.10, use a disposable copy of a real older database containing a group and
 | W4 | Allow in firewall | Discovery works |
 | W5 | Send file with spaces in path | Correct transfer |
 | W6 | Refocus restored window | Read receipt sent |
+| W7 | Native icons | Explorer, shortcuts and taskbar use the new logo at different scales; colour tray has a visible badge |
 
 ## 14. Minimum pre-release pass
 

@@ -15,6 +15,17 @@ repository = "https://github.com/abnd-corp/Abcom"
 name = "abcom"
 path = "src/main.rs"
 
+[[example]]
+name = "export_branding"
+required-features = ["avatar-svg"]
+
+[[example]]
+name = "check_macos_icon_sizes"
+required-features = ["tray"]
+
+[[example]]
+name = "check_macos_dock_after_frame"
+
 [dependencies]
 tokio = { version = "1.54.1", features = [
     "rt-multi-thread",
@@ -92,6 +103,10 @@ libmimalloc-sys = { version = "0.1.49", features = ["extended"] }
 egui_kittest = "0.37.0"
 egui = "0.37.0"
 
+[build-dependencies]
+# Intègre l'ICO dans le PE Windows, y compris depuis une chaîne GNU croisée.
+winresource = "0.1.34"
+
 [features]
 default = ["tray", "sound"]
 # Icône résidente ; KSNI sur Linux, intégrations natives sur macOS/Windows.
@@ -111,18 +126,25 @@ windows-sys = { version = "0.61.2", features = [
     "Win32_Foundation",
     "Win32_UI_WindowsAndMessaging",
     "Win32_Graphics_Gdi",
+    "Win32_UI_HiDpi",
 ] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # Bascule Dock/Accessory quand la fenêtre est repliée dans la barre de menus
 # (versions alignées sur celles déjà présentes via tray-icon/winit).
 objc2 = "0.6.5"
-objc2-foundation = { version = "0.3.2", features = ["NSThread", "NSData"] }
+objc2-foundation = { version = "0.3.2", features = ["NSThread", "NSData", "NSBundle"] }
 objc2-app-kit = { version = "0.3.2", features = [
     "NSApplication",
     "NSResponder",
     "NSRunningApplication",
     "NSImage",
+    "NSStatusItem",
+    "NSStatusBar",
+    "NSStatusBarButton",
+    "NSButton",
+    "NSControl",
+    "NSView",
 ] }
 
 # Binaire compact et rapide : LTO inter-crates, une seule unité de codegen,

@@ -8,14 +8,19 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 ## [Non publié]
 
 ### Maintenance
+- Dock macOS : empêche eframe de remplacer l’ICNS du bundle par le PNG de fenêtre ; contrôle natif de l’icône après trois frames, avec contre-épreuve de l’ancien défaut
+- Tailles natives corrigées : tray macOS de 18 points avec cible de clic système, marges optiques du Dock, ICO Windows enrichi et tray adapté au DPI
 - Tray Linux migré vers KSNI sans GTK/AppIndicator ; trois exceptions de maintenance D-Bus approuvées et suivies dans l’issue #59, qui doit rester ouverte jusqu’à leur retrait
-- Mise à jour des dépendances directes et transitives, avec adaptation à egui 0.37 et ZIP 9 ; les vulnérabilités signalées sont corrigées, quatre avis de dépendances Linux non maintenues restent à traiter
+- Mise à jour des dépendances directes et transitives, avec adaptation à egui 0.37 et ZIP 9 ; les vulnérabilités signalées sont corrigées
 
 ### Documentation
+- Cartes de partage GitHub EN/FR de 1280 × 640 px, sources SVG et PNG reproductibles avec la nouvelle identité ; procédure d’activation documentée
 - Rangement de la racine, retrait des anciens plans et documents remplacés, conservation des décisions et du protocole de mesure dans les guides actuels
 - README courts en anglais et français, sommaires et guides bilingues, dépannage/FAQ et contrôle local des liens et des traductions
 
 ### Ajouté
+- **Logos natifs** : nouvelle icône embarquée, masque adaptatif du tray macOS avec badge monochrome, Dock Retina et bundle `.app`, ICO intégré au binaire Windows et aux raccourcis, logo de lanceur Linux
+- **Identité visuelle** : symbole bicolore, variantes monochromes et au trait, logotype vectorisé, icônes clair/sombre et tray avec exports PNG jusqu’à 1024 px, aperçus et documentation EN/FR ; génération reproductible avec le moteur SVG existant
 - **Onglet Apparence** (Paramètres) : dix thèmes intégrés en clair et en sombre (Classique, Salon, Givre, Nocturne, Sable, Ardoise, Guimauve, Encre, Forêt, Lisible), tailles de texte séparées pour l'interface et pour les conversations avec une taille générale qui agrandit tout d'un coup, interligne et espacement des lettres des conversations, couleurs modifiables (quatre principales et section Avancé de vingt et un rôles) avec contraste WCAG en direct, aperçu, et thèmes personnels (copie d'un thème intégré, duplication, renommage, suppression). Les emojis ne changent jamais de taille
 - **Polices au choix**, pour l'interface et pour les conversations séparément : Noto Sans, Inter, Atkinson Hyperlegible, Lexend, OpenDyslexic, Literata, Nunito et JetBrains Mono (toutes sous licence OFL), chacune affichée dans sa propre police, ou un fichier importé (`.ttf`, `.otf`, `.ttc`, `.woff`, `.woff2`). Tout fichier est décodé et validé avant d'atteindre egui, qui panique sur une police illisible
 - **Catalogue de polices en ligne**, **désactivé par défaut** : une case autorise l'application à contacter `api.fontsource.org` et `cdn.jsdelivr.net` (qui voient l'adresse IP). Liste recherchable des polices OFL et Apache, mise en cache sept jours, téléchargement annulable. Voir [docs/03](docs/03-reseau-et-securite.md)
@@ -36,6 +41,7 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 - MSRV déclarée (`rust-version = "1.95"`) et vérifiée en CI ; `cargo audit` et `cargo deny` désormais exécutés sur `dev` comme sur `main`
 
 ### Corrigé
+- Bouton GIF : conserve sa largeur et la position du texte au survol, y compris aux densités intermédiaires ; les marges tiennent compte de la bordure réellement dessinée
 - Paramètres : colonnes lisibles dans Stockage, Crédits et Général, actions de stockage adaptées aux petites fenêtres, défilement unique par onglet ; la licence suit la taille du texte et replie ses paragraphes à la largeur disponible
 - Le choix clair, sombre ou système **n'était pas conservé** : il revenait à « système » à chaque lancement
 - Les Paramètres faisaient 640 × 480 quelle que soit la fenêtre et en sortaient dans la plus petite : la boîte est bornée à la fenêtre, et tout l'onglet défile d'un bloc. Les libellés longs reviennent à la ligne

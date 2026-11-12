@@ -1525,35 +1525,7 @@ fn build_fonts(plans: &fonts::FontPlans, previews: &[PreviewFont]) -> egui::Font
 }
 
 fn app_icon_data() -> Option<egui::IconData> {
-    let data = include_bytes!("../../assets/app_icon.png");
-    tracing::debug!("chargement icône PNG ({} bytes)", data.len());
-    match image::load_from_memory(data) {
-        Ok(img) => {
-            let rgba = img.to_rgba8();
-            let (w, h) = rgba.dimensions();
-            tracing::debug!("icône chargée : {}x{}", w, h);
-            Some(egui::IconData {
-                rgba: rgba.to_vec(),
-                width: w,
-                height: h,
-            })
-        }
-        Err(err) => {
-            tracing::warn!("erreur icône PNG : {}", err);
-            let mut rgba = vec![0u8; 32 * 32 * 4];
-            for i in 0..(32 * 32) {
-                rgba[i * 4] = 200;
-                rgba[i * 4 + 1] = 50;
-                rgba[i * 4 + 2] = 50;
-                rgba[i * 4 + 3] = 255;
-            }
-            Some(egui::IconData {
-                rgba,
-                width: 32,
-                height: 32,
-            })
-        }
-    }
+    crate::platform::icons::window_icon_data()
 }
 
 /// Point d'entrée de l'interface graphique.
@@ -1570,6 +1542,7 @@ pub fn run(
 
     let mut viewport = egui::ViewportBuilder::default()
         .with_title("Abcom")
+        .with_app_id("abcom")
         .with_inner_size([860.0, 600.0])
         // En dessous, la barre latérale seule occupe toute la fenêtre.
         .with_min_inner_size([560.0, 360.0]);
@@ -1612,6 +1585,8 @@ pub fn run(
             // Libère la copie CPU des images une fois téléversées en GPU.
             cc.egui_ctx
                 .options_mut(|options| options.reduce_texture_memory = true);
+            #[cfg(target_os = "macos")]
+            set_dock_visible(true);
             Ok(Box::new(AbcomApp::new(
                 state,
                 identity_fingerprint,
@@ -1706,10 +1681,7 @@ pub(crate) fn release_memory_to_os() {
 /// Doit être appelé sur le thread principal (c'est le cas dans `update`).
 #[cfg(target_os = "macos")]
 fn set_dock_visible(visible: bool) {
-    // objc2 0.6 : `alloc()` vient du trait `AnyThread` (ex-`ClassType`).
-    use objc2::AnyThread;
-    use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy, NSImage};
-    use objc2_foundation::NSData;
+    use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy};
     let Some(mtm) = objc2_foundation::MainThreadMarker::new() else {
         return;
     };
@@ -1724,14 +1696,7 @@ fn set_dock_visible(visible: bool) {
         // Revenir au premier plan après la sortie du mode Accessory.
         #[allow(deprecated)]
         app.activateIgnoringOtherApps(true);
-        // Le retour en politique Regular réinitialise l'icône du Dock à
-        // l'icône générique d'exécutable : ré-applique la nôtre.
-        let data = NSData::with_bytes(include_bytes!("../../assets/app_icon.png"));
-        if let Some(image) = NSImage::initWithData(NSImage::alloc(), &data) {
-            // Sûr : image valide construite ci-dessus, appel sur le thread
-            // principal (garanti par le MainThreadMarker).
-            unsafe { app.setApplicationIconImage(Some(&image)) };
-        }
+        crate::platform::icons::restore_dock_icon(mtm);
     }
 }
 

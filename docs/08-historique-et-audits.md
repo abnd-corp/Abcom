@@ -13,6 +13,36 @@ Les résultats ci-dessous sont datés ; ils ne certifient pas toutes les version
 
 Les anciens plans d'exécution et documents remplacés ont été retirés de l'arborescence courante. Les décisions toujours applicables figurent dans la [présentation](01-presentation.md#décisions-fondatrices) et l'[architecture](02-architecture.md).
 
+## 12 novembre 2026 — Contrôle final des icônes et survol du bouton GIF
+
+Le test du widget GIF reproduit une largeur passant de 33 à 31 points au survol et un décalage du texte d’un point. La bordure explicite était appliquée après la compensation des marges d’egui 0.37. Le bouton utilise désormais la même bordure dans ce calcul pour tous ses états. Le test compare le cadre et le texte sur 24 frames, au centre et près du bord, en clair/sombre, à 1×, 1,5× et 2×, sélecteur ouvert ou fermé. L’ancien code échoue ; le correctif passe. Suivi : [#64](https://github.com/abnd-corp/Abcom/issues/64).
+
+Contrôles relancés : 650 tests réussis, formatage, Clippy strict, documentation EN/FR, compilation minimale, Rust 1.95 et build release. Les diagnostics natifs retrouvent un tray de 18 points dans les trois états et une largeur visible du Dock de 80,7 % hors bundle, 81,2 % dans le bundle. Les 124 exports, les 15 représentations ICO, la structure ICNS et le lanceur Linux sont contrôlés ; l’exécution graphique Windows/Linux reste à vérifier sur ces systèmes.
+
+Deux cartes de partage EN/FR de 1280 × 640 px reprennent le nouveau logo. Le générateur contrôle leurs dimensions, leur opacité et leur poids inférieur à 1 Mo. Elles sont inspectées visuellement et accompagnées de la procédure d’activation GitHub dans le [guide graphique](../assets/branding/README.fr.md#aperçu-de-partage-github). Leur présence dans le dépôt ne modifie pas le réglage Social preview sur GitHub.
+
+## 12 novembre 2026 — Icône du Dock après le rendu eframe
+
+Les nouvelles captures montrent que corriger les fichiers ICNS ne suffisait pas. eframe 0.37 réappliquait l’icône de fenêtre sans marges lors de `pre_update`, après le réglage AppKit de démarrage. Le contrôle précédent validait les ressources et le tray, pas cette étape du cycle de vie ; son résultat ne prouvait donc pas la taille du Dock affiché.
+
+Handy déclare son ICNS dans le bundle et conserve cette ressource lors du retour en politique Regular. Abcom suit désormais cette approche : l’icône de fenêtre macOS est explicitement vide pour désactiver le remplacement eframe ; le bundle récupère son ICNS d’origine. Un binaire lancé avec `cargo run` reçoit le même ICNS embarqué en repli. Windows/Linux conservent leur icône de fenêtre couleur.
+
+Le nouveau diagnostic `check_macos_dock_after_frame` lance eframe, attend trois frames puis lit et exporte l’icône réelle de `NSApplication`. L’option `--reproduce-old` réactive volontairement le chemin fautif et doit échouer ; le mode normal doit réussir, y compris depuis un bundle `.app`. Les relevés de ce diagnostic remplacent la seule inspection des PNG pour le contrôle du Dock.
+
+Résultats : ancien chemin refusé avec 97,3 % de largeur visible ; chemin corrigé accepté à 80,7 % depuis le binaire nu et 81,2 % depuis le bundle. Les images proviennent de l’icône native après trois frames eframe. Barrière locale : 649 tests réussis, Clippy strict, compilation minimale, Rust 1.95 et build release au vert.
+
+## 12 novembre 2026 — Correction des tailles natives
+
+Les captures utilisateur ont révélé un tray et un Dock surdimensionnés malgré des bitmaps valides. Le backend tray-icon traite le PNG comme une image native plafonnée à 22 points ; le recadrage accentuait le problème. Correction : image AppKit de 18 points, bitmap de 36 px et emplacement carré système, réappliqués après chaque badge. Le diagnostic natif mesure 18 × 18 pt / 36 × 36 px et un bouton de 22 × 22 pt sur ce Mac, dans les trois états normal/non lu/lu.
+
+Le corps de l’ICNS est ramené à 824/1024, uniquement pour macOS. Les icônes Apple Réglages et Terminal et le nouvel export ont une largeur visible de 206/256 à alpha > 128. Windows reçoit 15 tailles ICO et un tray dimensionné d’après ses métriques DPI ; ses types d’API sont vérifiés avec les bindings 0.61.2, sans exécution Windows. Linux conserve le dimensionnement par son panneau SNI. La vérification visuelle des autres bureaux reste nécessaire.
+
+## 12 novembre 2026 — Logos natifs
+
+Le logo couleur est embarqué dans la fenêtre et les lanceurs. macOS utilise un Dock haute définition et un masque de barre de menus ; le masque est conservé lors des bascules du badge non lu. Windows reçoit un ICO multi-résolution intégré par `winresource`, dépendance de compilation uniquement. Les installateurs Linux posent le PNG dans hicolor. Le script de packaging macOS et le workflow de release produisent un bundle `.app` avec ICNS et métadonnées.
+
+Validation locale macOS : 645 tests réussis, Clippy strict, compilation sans fonctionnalités par défaut, Rust 1.95, release et audit complet passent. Le test natif AppKit a décodé l'ICNS et créé le tray template avec bascule non lu/lu ; aucun échec ni erreur de mise à jour. `iconutil` relit dix représentations standard/Retina ; les six entrées ICO et les métadonnées du bundle sont contrôlées. Le rendu réel clair/sombre et Retina, ainsi que l'intégration Windows/Linux, restent à vérifier dans L9/M7/W7. Cette vérification locale ne remplace pas la CI des autres plateformes.
+
 ## 11 novembre 2026 — Tray KSNI et exceptions suivies
 
 Le backend AppIndicator/GTK est remplacé par KSNI dans tray-icon 0.26.1, avec ses fonctionnalités par défaut désactivées. GTK, libappindicator et proc-macro-error ont disparu du lockfile. Le thread GTK et son réveil toutes les 200 ms sont supprimés ; les menus et le badge passent par le worker KSNI. Le contournement des variables GTK héritées de Snap n'est plus utile et a été retiré.

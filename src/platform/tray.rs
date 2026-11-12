@@ -96,6 +96,8 @@ pub(crate) struct Tray {
     open_id: MenuId,
     quit_id: MenuId,
     badge_shown: bool,
+    #[cfg(windows)]
+    pixel_size: u32,
 }
 
 #[cfg(feature = "tray")]
@@ -105,7 +107,8 @@ impl Tray {
     /// si le système n'offre pas de tray (l'appelant retombe alors sur le
     /// comportement « la croix quitte »).
     pub(crate) fn new(open_label: &str, quit_label: &str) -> Option<Self> {
-        let (normal, badge) = build_icons()?;
+        let pixel_size = tray_pixel_size();
+        let (normal, badge) = build_icons(pixel_size)?;
 
         let menu = Menu::new();
         let open_item = MenuItem::new(open_label, true, None);
@@ -118,16 +121,21 @@ impl Tray {
 
         let builder = TrayIconBuilder::new()
             .with_menu(Box::new(menu))
-            .with_tooltip("Abcom")
-            .with_icon(normal.clone());
+            .with_tooltip("Abcom");
         // macOS : le clic gauche ouvre le menu (convention barre de menus) ;
         // ailleurs, le clic gauche ouvre la fenêtre (géré via TrayIconEvent).
         #[cfg(target_os = "macos")]
-        let builder = builder.with_menu_on_left_click(true);
+        let builder = builder
+            .with_icon_templated(normal.clone())
+            .with_menu_on_left_click(true);
         #[cfg(not(target_os = "macos"))]
-        let builder = builder.with_menu_on_left_click(false);
+        let builder = builder
+            .with_icon(normal.clone())
+            .with_menu_on_left_click(false);
 
         let icon = builder.build().ok()?;
+        #[cfg(target_os = "macos")]
+        configure_macos_image(&icon);
         Some(Self {
             icon,
             normal,
@@ -135,6 +143,8 @@ impl Tray {
             open_id,
             quit_id,
             badge_shown: false,
+            #[cfg(windows)]
+            pixel_size,
         })
     }
 
@@ -162,17 +172,107 @@ impl Tray {
 
     /// Affiche/retire la pastille non-lus sans boucle de scrutation.
     pub(crate) fn set_unread(&mut self, unread: bool) {
-        if unread == self.badge_shown {
+        #[cfg(windows)]
+        let pixel_size = tray_pixel_size();
+        #[cfg(windows)]
+        let resized = self.refresh_pixel_size(pixel_size);
+        #[cfg(not(windows))]
+        let resized = false;
+        if unread == self.badge_shown && !resized {
             return;
         }
-        self.badge_shown = unread;
         let icon = if unread {
             self.badge.clone()
         } else {
             self.normal.clone()
         };
-        let _ = self.icon.set_icon(Some(icon));
+        // Une mise à jour ordinaire perdrait le statut template sur macOS.
+        #[cfg(target_os = "macos")]
+        let result = self.icon.set_icon_templated(Some(icon));
+        #[cfg(not(target_os = "macos"))]
+        let result = self.icon.set_icon(Some(icon));
+        match result {
+            Ok(()) => {
+                self.badge_shown = unread;
+                #[cfg(windows)]
+                if resized {
+                    self.pixel_size = pixel_size;
+                }
+                #[cfg(target_os = "macos")]
+                configure_macos_image(&self.icon);
+            }
+            Err(error) => tracing::warn!(%error, "mise à jour du badge tray impossible"),
+        }
     }
+
+    #[cfg(windows)]
+    fn refresh_pixel_size(&mut self, size: u32) -> bool {
+        if size == self.pixel_size {
+            return false;
+        }
+        if let Some((normal, badge)) = build_icons(size) {
+            self.normal = normal;
+            self.badge = badge;
+            return true;
+        }
+        false
+    }
+}
+
+#[cfg(all(feature = "tray", target_os = "macos"))]
+const MACOS_TRAY_POINTS: f64 = 18.0;
+
+#[cfg(all(feature = "tray", target_os = "macos"))]
+pub(crate) fn configure_macos_image(icon: &TrayIcon) {
+    use objc2_foundation::NSCopying;
+    let Some(mtm) = objc2_foundation::MainThreadMarker::new() else {
+        return;
+    };
+    if let Some(item) = icon.ns_status_item() {
+        if let Some(button) = item.button(mtm) {
+            if let Some(original) = button.image() {
+                let image = original.copy();
+                // Le bitmap 36 px reste Retina ; sa taille AppKit est explicitement de 18 pt.
+                image.setSize(objc2_foundation::NSSize::new(
+                    MACOS_TRAY_POINTS,
+                    MACOS_TRAY_POINTS,
+                ));
+                image.setTemplate(true);
+                button.setImage(Some(&image));
+                item.setLength(objc2_app_kit::NSSquareStatusItemLength);
+                debug_assert_eq!(image.size().width, MACOS_TRAY_POINTS);
+                debug_assert_eq!(image.size().height, MACOS_TRAY_POINTS);
+            }
+        }
+    }
+    debug_assert!(icon.icon_is_template());
+}
+
+#[cfg(all(feature = "tray", target_os = "macos"))]
+fn tray_pixel_size() -> u32 {
+    36
+}
+
+#[cfg(all(feature = "tray", windows))]
+fn tray_pixel_size() -> u32 {
+    use windows_sys::Win32::UI::HiDpi::{GetDpiForSystem, GetDpiForWindow, GetSystemMetricsForDpi};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{FindWindowW, SM_CXSMICON};
+    let class: Vec<u16> = "Shell_TrayWnd\0".encode_utf16().collect();
+    // SAFETY : classe terminée par NUL ; les appels lisent uniquement les métriques système.
+    unsafe {
+        let taskbar = FindWindowW(class.as_ptr(), std::ptr::null());
+        let dpi = if taskbar.is_null() {
+            GetDpiForSystem()
+        } else {
+            GetDpiForWindow(taskbar)
+        };
+        GetSystemMetricsForDpi(SM_CXSMICON, dpi.max(96)).clamp(16, 128) as u32
+    }
+}
+
+#[cfg(all(feature = "tray", not(any(windows, target_os = "macos"))))]
+fn tray_pixel_size() -> u32 {
+    64
 }
 
 // Sans la feature tray, fermer la fenêtre quitte réellement.
@@ -352,34 +452,64 @@ pub(crate) mod win {
     }
 }
 
-/// Taille de l'icône tray (points logiques ; les OS remettent à l'échelle).
+/// macOS reçoit un masque Retina ; les autres bureaux reçoivent l'icône couleur.
 #[cfg(feature = "tray")]
-const TRAY_PX: u32 = 32;
+fn build_icons(pixel_size: u32) -> Option<(Icon, Icon)> {
+    let (normal, badge) = tray_images(cfg!(target_os = "macos"), pixel_size)?;
+    Some((
+        Icon::from_rgba(normal.as_raw().clone(), normal.width(), normal.height()).ok()?,
+        Icon::from_rgba(badge.as_raw().clone(), badge.width(), badge.height()).ok()?,
+    ))
+}
 
-/// Construit les deux icônes (normale, avec pastille rouge) depuis l'icône
-/// de l'application embarquée.
 #[cfg(feature = "tray")]
-fn build_icons() -> Option<(Icon, Icon)> {
-    let data = include_bytes!("../../assets/app_icon.png");
-    let img = image::load_from_memory(data).ok()?;
-    let small = img
-        .resize_exact(TRAY_PX, TRAY_PX, image::imageops::FilterType::Lanczos3)
+pub(crate) fn tray_images(
+    templated: bool,
+    pixel_size: u32,
+) -> Option<(image::RgbaImage, image::RgbaImage)> {
+    let data: &[u8] = if templated {
+        include_bytes!("../../assets/branding/png/abcom-tray-template-36.png")
+    } else {
+        match pixel_size {
+            16 => include_bytes!("../../assets/branding/png/abcom-app-light-16.png"),
+            20 => include_bytes!("../../assets/branding/png/abcom-app-light-20.png"),
+            24 => include_bytes!("../../assets/branding/png/abcom-app-light-24.png"),
+            32 => include_bytes!("../../assets/branding/png/abcom-app-light-32.png"),
+            40 => include_bytes!("../../assets/branding/png/abcom-app-light-40.png"),
+            48 => include_bytes!("../../assets/branding/png/abcom-app-light-48.png"),
+            64 => include_bytes!("../../assets/branding/png/abcom-app-light-64.png"),
+            96 => include_bytes!("../../assets/branding/png/abcom-app-light-96.png"),
+            _ => include_bytes!("../../assets/branding/png/abcom-app-light-128.png"),
+        }
+    };
+    let source = image::load_from_memory(data).ok()?;
+    let normal = source
+        .resize_exact(
+            pixel_size,
+            pixel_size,
+            image::imageops::FilterType::Lanczos3,
+        )
         .to_rgba8();
-    let normal = Icon::from_rgba(small.as_raw().clone(), TRAY_PX, TRAY_PX).ok()?;
-
-    // Pastille rouge en haut à droite (badge non-lus).
-    let mut badged = small.clone();
-    let (cx, cy, r) = (TRAY_PX as i32 - 8, 8i32, 7i32);
-    for y in 0..TRAY_PX as i32 {
-        for x in 0..TRAY_PX as i32 {
+    let mut badged = normal.clone();
+    let r = (pixel_size as i32 * 5 / 64).max(2);
+    let gap = (pixel_size as i32 / 32).max(1);
+    let (cx, cy) = (pixel_size as i32 - r - gap - 1, r + gap);
+    let color = if templated {
+        [0, 0, 0, 255]
+    } else {
+        [255, 138, 96, 255]
+    };
+    for y in 0..normal.height() as i32 {
+        for x in 0..normal.width() as i32 {
             let (dx, dy) = (x - cx, y - cy);
             if dx * dx + dy * dy <= r * r {
-                badged.put_pixel(x as u32, y as u32, image::Rgba([220, 40, 60, 255]));
+                badged.put_pixel(x as u32, y as u32, image::Rgba(color));
+            } else if dx * dx + dy * dy <= (r + gap) * (r + gap) {
+                badged.put_pixel(x as u32, y as u32, image::Rgba([0, 0, 0, 0]));
             }
         }
     }
-    let badge = Icon::from_rgba(badged.into_raw(), TRAY_PX, TRAY_PX).ok()?;
-    Some((normal, badge))
+    Some((normal, badged))
 }
 
 #[cfg(feature = "tray")]

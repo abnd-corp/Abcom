@@ -100,6 +100,7 @@ Le profil release utilise LTO thin, une unité de codegen, suppression des symbo
 | [seed-demo.py](../scripts/seed-demo.py) | Données de démonstration |
 | [integration_test.sh](../scripts/integration_test.sh) | Test P2P headless |
 | [check_docs.py](../scripts/check_docs.py) | Paires EN/FR, liens, ancres et identifiants de tests |
+| [generate_branding.py](../scripts/generate_branding.py) | Sources SVG et liste des exports graphiques |
 | [build-and-distribute.sh](../scripts/build-and-distribute.sh) | Archive de distribution locale |
 | [install-windows.ps1](../scripts/install-windows.ps1) | Installation Windows |
 | [abcom-install.sh](../scripts/abcom-install.sh) | Installation Linux depuis un binaire |
@@ -107,6 +108,8 @@ Le profil release utilise LTO thin, une unité de codegen, suppression des symbo
 
 ## Ressources embarquées
 
-Le code est sous [AGPL-3.0-only](../LICENSE). Les polices et emojis ont leurs propres licences, présentes dans les ressources et dans Paramètres → Crédits. Noto Sans, Noto Sans Symbols 2, Inter et les polices proposées sont sous OFL-1.1 ; GNU Unifont offre OFL-1.1 ou GPLv2+ avec exception d'embarquement. Consulter les notices de [assets/fonts](../assets/fonts/) pour les textes applicables.
+Le code est sous [AGPL-3.0-or-later](../LICENSE). Les polices et emojis ont leurs propres licences, présentes dans les ressources et dans Paramètres → Crédits. Noto Sans, Noto Sans Symbols 2, Inter et les polices proposées sont sous OFL-1.1 ; GNU Unifont offre OFL-1.1 ou GPLv2+ avec exception d'embarquement. Consulter les notices de [assets/fonts](../assets/fonts/) pour les textes applicables.
 
 Les glyphes de repli couvrent les écritures non latines ; les emojis des conversations utilisent les PNG embarqués. Vérifier les tests de couverture avant de modifier cette chaîne.
+
+Le [pack graphique SVG/PNG](../assets/branding/README.fr.md) contient les symboles, logotypes et variantes d'icônes. Sa documentation décrit les exports reproductibles avec la dépendance SVG déjà présente et l'usage des masques du tray macOS.

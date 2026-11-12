@@ -100,6 +100,7 @@ Release builds use thin LTO, one codegen unit, stripped symbols and `panic = "ab
 | [seed-demo.py](../../scripts/seed-demo.py) | Demo data |
 | [integration_test.sh](../../scripts/integration_test.sh) | Headless P2P test |
 | [check_docs.py](../../scripts/check_docs.py) | EN/FR pairs, links, anchors and test IDs |
+| [generate_branding.py](../../scripts/generate_branding.py) | SVG sources and graphic export manifest |
 | [build-and-distribute.sh](../../scripts/build-and-distribute.sh) | Local distribution archive |
 | [install-windows.ps1](../../scripts/install-windows.ps1) | Windows installation |
 | [abcom-install.sh](../../scripts/abcom-install.sh) | Linux binary installation |
@@ -107,6 +108,8 @@ Release builds use thin LTO, one codegen unit, stripped symbols and `panic = "ab
 
 ## Bundled assets
 
-Application code is licensed under [AGPL-3.0-only](../../LICENSE). Fonts and emojis retain their own licenses, recorded in their assets and Settings → Credits. Noto Sans, Noto Sans Symbols 2, Inter and the suggested fonts use OFL-1.1. GNU Unifont offers OFL-1.1 or GPLv2+ with the font embedding exception. Read the applicable notices in [assets/fonts](../../assets/fonts/).
+Application code is licensed under [AGPL-3.0-or-later](../../LICENSE). Fonts and emojis retain their own licenses, recorded in their assets and Settings → Credits. Noto Sans, Noto Sans Symbols 2, Inter and the suggested fonts use OFL-1.1. GNU Unifont offers OFL-1.1 or GPLv2+ with the font embedding exception. Read the applicable notices in [assets/fonts](../../assets/fonts/).
 
 Fallback glyphs cover non-Latin scripts; conversation emojis use embedded PNG artwork. Check coverage tests before changing that chain.
+
+The [SVG/PNG asset pack](../../assets/branding/README.md) contains symbols, wordmarks and icon variants. Its documentation covers reproducible exports with the existing SVG dependency and the use of macOS tray template masks.

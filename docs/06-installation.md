@@ -123,7 +123,17 @@ Le bureau doit exposer StatusNotifierItem (GNOME peut demander une extension, KD
 cargo run --release -- <pseudo>
 ```
 
-L'application gère elle-même le mode résident (barre de menus, retrait du Dock quand la fenêtre est cachée) et propose l'autostart via un Launch Agent. Il n'y a pas encore de bundle `.app` : conséquence connue, les notifications système sont attribuées au terminal plutôt qu'à Abcom. Le packaging `.app` (identifiant `com.abend.abcom`, via cargo-bundle ou cargo-packager) est prévu pour la première release.
+L’application gère le mode résident (barre de menus, retrait du Dock quand la fenêtre est cachée) et l’autostart via un Launch Agent. Le Dock utilise le logo couleur haute définition ; la barre de menus utilise un masque monochrome adapté automatiquement au clair/sombre, badge non lu compris.
+
+Pour créer un bundle avec l’icône Finder/Dock native :
+
+```sh
+cargo build --release --locked
+python3 scripts/package_macos.py target/release/abcom dist/Abcom.app
+open dist/Abcom.app
+```
+
+Le workflow de release archive ce bundle `.app` (`corp.abnd.abcom`). Il n’est ni signé avec un certificat Developer ID ni notarisé ; vérifier son origine et la somme SHA-256 avant les autorisations de sécurité. Les notifications d’un binaire nu peuvent toujours être attribuées au terminal ; vérifier leur attribution en lançant le bundle sur la machine cible.
 
 ## Windows
 
@@ -134,7 +144,7 @@ cd C:\chemin\vers\abcom
 powershell -ExecutionPolicy Bypass -File .\scripts\install-windows.ps1
 ```
 
-Le script vérifie `cargo`, compile en release si nécessaire, installe `abcom.exe` dans `%LOCALAPPDATA%\Programs\abcom`, et crée des raccourcis sur le bureau et dans le menu Démarrer. Pour épingler à la barre des tâches : lancer l'application puis clic droit sur son icône → « Épingler ». Un installateur MSI reste à faire.
+Le script vérifie `cargo`, compile en release si nécessaire, installe `abcom.exe` dans `%LOCALAPPDATA%\Programs\abcom`, et crée des raccourcis sur le bureau et dans le menu Démarrer. Le logo ICO multi-résolution est intégré à l’exécutable et utilisé par les raccourcis. Pour épingler à la barre des tâches : lancer l'application puis clic droit sur son icône → « Épingler ». Un installateur MSI reste à faire.
 
 ## Docker (tests multi-pairs)
 

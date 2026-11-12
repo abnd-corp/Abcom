@@ -98,14 +98,29 @@ pub(super) fn action_button(
     selected: bool,
 ) -> egui::Response {
     let (fill, stroke) = action_button_chrome(ui, selected);
-    ui.add_sized(
-        ACTION_BUTTON_SIZE,
-        egui::Button::new(label)
-            .fill(fill)
-            .stroke(stroke)
-            .corner_radius(egui::CornerRadius::same(10)),
-    )
-    .on_hover_text(tooltip)
+    ui.scope(|ui| {
+        let widgets = &mut ui.style_mut().visuals.widgets;
+        // egui 0.37 compense les marges avant d'appliquer notre bordure explicite.
+        for visuals in [
+            &mut widgets.noninteractive,
+            &mut widgets.inactive,
+            &mut widgets.hovered,
+            &mut widgets.active,
+            &mut widgets.open,
+        ] {
+            visuals.bg_stroke = stroke;
+            visuals.expansion = 0.0;
+        }
+        ui.add_sized(
+            ACTION_BUTTON_SIZE,
+            egui::Button::new(label)
+                .fill(fill)
+                .stroke(stroke)
+                .corner_radius(egui::CornerRadius::same(10)),
+        )
+        .on_hover_text(tooltip)
+    })
+    .inner
 }
 
 pub(super) fn icon_button(
