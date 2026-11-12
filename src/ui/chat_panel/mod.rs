@@ -32,11 +32,6 @@ impl AbcomApp {
             let rows = self.chat_cache.rows.clone();
             let my_name = self.chat_cache.my_name.clone();
             let selected_conv: Option<String> = self.chat_cache.conversation().map(str::to_string);
-            let private_peer = selected_conv
-                .as_deref()
-                .filter(|c| !c.starts_with('#'))
-                .map(str::to_string);
-            let is_broadcast = selected_conv.is_none();
 
             // Salon sélectionné : la clé porte l'identifiant, jamais le libellé.
             let selected_group_id = selected_conv
@@ -81,52 +76,6 @@ impl AbcomApp {
                         };
                         if ui.button(sound_text).clicked() {
                             self.enable_sound_notifications = !self.enable_sound_notifications;
-                            ui.close();
-                        }
-                        let this_conv = selected_conv.clone();
-                        let is_muted = self.muted_conversations.contains(&this_conv);
-                        let mute_text = if is_muted {
-                            self.t(i18n::REACTIVER_LES_SONS_DE_CE_SALON)
-                        } else {
-                            self.t(i18n::MUET_POUR_CE_SALON)
-                        };
-                        if ui.button(mute_text).clicked() {
-                            if is_muted {
-                                self.muted_conversations.remove(&this_conv);
-                            } else {
-                                self.muted_conversations.insert(this_conv);
-                            }
-                            ui.close();
-                        }
-                        if ui.button(self.t(i18n::VOIR_LES_PARTICIPANTS)).clicked() {
-                            self.modals.participants_open = true;
-                            ui.close();
-                        }
-                        if let Some(gid) = &selected_group_id {
-                            if ui.button(self.t(i18n::GERER_LE_GROUPE)).clicked() {
-                                self.modals.group_manage_target = Some(gid.clone());
-                                self.modals.group_manage_confirm = None;
-                                ui.close();
-                            }
-                        }
-                        if let Some(user) = &private_peer {
-                            if ui.button(self.t(i18n::RENOMMER_CE_CONTACT)).clicked() {
-                                self.modals.rename_input = self
-                                    .state
-                                    .lock()
-                                    .unwrap()
-                                    .peer_records
-                                    .iter()
-                                    .find(|r| &r.username == user)
-                                    .and_then(|r| r.alias.clone())
-                                    .unwrap_or_default();
-                                self.modals.rename_target = Some(user.clone());
-                                ui.close();
-                            }
-                        }
-                        if !is_broadcast && ui.button(self.t(i18n::EFFACER_L_HISTORIQUE)).clicked()
-                        {
-                            self.state.lock_safe().clear_conversation_history();
                             ui.close();
                         }
                     });
