@@ -514,6 +514,8 @@ pub(super) fn render_reply_quote(
     author_avatar: Option<&egui::TextureHandle>,
     media_texture: Option<&egui::TextureHandle>,
     not_found_label: &str,
+    emoji_map: &std::collections::HashMap<String, usize>,
+    emoji_textures: &crate::ui::EmojiTextures,
 ) -> bool {
     let mut clicked = false;
     ui.horizontal(|ui| {
@@ -555,13 +557,12 @@ pub(super) fn render_reply_quote(
                         } else {
                             crate::ui::media::elide(&orig.content, 90)
                         };
-                        ui.add(
-                            egui::Label::new(
-                                egui::RichText::new(snippet)
-                                    .text_style(crate::ui::theme::msg_small_style())
-                                    .color(crate::ui::theme::palette(ui).text_muted),
-                            )
-                            .truncate(),
+                        crate::ui::emoji_picker::render_preview(
+                            ui,
+                            &snippet,
+                            emoji_map,
+                            emoji_textures,
+                            crate::ui::theme::msg_small_style(),
                         );
                     }
                     None => {

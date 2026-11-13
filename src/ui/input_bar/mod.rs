@@ -97,12 +97,18 @@ impl AbcomApp {
         // (la marge par défaut du panneau est plus large sur les côtés).
         egui::Panel::bottom("input_panel")
             .resizable(false)
-            .frame(egui::Frame::side_top_panel(&ui.style().clone()).inner_margin(egui::Margin::same(8)))
+            .frame(
+                egui::Frame::side_top_panel(&ui.style().clone())
+                    .inner_margin(egui::Margin::same(8)),
+            )
             .show(ui, |ui| {
                 let gif_label = self.t(i18n::GIF);
                 egui::Frame::default()
                     .fill(crate::ui::theme::palette(ui).surface_strong)
-                    .stroke(egui::Stroke::new(1.0, crate::ui::theme::palette(ui).separator))
+                    .stroke(egui::Stroke::new(
+                        1.0,
+                        crate::ui::theme::palette(ui).separator,
+                    ))
                     .corner_radius(egui::CornerRadius::same(14))
                     .inner_margin(egui::Margin::symmetric(8, 4))
                     .show(ui, |ui| {
@@ -145,14 +151,16 @@ impl AbcomApp {
                                                 crate::ui::theme::palette(ui).accent,
                                             );
                                             ui.label(
-                                                egui::RichText::new(reply_to_label)
-                                                    .small()
-                                                    .color(crate::ui::theme::palette(ui).text_muted),
+                                                egui::RichText::new(reply_to_label).small().color(
+                                                    crate::ui::theme::palette(ui).text_muted,
+                                                ),
                                             );
                                             ui.label(
                                                 egui::RichText::new(&author)
                                                     .small()
-                                                    .color(crate::ui::theme::palette(ui).receipt_read)
+                                                    .color(
+                                                        crate::ui::theme::palette(ui).receipt_read,
+                                                    )
                                                     .family(egui::FontFamily::Name(
                                                         super::BOLD_FAMILY.into(),
                                                     )),
@@ -176,15 +184,12 @@ impl AbcomApp {
                                                             egui::Align::Center,
                                                         ),
                                                         |ui| {
-                                                            ui.add(
-                                                                egui::Label::new(
-                                                                    egui::RichText::new(&snippet)
-                                                                        .small()
-                                                                        .color(
-                                                                            crate::ui::theme::palette(ui).text_muted,
-                                                                        ),
-                                                                )
-                                                                .truncate(),
+                                                            super::emoji_picker::render_preview(
+                                                                ui,
+                                                                &snippet,
+                                                                &self.emoji.map,
+                                                                &self.emoji.textures,
+                                                                egui::TextStyle::Small,
                                                             );
                                                         },
                                                     );
@@ -201,8 +206,7 @@ impl AbcomApp {
                                 // pièce, boutons d'ajout, liste qui s'étend
                                 // (défilement au-delà de quelques lignes).
                                 let count = self.composer.pending_attachments.len();
-                                let attachments_label =
-                                    self.t(i18n::PIECES_JOINTES);
+                                let attachments_label = self.t(i18n::PIECES_JOINTES);
                                 let add_files_btn_label = self.t(i18n::FICHIERS);
                                 let add_folder_btn_label = self.t(i18n::DOSSIER);
                                 egui::Frame::default()
@@ -225,12 +229,16 @@ impl AbcomApp {
                                             ui.label(
                                                 egui::RichText::new(attachments_label)
                                                     .small()
-                                                    .color(crate::ui::theme::palette(ui).text_muted),
+                                                    .color(
+                                                        crate::ui::theme::palette(ui).text_muted,
+                                                    ),
                                             );
                                             ui.label(
                                                 egui::RichText::new(count.to_string())
                                                     .small()
-                                                    .color(crate::ui::theme::palette(ui).receipt_read)
+                                                    .color(
+                                                        crate::ui::theme::palette(ui).receipt_read,
+                                                    )
                                                     .family(egui::FontFamily::Name(
                                                         super::BOLD_FAMILY.into(),
                                                     )),
@@ -238,13 +246,16 @@ impl AbcomApp {
                                             ui.with_layout(
                                                 egui::Layout::right_to_left(egui::Align::Center),
                                                 |ui| {
-                                                    if ui.small_button(add_folder_btn_label).clicked()
+                                                    if ui
+                                                        .small_button(add_folder_btn_label)
+                                                        .clicked()
                                                     {
-                                                        picker_action = Some(
-                                                            AttachmentMenuAction::AddFolder,
-                                                        );
+                                                        picker_action =
+                                                            Some(AttachmentMenuAction::AddFolder);
                                                     }
-                                                    if ui.small_button(add_files_btn_label).clicked()
+                                                    if ui
+                                                        .small_button(add_files_btn_label)
+                                                        .clicked()
                                                     {
                                                         picker_action =
                                                             Some(AttachmentMenuAction::AddFiles);
@@ -284,11 +295,7 @@ impl AbcomApp {
                                                 for line in paths.chunks(per_row) {
                                                     ui.horizontal(|ui| {
                                                         for (index, path) in line {
-                                                            if attachment_chip(
-                                                                ui,
-                                                                path,
-                                                                CHIP_W,
-                                                            ) {
+                                                            if attachment_chip(ui, path, CHIP_W) {
                                                                 remove_index = Some(*index);
                                                             }
                                                         }
@@ -302,10 +309,12 @@ impl AbcomApp {
                                 ui.add_space(6.0);
                             }
 
-                            let menu_open_now =
-                                emoji_shortcode_trigger(&self.composer.text, self.composer.cursor_char)
-                                    .map(|(_, q)| !q.is_empty())
-                                    .unwrap_or(false);
+                            let menu_open_now = emoji_shortcode_trigger(
+                                &self.composer.text,
+                                self.composer.cursor_char,
+                            )
+                            .map(|(_, q)| !q.is_empty())
+                            .unwrap_or(false);
 
                             let available_w = ui.available_width();
 
@@ -383,36 +392,35 @@ impl AbcomApp {
                                             pressed_enter = true;
                                         }
 
-                                        let emoji_btn =
-                                            if let Some(tex) = self.emoji.textures.get(ui.ctx(), 0) {
-                                                icon_button(
-                                                    ui,
-                                                    self.t(i18n::BOUTON_EMOJIS),
-                                                    self.show_emoji_picker,
-                                                    |painter, rect, _| {
-                                                        painter.image(
-                                                            tex.id(),
-                                                            rect,
-                                                            egui::Rect::from_min_max(
-                                                                egui::pos2(0.0, 0.0),
-                                                                egui::pos2(1.0, 1.0),
-                                                            ),
-                                                            egui::Color32::WHITE,
-                                                        );
-                                                    },
-                                                )
-                                            } else {
-                                                action_button(
-                                                    ui,
-                                                    egui::RichText::new("Em")
-                                                        .size(16.0)
-                                                        .color(
-                                                            crate::ui::theme::palette(ui).text,
+                                        let emoji_btn = if let Some(tex) =
+                                            self.emoji.textures.get(ui.ctx(), 0)
+                                        {
+                                            icon_button(
+                                                ui,
+                                                self.t(i18n::BOUTON_EMOJIS),
+                                                self.show_emoji_picker,
+                                                |painter, rect, _| {
+                                                    painter.image(
+                                                        tex.id(),
+                                                        rect,
+                                                        egui::Rect::from_min_max(
+                                                            egui::pos2(0.0, 0.0),
+                                                            egui::pos2(1.0, 1.0),
                                                         ),
-                                                    self.t(i18n::BOUTON_EMOJIS),
-                                                    self.show_emoji_picker,
-                                                )
-                                            };
+                                                        egui::Color32::WHITE,
+                                                    );
+                                                },
+                                            )
+                                        } else {
+                                            action_button(
+                                                ui,
+                                                egui::RichText::new("Em")
+                                                    .size(16.0)
+                                                    .color(crate::ui::theme::palette(ui).text),
+                                                self.t(i18n::BOUTON_EMOJIS),
+                                                self.show_emoji_picker,
+                                            )
+                                        };
                                         self.emoji_btn_rect = emoji_btn.rect;
                                         if emoji_btn.clicked() {
                                             self.show_emoji_picker = !self.show_emoji_picker;
@@ -435,7 +443,9 @@ impl AbcomApp {
                                                 gif_button_clicked = true;
                                             } else {
                                                 self.last_notification = Some(
-                                                    self.t(i18n::CLE_API_KLIPY_MANQUANTE_ABCOM_KLIPY)
+                                                    self.t(
+                                                        i18n::CLE_API_KLIPY_MANQUANTE_ABCOM_KLIPY,
+                                                    )
                                                     .to_string(),
                                                 );
                                                 self.notification_time = std::time::Instant::now();
@@ -458,12 +468,12 @@ impl AbcomApp {
                                         // une fois la limite atteinte.
                                         let input_chars = self.composer.text.chars().count();
                                         if input_chars >= composer::MAX_INPUT_CHARS * 8 / 10 {
-                                            let color =
-                                                if input_chars >= composer::MAX_INPUT_CHARS {
-                                                    crate::ui::theme::palette(ui).danger
-                                                } else {
-                                                    crate::ui::theme::palette(ui).text_muted
-                                                };
+                                            let color = if input_chars >= composer::MAX_INPUT_CHARS
+                                            {
+                                                crate::ui::theme::palette(ui).danger
+                                            } else {
+                                                crate::ui::theme::palette(ui).text_muted
+                                            };
                                             ui.label(
                                                 egui::RichText::new(format!(
                                                     "{input_chars} / {}",
@@ -557,8 +567,9 @@ impl AbcomApp {
                                     i.consume_key(egui::Modifiers::NONE, egui::Key::ArrowDown)
                                 }) && !shortcode_list.is_empty()
                                 {
-                                    self.emoji.shortcode_selected = (self.emoji.shortcode_selected + 1)
-                                        .min(shortcode_list.len() - 1);
+                                    self.emoji.shortcode_selected = (self.emoji.shortcode_selected
+                                        + 1)
+                                    .min(shortcode_list.len() - 1);
                                 }
                                 if ctx.input_mut(|i| {
                                     i.consume_key(egui::Modifiers::NONE, egui::Key::ArrowUp)
@@ -583,9 +594,10 @@ impl AbcomApp {
                             }
 
                             if let Some(alias) = clicked_shortcode {
-                                if let Some((start, _)) =
-                                    emoji_shortcode_trigger(&self.composer.text, self.composer.cursor_char)
-                                {
+                                if let Some((start, _)) = emoji_shortcode_trigger(
+                                    &self.composer.text,
+                                    self.composer.cursor_char,
+                                ) {
                                     if let Some(ch) = self.emoji.alias_to_char.get(&alias) {
                                         let end = self.composer.cursor_char;
                                         composer::replace_char_range(
@@ -603,8 +615,7 @@ impl AbcomApp {
                             }
 
                             // Indicateur de frappe
-                            if changed && self.last_typing_broadcast.elapsed().as_millis() > 1500
-                            {
+                            if changed && self.last_typing_broadcast.elapsed().as_millis() > 1500 {
                                 self.last_typing_broadcast = std::time::Instant::now();
                                 let (my_name, targets) = {
                                     let s = self.state.lock_safe();
