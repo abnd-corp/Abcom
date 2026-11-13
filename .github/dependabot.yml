@@ -14,7 +14,7 @@ updates:
     commit-message: { prefix: chore, include: scope }
 
   - package-ecosystem: docker
-    directory: /scripts/docker
+    directories: [/scripts/docker, /packaging/linux]
     target-branch: dev
     schedule: { interval: weekly, day: monday, time: "06:00", timezone: Europe/Paris }
     cooldown: { default-days: 7 }
