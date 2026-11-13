@@ -48,6 +48,20 @@ class RecipeTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     PACKAGES.generate(root, root / "out", url, version)
 
+    def test_remote_tap_matches_the_release_and_refuses_local_artifacts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "abcom-macos-aarch64.tar.gz").write_bytes(b"published bundle")
+            tap = root / "Casks"
+            version = "1.0.0-beta.1"
+            url = f"https://github.com/abnd-corp/Abcom/releases/download/v{version}"
+            PACKAGES.generate(root, root / "out", url, version, tap)
+            self.assertEqual((tap / "abcom.rb").read_bytes(),
+                             (root / "out/homebrew/Casks/abcom.rb").read_bytes())
+            for bad_url in [root.as_uri(), "https://github.com/abnd-corp/Abcom/releases/download/v9.0.0"]:
+                with self.assertRaisesRegex(ValueError, "remote tap requires"):
+                    PACKAGES.generate(root, root / "out", bad_url, version, tap)
+
     def test_a_windows_installer_needs_a_downloadable_url(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

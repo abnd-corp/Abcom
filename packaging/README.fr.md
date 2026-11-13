@@ -57,13 +57,23 @@ Exécuter les tests d’installation seulement sur un runner CI ou conteneur jet
 
 ## Homebrew sur macOS
 
-Pour une release distribuée, extraire `abcom-package-recipes.tar.gz` puis lancer :
+Le dépôt Abcom sert aussi de tap, sans dépôt supplémentaire ni soumission à Homebrew/cask. **Avant la première release publique et la promotion du cask généré dans `main`, ces commandes ne peuvent pas encore installer l’application.** Le tap prend en charge Apple silicon.
 
 ```sh
-bash homebrew/install-homebrew.sh homebrew/Casks/abcom.rb
+# Une seule fois, après publication du premier cask :
+brew tap abnd-corp/abcom https://github.com/abnd-corp/Abcom
+brew install --cask abnd-corp/abcom/abcom
+# Pour les versions suivantes :
+brew update
+brew upgrade --cask abnd-corp/abcom/abcom
+brew uninstall --cask abnd-corp/abcom/abcom
 ```
 
-Le script crée `abnd-corp/abcom-local`, un tap local sans dépôt distant, et installe l’application dans le dossier d’applications configuré dans Homebrew. Le relancer avec la recette d’une nouvelle release réinstalle cette version ; aucune mise à jour de tap distant n’est automatique. Désinstaller avec `brew uninstall --cask abcom`. Les données personnelles sont conservées ; le Launch Agent est retiré. Une préférence de démarrage automatique active réécrit son chemin au prochain lancement.
+Une ancienne installation dans `abnd-corp/abcom-local` doit être désinstallée avant de changer de tap (`brew uninstall --cask abnd-corp/abcom-local/abcom`, puis `brew untap abnd-corp/abcom-local`). Les données personnelles restent conservées. Ne pas utiliser `--zap`.
+
+Homebrew récupère `Casks/abcom.rb` depuis la branche par défaut `main`, puis télécharge l’archive versionnée depuis une release GitHub et vérifie son SHA-256. Les mises à jour restent des mises à jour explicites via Homebrew ; aucun catalogue officiel n’est utilisé.
+
+Pour tester une release avant la promotion du cask sur `main`, extraire `abcom-package-recipes.tar.gz` puis lancer `bash homebrew/install-homebrew.sh homebrew/Casks/abcom.rb`. Ce mode crée le tap local `abnd-corp/abcom-local` ; relancer le script avec une nouvelle recette réinstalle cette version. La désinstallation retire le Launch Agent et conserve les données ; le démarrage automatique actif actualise son chemin au prochain lancement.
 
 **Signature :** le bundle possède une signature ad hoc vérifiée, sans certificat Developer ID ni notarisation Apple. Un téléchargement en quarantaine peut donc être bloqué, y compris avec une alerte « endommagé ». Une installation Homebrew réussie ne prouve pas que Gatekeeper accepte l’application. Une release téléchargée exige une autorisation macOS explicite lorsqu’elle est possible, ou une signature Developer ID et une notarisation pour un premier lancement normal. Ne pas désactiver Gatekeeper globalement. Voir [les explications Apple](https://support.apple.com/en-us/102445).
 
@@ -104,6 +114,14 @@ cargo build --release --locked
 
 ## Nix sur Linux et macOS
 
+Sans cloner le dépôt, avec les flakes activés, la branche bêta peut être installée directement après intégration dans `dev` :
+
+```sh
+nix profile add github:abnd-corp/Abcom/dev#abcom
+```
+
+Remplacer `dev` par un tag de release publié pour figer la version. `github:abnd-corp/Abcom#abcom` vise la branche par défaut `main` et exige que le flake y ait été promu. `nix profile upgrade abcom` actualise une installation suivant une branche ; une référence à un tag reste figée. Nix compile les sources, sans téléchargement d’un installateur ni inscription à nixpkgs.
+
 Depuis le dépôt, avec les flakes activés :
 
 ```sh
@@ -122,3 +140,15 @@ La source contient seulement les entrées de compilation listées dans `packagin
 `scripts/prepare_packages.py --artifacts <dossier> --base-url <url-versionnée>` génère les recettes cask et WinGet avec les hashes des fichiers réels. Il refuse les identifiants dans les URL et le HTTP distant. Le workflow de release joint les recettes, l’installateur Windows et `SHA256SUMS.txt` à la release GitHub ; il ne soumet rien aux catalogues externes.
 
 Le Docker existant à trois pairs reste un outil Linux/X11. Son contexte inclut maintenant le script de build et les exemples. Il ne teste ni WinGet, ni Gatekeeper, ni la barre de menus macOS, ni un vrai panneau Linux. Le bilan des essais locaux figure dans le [journal d’audit](../docs/08-historique-et-audits.md).
+
+### Mise à jour du tap à chaque release
+
+Le workflow de release calcule les recettes et `SHA256SUMS.txt` depuis les fichiers produits, puis publie les archives, le bundle Flatpak et les recettes ensemble. Le job `update-tap` télécharge ensuite le binaire macOS réellement publié, génère `Casks/abcom.rb` avec la version et le hash, et propose une PR `feature/homebrew-v…` vers `dev`. Le flux `dev` → `staging` → `main` reste obligatoire ; le tap ne change qu’après cette promotion. Aucun binaire n’est ajouté à Git et aucune soumission externe n’est lancée. Ne pas modifier ou remplacer les fichiers d’une release déjà publiée.
+
+GitHub doit autoriser Actions à créer des PR dans les paramètres du dépôt. Le jeton automatique ne déclenche pas la CI d’une PR créée par le workflow : un mainteneur doit fermer puis rouvrir la PR pour lancer ses contrôles avant fusion. Un échec du job de mise à jour du tap ne retire pas la release déjà publiée. Pour reprendre manuellement dans une branche `feature/…`, télécharger l’archive macOS de cette release dans `dist/tap-artifacts`, puis :
+
+```sh
+python3 scripts/prepare_packages.py --artifacts dist/tap-artifacts --version "$VERSION" --base-url "https://github.com/abnd-corp/Abcom/releases/download/v$VERSION" --tap-output Casks
+```
+
+Relire le diff, exécuter `make check`, commiter et proposer la PR vers `dev`. La génération du tap refuse les URL locales et les versions incohérentes. Le flake Nix utilise automatiquement les sources et le `Cargo.lock` du tag demandé ; aucun hash de binaire Nix distinct n’est à synchroniser. Le référencement dans les catalogues officiels sera réévalué pour la version stable 1.0, sans publication automatique.

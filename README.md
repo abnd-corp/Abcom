@@ -14,6 +14,12 @@ Built in Rust with a native egui interface for macOS, Windows and Linux.
 - System notifications, tray mode and configurable themes, text and fonts.
 - Local messaging works offline. GIFs and the opt-in online font catalogue use Internet services.
 
+## Beta installation
+
+[GitHub releases](https://github.com/abnd-corp/Abcom/releases) · [Homebrew, Nix, WinGet, AppImage and Flatpak](packaging/README.md)
+
+No catalogue registration required. Homebrew will use this repository as a tap after the first release and promotion of its cask to `main`; Nix can already build the published branch. See the guide for each format's commands and limitations.
+
 ## Quick start
 
 Install [Rust](https://rustup.rs/), then:

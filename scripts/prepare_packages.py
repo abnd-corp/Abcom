@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate private Homebrew/WinGet recipes from verified release artifacts."""
+"""Generate Homebrew/WinGet recipes from verified release artifacts."""
 
 import argparse
 import hashlib
@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def generate(artifacts, output, base_url, version):
+def generate(artifacts, output, base_url, version, tap_output=None):
     if not re.fullmatch(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?", version):
         raise ValueError("expected an Abcom release version")
     parsed = urlsplit(base_url)
@@ -28,6 +28,12 @@ def generate(artifacts, output, base_url, version):
         raise ValueError("URL characters must be percent-encoded")
     if parsed.scheme == "file" and (artifacts / "abcom-windows-x86_64-setup.exe").is_file():
         raise ValueError("WinGet needs an HTTPS or local HTTP artifact URL, not file://")
+    if tap_output is not None:
+        if (parsed.scheme != "https" or
+                not re.fullmatch(r"https://github.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/releases/download/v" + re.escape(version), base_url)):
+            raise ValueError("the remote tap requires a versioned GitHub release URL matching the package version")
+        if not (artifacts / "abcom-macos-aarch64.tar.gz").is_file():
+            raise ValueError("the remote tap requires the macOS release artifact")
     output.mkdir(parents=True, exist_ok=True)
     generated = []
     for filename, kind in [
@@ -84,6 +90,9 @@ ManifestVersion: 1.10.0
 '''
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(text, encoding="utf-8")
+        if kind == "homebrew" and tap_output is not None:
+            tap_output.mkdir(parents=True, exist_ok=True)
+            (tap_output / "abcom.rb").write_text(text, encoding="utf-8")
         generated.append(kind)
     if not generated:
         raise ValueError("no supported artifacts found; build the macOS bundle or Windows installer first")
@@ -94,12 +103,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--artifacts", type=Path, required=True)
     parser.add_argument("--output", type=Path, default=ROOT / "dist/packages")
+    parser.add_argument("--tap-output", type=Path, help="also write the remote tap cask (versioned GitHub releases only)")
     parser.add_argument("--base-url", help="artifact location; defaults to the local artifact directory")
     parser.add_argument("--version", default=tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"])
     args = parser.parse_args()
     try:
         kinds = generate(args.artifacts, args.output,
-                         args.base_url or args.artifacts.resolve().as_uri(), args.version)
+                         args.base_url or args.artifacts.resolve().as_uri(), args.version, args.tap_output)
     except ValueError as error:
         parser.error(str(error))
     print("Generated: " + ", ".join(kinds))
