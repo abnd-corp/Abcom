@@ -1,4 +1,5 @@
 //! Native tray/window probe for disposable visual checks, without personal data.
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -33,13 +34,15 @@ impl eframe::App for Probe {
             }
             self.initialized = true;
         }
-        root.heading("Abcom — native icon check");
-        root.label(if self.unread {
-            "Unread badge"
-        } else {
-            "No unread messages"
+        egui::CentralPanel::default().show(root, |ui| {
+            ui.heading("Abcom — native icon check");
+            ui.label(if self.unread {
+                "Unread badge"
+            } else {
+                "No unread messages"
+            });
+            ui.label("Disposable diagnostic: no account, network or personal data.");
         });
-        root.label("Disposable diagnostic: no account, network or personal data.");
         if self.started.elapsed() > Duration::from_secs(8) {
             root.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
         } else {

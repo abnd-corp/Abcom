@@ -10,6 +10,39 @@ New-Item -ItemType Directory -Path $OutputPath -Force | Out-Null
 $OutputPath = (Resolve-Path -LiteralPath $OutputPath).Path
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public static class VisualMouse {
+    [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
+}
+'@
+$Shell = New-Object -ComObject Shell.Application
+$Shell.MinimizeAll()
+function Show-NotificationIcons {
+    $Root = [System.Windows.Automation.AutomationElement]::RootElement
+    $Scope = [System.Windows.Automation.TreeScope]::Descendants
+    $NameProperty = [System.Windows.Automation.AutomationElement]::NameProperty
+    $Existing = $Root.FindFirst($Scope, (New-Object System.Windows.Automation.PropertyCondition $NameProperty, 'Abcom'))
+    if ($null -ne $Existing -and -not $Existing.Current.IsOffscreen) { return }
+    foreach ($Name in @('Show hidden icons', 'Hidden icon menu', 'Notification Chevron')) {
+        $Button = $Root.FindFirst($Scope, (New-Object System.Windows.Automation.PropertyCondition $NameProperty, $Name))
+        if ($null -ne $Button -and -not $Button.Current.IsOffscreen) {
+            $Rect = $Button.Current.BoundingRectangle
+            [VisualMouse]::SetCursorPos([int]($Rect.X + $Rect.Width / 2), [int]($Rect.Y + $Rect.Height / 2)) | Out-Null
+            [VisualMouse]::mouse_event(2, 0, 0, 0, [UIntPtr]::Zero)
+            [VisualMouse]::mouse_event(4, 0, 0, 0, [UIntPtr]::Zero)
+            [VisualMouse]::SetCursorPos(0, 0) | Out-Null
+            Start-Sleep -Milliseconds 500
+            Write-Output "Notification overflow opened: $Name"
+            return
+        }
+    }
+    throw 'Notification overflow button unavailable; tray badge cannot be certified'
+}
 foreach ($Theme in @('light', 'dark')) {
     foreach ($State in @('normal', 'unread')) {
         $Arguments = @()
@@ -28,6 +61,7 @@ foreach ($Theme in @('light', 'dark')) {
             $Process.Refresh()
             if ($Process.HasExited) { throw 'Native icon probe exited before capture' }
             if ($Process.MainWindowHandle -eq [IntPtr]::Zero) { throw 'No interactive native window available on this runner' }
+            Show-NotificationIcons
             $Bounds = [System.Windows.Forms.SystemInformation]::VirtualScreen
             $Bitmap = New-Object System.Drawing.Bitmap $Bounds.Width, $Bounds.Height
             try {
@@ -45,3 +79,5 @@ foreach ($Theme in @('light', 'dark')) {
         }
     }
 }
+
+$Shell.UndoMinimizeAll()
