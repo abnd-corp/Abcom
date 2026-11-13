@@ -28,3 +28,15 @@ On macOS, `ps -o rss= -p <pid>` measures RSS and Instruments profiles allocation
 Separate evidence from assumptions: a peak is not an average, and one machine is not multi-OS validation. Dated results are in the [maintenance log](08-history-and-audits.md).
 
 Old automatic attachment quotas no longer apply: attachments are purged only on request. Measure growth without destroying real user data. Do not change retention policy simply to improve a number.
+
+## Wayland verification
+
+Wayland runs natively when available; X11 remains supported through winit's automatic selection. The code no longer sets `WINIT_UNIX_BACKEND`, which winit removed. The CPU loop fix (eframe 0.36.2, #8398) and stalled callback fix (0.37.0, #8631) are included in the version in use; no dependency upgrade is needed.
+
+The Linux workflow runs `scripts/test_linux_wayland.py` under headless Weston without `DISPLAY`, using disposable data and software Vulkan rendering. It checks for a Wayland surface receiving a buffer, measures idle CPU, suspends the compositor to block callbacks, then resumes it. Each sample lasts 12 seconds after warm-up; the regression threshold is 20% of one core. This detects a busy loop rather than promising CPU usage on every machine. Suspending the compositor does not replace testing minimized windows on each Linux desktop. X11 tests under Xvfb remain separate.
+
+In a disposable Linux container with Weston, D-Bus and software Vulkan:
+
+```sh
+CI=true dbus-run-session -- python3 scripts/test_linux_wayland.py target/release/abcom
+```

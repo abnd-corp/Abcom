@@ -28,3 +28,15 @@ Sur macOS, `ps -o rss= -p <pid>` mesure la RSS et Instruments aide à profiler a
 Distinguer ce qui a été mesuré de ce qui est supposé : un pic n'est pas une moyenne, une machine n'est pas une validation multi-OS. L'historique des chiffres est dans le [journal de maintenance](08-historique-et-audits.md).
 
 Les anciennes recommandations de quota automatique ne s'appliquent plus : les pièces jointes ne sont purgées qu'à la demande. Mesurer leur croissance sans détruire des données d'usage. La mesure ne doit pas changer la politique de conservation pour obtenir un meilleur chiffre.
+
+## Vérification Wayland
+
+Wayland est utilisé nativement lorsqu’il est disponible ; X11 reste pris en charge par la sélection automatique de winit. Le code ne définit plus `WINIT_UNIX_BACKEND`, variable retirée de winit. Les correctifs de boucle CPU (eframe 0.36.2, #8398) et de callbacks bloqués (0.37.0, #8631) sont inclus dans la version utilisée ; aucun changement de dépendance n’est requis.
+
+Le workflow Linux lance `scripts/test_linux_wayland.py` sous Weston headless, sans `DISPLAY`, avec des données jetables et le rendu logiciel Vulkan. Il vérifie qu’une surface Wayland reçoit un buffer, mesure le CPU au repos, suspend le compositeur pour bloquer les callbacks, puis le reprend. Chaque mesure dure 12 secondes après échauffement ; le seuil de régression est 20 % d’un cœur. Ce seuil détecte une boucle active, pas une promesse de consommation sur tout matériel. Suspendre le compositeur ne remplace pas un essai de fenêtre minimisée dans chaque bureau Linux. Les essais X11 sous Xvfb restent séparés.
+
+Dans un conteneur Linux jetable doté de Weston, D-Bus et Vulkan logiciel :
+
+```sh
+CI=true dbus-run-session -- python3 scripts/test_linux_wayland.py target/release/abcom
+```

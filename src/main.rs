@@ -109,46 +109,11 @@ fn install_panic_hook() {
     }));
 }
 
-/// Sous Wayland, la boucle d'événements de winit tourne à vide et sature un
-/// cœur : un minuteur de calloop dont l'échéance est dépassée sans être
-/// consommé force un timeout nul à chaque tour (`calloop-0.13.0/src/sys.rs`,
-/// `if next_timeout <= now { timeout = Some(Duration::ZERO) }`). `epoll_wait`
-/// rend alors la main aussitôt, la fenêtre cesse d'être repeinte et le
-/// processus brûle 100 % d'un cœur — mesuré à 0,1 % sur le même binaire via
-/// XWayland. Le défaut est en amont (winit 0.30.13, encore utilisé par eframe 0.37) :
-/// à retirer dès que la montée d'eframe l'aura corrigé.
-///
-/// Rien n'est forcé si le lanceur a déjà choisi son backend : poser
-/// `WINIT_UNIX_BACKEND=wayland` retrouve le rendu natif, bug compris.
-#[cfg(target_os = "linux")]
-fn prefer_x11_backend() {
-    if std::env::var_os("WINIT_UNIX_BACKEND").is_some() {
-        return;
-    }
-    // Session X11 pure : winit choisirait X11 de toute façon.
-    if std::env::var_os("WAYLAND_DISPLAY").is_none() {
-        return;
-    }
-    // Sans serveur X accessible, XWayland est absent : mieux vaut une fenêtre
-    // Wayland qui sature qu'aucune fenêtre du tout.
-    if std::env::var_os("DISPLAY").is_none() {
-        tracing::warn!("session Wayland sans DISPLAY : backend natif conservé");
-        return;
-    }
-    // SAFETY : appelé avant tout spawn, aucun autre fil ne lit l'environnement.
-    std::env::set_var("WINIT_UNIX_BACKEND", "x11");
-    tracing::info!("session Wayland : bascule sur X11 (contournement winit 0.30)");
-}
-
 fn main() -> anyhow::Result<()> {
     load_dotenv(".env");
     // Le garde doit vivre aussi longtemps que le processus, sinon les
     // dernières lignes ne sont jamais écrites sur disque.
     let _log_guard = init_logging();
-    // Après l'initialisation du journal, sinon la trace du choix de backend
-    // n'irait nulle part. Reste bien avant la création de la fenêtre.
-    #[cfg(target_os = "linux")]
-    prefer_x11_backend();
     install_panic_hook();
 
     let username = std::env::args().nth(1).unwrap_or_else(|| {

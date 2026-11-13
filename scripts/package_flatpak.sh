@@ -33,7 +33,7 @@ runtime=org.freedesktop.Platform/$arch/25.08
 sdk=org.freedesktop.Sdk/$arch/25.08
 command=abcom
 EOF
-# Keep X11 available on Wayland too, for the existing winit CPU workaround.
+# Allow native Wayland and legacy X11 sessions.
 flatpak build-finish --share=network --share=ipc --socket=x11 --socket=wayland \
     --socket=pulseaudio --device=dri \
     --talk-name=org.kde.StatusNotifierWatcher \
