@@ -11,6 +11,8 @@ pub(super) enum AttachmentMenuAction {
     AddFolder,
 }
 
+pub(super) const COMPOSER_BORDER_WIDTH: f32 = crate::ui::theme::BORDER_WIDTH;
+
 pub(super) const ACTION_BUTTON_SIZE: [f32; 2] = [28.0, 28.0];
 
 pub(super) fn should_send_message(
@@ -84,9 +86,15 @@ pub(super) fn action_button_chrome(ui: &egui::Ui, selected: bool) -> (egui::Colo
         crate::ui::theme::palette(ui).surface_strong
     };
     let stroke = if selected {
-        egui::Stroke::new(1.0, crate::ui::theme::palette(ui).accent_soft)
+        egui::Stroke::new(
+            COMPOSER_BORDER_WIDTH,
+            crate::ui::theme::palette(ui).accent_soft,
+        )
     } else {
-        egui::Stroke::new(1.0, crate::ui::theme::palette(ui).separator)
+        egui::Stroke::new(
+            COMPOSER_BORDER_WIDTH,
+            crate::ui::theme::palette(ui).separator,
+        )
     };
     (fill, stroke)
 }

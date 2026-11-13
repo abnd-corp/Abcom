@@ -378,6 +378,7 @@ fn apply_visuals(ctx: &egui::Context, resolved: &ResolvedTheme) {
                 egui::Visuals::light()
             };
             let v = &mut style.visuals;
+            v.widgets.noninteractive.bg_stroke.width = super::theme::BORDER_WIDTH;
             v.panel_fill = p.background;
             v.window_fill = p.background;
             v.extreme_bg_color = p.input_bg;

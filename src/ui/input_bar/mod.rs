@@ -16,7 +16,7 @@ use sending::send_current_message;
 use widgets::{
     action_button, attachment_chip, attachment_menu_popup, chip_remove_button, icon_button,
     paint_plus_icon, paint_send_icon, should_send_message, AttachmentMenuAction,
-    ACTION_BUTTON_SIZE,
+    ACTION_BUTTON_SIZE, COMPOSER_BORDER_WIDTH,
 };
 #[cfg(test)]
 use widgets::{attachment_label, push_unique_paths};
@@ -93,20 +93,22 @@ impl AbcomApp {
         let add_files_label = self.t(i18n::AJOUTER_DES_FICHIERS);
         let add_folder_label = self.t(i18n::AJOUTER_UN_DOSSIER);
 
-        // Marge uniforme entre les bords du panneau et le cadre du composant
-        // (la marge par défaut du panneau est plus large sur les côtés).
+        // Le fil défile jusqu’au contour du composeur, sans bandeau au-dessus.
         egui::Panel::bottom("input_panel")
             .resizable(false)
+            .show_separator_line(false)
             .frame(
-                egui::Frame::side_top_panel(&ui.style().clone())
-                    .inner_margin(egui::Margin::same(8)),
+                egui::Frame::side_top_panel(&ui.style().clone()).inner_margin(egui::Margin {
+                    top: 0,
+                    ..egui::Margin::same(8)
+                }),
             )
             .show(ui, |ui| {
                 let gif_label = self.t(i18n::GIF);
                 egui::Frame::default()
                     .fill(crate::ui::theme::palette(ui).surface_strong)
                     .stroke(egui::Stroke::new(
-                        1.0,
+                        COMPOSER_BORDER_WIDTH,
                         crate::ui::theme::palette(ui).separator,
                     ))
                     .corner_radius(egui::CornerRadius::same(14))
@@ -346,13 +348,16 @@ impl AbcomApp {
                             // Séparateur entre le champ de saisie et la barre
                             // d'actions : même teinte que le liseré du cadre.
                             let (sep_rect, _) = ui.allocate_exact_size(
-                                egui::vec2(ui.available_width(), 1.0),
+                                egui::vec2(ui.available_width(), COMPOSER_BORDER_WIDTH),
                                 egui::Sense::hover(),
                             );
                             ui.painter().hline(
                                 sep_rect.x_range(),
                                 sep_rect.center().y,
-                                egui::Stroke::new(1.0, crate::ui::theme::palette(ui).separator),
+                                egui::Stroke::new(
+                                    COMPOSER_BORDER_WIDTH,
+                                    crate::ui::theme::palette(ui).separator,
+                                ),
                             );
                             ui.add_space(3.0);
 

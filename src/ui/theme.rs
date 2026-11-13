@@ -12,6 +12,8 @@ use eframe::egui::{self, Color32};
 use super::appearance::TextSettings;
 use super::fonts::FontPlans;
 
+pub(crate) const BORDER_WIDTH: f32 = 1.5;
+
 /// Hauteur de ligne du composeur dans le thème classique (curseur et emojis).
 const CLASSIC_COMPOSER_LINE_HEIGHT: f32 = 22.0;
 
