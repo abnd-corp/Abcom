@@ -39,6 +39,7 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber",
  "tray-icon",
+ "unicode-segmentation",
  "walkdir",
  "windows-sys 0.61.2",
  "winresource",

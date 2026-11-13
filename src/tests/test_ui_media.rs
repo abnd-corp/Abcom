@@ -101,3 +101,18 @@ fn unique_destination_avoids_collision() {
     assert_eq!(dest, dir.join("photo (1).png"));
     std::fs::remove_dir_all(&dir).ok();
 }
+
+#[test]
+fn elide_preserves_combined_emoji_and_accents() {
+    for cluster in ["😀", "❤️", "👍🏽", "👨‍👩‍👧‍👦", "🇫🇷", "e\u{301}"]
+    {
+        assert_eq!(
+            super::elide(&format!("A{cluster}BC"), 3),
+            format!("A{cluster}…")
+        );
+        assert_eq!(
+            super::elide(&format!("{cluster}B"), 2),
+            format!("{cluster}B")
+        );
+    }
+}

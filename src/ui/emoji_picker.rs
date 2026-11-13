@@ -433,6 +433,81 @@ pub(crate) fn render_inline(
     }
 }
 
+/// Aperçu sur une ligne, avec les mêmes textures que le corps des messages.
+pub(crate) fn render_preview(
+    ui: &mut egui::Ui,
+    text: &str,
+    emoji_map: &std::collections::HashMap<String, usize>,
+    textures: &super::EmojiTextures,
+    style: egui::TextStyle,
+) -> egui::Response {
+    use unicode_segmentation::UnicodeSegmentation;
+    let font = style.resolve(ui.style());
+    let color = super::theme::palette(ui).text_muted;
+    let ellipsis = ui.painter().layout_no_wrap("…".into(), font.clone(), color);
+    let glyphs: Vec<_> = text
+        .graphemes(true)
+        .map(|cluster| {
+            let texture = emoji_map
+                .get(cluster)
+                .or_else(|| emoji_map.get(cluster.trim_end_matches('\u{fe0f}')))
+                .and_then(|&index| textures.get(ui.ctx(), index));
+            let galley = ui.painter().layout_no_wrap(
+                cluster.replace(['\n', '\r'], " "),
+                font.clone(),
+                color,
+            );
+            let width = if texture.is_some() {
+                font.size
+            } else {
+                galley.size().x
+            };
+            (texture, galley, width)
+        })
+        .collect();
+    let total: f32 = glyphs.iter().map(|(_, _, width)| width).sum();
+    let width = total.min(ui.available_width().max(0.0));
+    let height = ui.fonts_mut(|fonts| fonts.row_height(&font)).max(font.size);
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(width, height), egui::Sense::hover());
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, text));
+    let painter = ui.painter().with_clip_rect(rect.intersect(ui.clip_rect()));
+    let truncated = total > width;
+    let limit = rect.right() - if truncated { ellipsis.size().x } else { 0.0 };
+    let mut x = rect.left();
+    for (texture, galley, advance) in glyphs {
+        if x + advance > limit + 0.01 {
+            break;
+        }
+        if let Some(texture) = texture {
+            let image_rect = egui::Rect::from_center_size(
+                egui::pos2(x + advance / 2.0, rect.center().y),
+                egui::vec2(advance, advance),
+            );
+            painter.image(
+                texture.id(),
+                image_rect,
+                egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
+                egui::Color32::WHITE,
+            );
+        } else {
+            painter.galley(
+                egui::pos2(x, rect.center().y - galley.size().y / 2.0),
+                galley,
+                color,
+            );
+        }
+        x += advance;
+    }
+    if truncated {
+        painter.galley(
+            egui::pos2(x, rect.center().y - ellipsis.size().y / 2.0),
+            ellipsis,
+            color,
+        );
+    }
+    response
+}
+
 /// Construit l'index shortcode → emoji
 pub(crate) fn build_emoji_shortcode_index(
     available: &[String],

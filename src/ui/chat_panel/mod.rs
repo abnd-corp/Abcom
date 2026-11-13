@@ -418,6 +418,8 @@ impl AbcomApp {
                                     reply_avatar,
                                     reply_media_tex,
                                     not_found_label,
+                                    &self.emoji.map,
+                                    &self.emoji.textures,
                                 ) {
                                     reply_quote_clicked = true;
                                 }

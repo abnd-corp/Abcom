@@ -384,10 +384,14 @@ fn download_button(ui: &mut egui::Ui) -> bool {
 
 /// Raccourcit un texte trop long avec une ellipse finale.
 pub(crate) fn elide(text: &str, max_chars: usize) -> String {
-    if text.chars().count() <= max_chars {
+    use unicode_segmentation::UnicodeSegmentation;
+    if text.graphemes(true).count() <= max_chars {
         return text.to_string();
     }
-    let kept: String = text.chars().take(max_chars.saturating_sub(1)).collect();
+    let kept: String = text
+        .graphemes(true)
+        .take(max_chars.saturating_sub(1))
+        .collect();
     format!("{kept}…")
 }
 
