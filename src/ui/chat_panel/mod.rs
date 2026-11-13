@@ -28,7 +28,12 @@ impl AbcomApp {
     pub(crate) fn show_central_panel(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
         let ctx = &ctx;
-        egui::CentralPanel::default().show(ui, |ui| {
+        let frame = egui::Frame::central_panel(ui.style()).inner_margin(egui::Margin {
+            bottom: 0,
+            ..egui::Margin::same(8)
+        });
+        let panel = egui::CentralPanel::default().frame(frame);
+        panel.show(ui, |ui| {
             let rows = self.chat_cache.rows.clone();
             let my_name = self.chat_cache.my_name.clone();
             let selected_conv: Option<String> = self.chat_cache.conversation().map(str::to_string);
