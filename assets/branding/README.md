@@ -69,3 +69,11 @@ In the repository’s **Settings → General → Social preview → Edit → Upl
 ICNS regeneration uses macOS `iconutil`; other systems retain the committed ICNS. See [Apple’s iconset guidance](https://developer.apple.com/library/archive/documentation/GraphicsAnimation/Conceptual/HighResolutionOSX/Optimizing/Optimizing.html) and [template images](https://developer.apple.com/documentation/appkit/nsimage/istemplate).
 
 Covered by the repository [license](../../LICENSE). Lettering uses the bundled [Inter font](../fonts/Inter-OFL.txt).
+
+## Native verification and GitHub activation
+
+The diagnostics `cargo run --example check_macos_icon_sizes` and `cargo run --example check_macos_dock_after_frame` check the AppKit tray (18 points, 36 pixels, square system button) and preservation of the icon after eframe rendering. Verification on November 13, 2026 found the Dock fallback's visible width at 80.7% after three frames.
+
+Windows CI extracts the installed executable's icon through the Windows shell, checks its dimensions and the coral mark. The AppImage test also checks the actual X11 window's EWMH `_NET_WM_ICON` property. Python tests check ICO resolutions and the 1280 × 640 EN/FR sharing cards below 1 MB. These checks do not replace visual inspection of every taskbar, panel and DPI setting.
+
+As of November 13, 2026, the public page still serves an `opengraph.githubassets.com` image, the generic GitHub card. Activating `social-preview.png` remains a GitHub settings operation described above. Issue #63 remains open until activation and the remaining visual checks; a testing PR alone does not close it.
