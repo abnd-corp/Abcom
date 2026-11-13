@@ -69,3 +69,11 @@ Dans les réglages du dépôt, **Settings → General → Social preview → Edi
 La régénération ICNS utilise `iconutil` sous macOS ; les autres systèmes conservent le fichier ICNS versionné. Voir les recommandations Apple sur les [iconsets](https://developer.apple.com/library/archive/documentation/GraphicsAnimation/Conceptual/HighResolutionOSX/Optimizing/Optimizing.html) et les [images modèles](https://developer.apple.com/documentation/appkit/nsimage/istemplate).
 
 Sous la [licence du dépôt](../../LICENSE). Le lettrage utilise la [police Inter embarquée](../fonts/Inter-OFL.txt).
+
+## Validation native et activation GitHub
+
+Les diagnostics `cargo run --example check_macos_icon_sizes` et `cargo run --example check_macos_dock_after_frame` contrôlent le tray AppKit (18 points, 36 pixels, bouton système carré) et la conservation de l’icône après le rendu eframe. La vérification du 13 novembre 2026 retrouve 80,7 % de largeur visible pour le fallback Dock, après trois frames.
+
+La CI Windows extrait l’icône de l’exécutable installé via le shell Windows, contrôle ses dimensions et la présence du corail du logo. Le test AppImage vérifie aussi la propriété EWMH `_NET_WM_ICON` de la fenêtre X11 réelle. Les tests Python contrôlent les résolutions ICO et les cartes EN/FR de 1280 × 640 pixels sous 1 Mo. Ces contrôles ne remplacent pas un examen visuel de chaque barre des tâches, panneau et réglage DPI.
+
+Au 13 novembre 2026, la page publique sert encore une image `opengraph.githubassets.com`, donc la carte GitHub générique. L’activation de `social-preview.png` reste une opération dans les réglages GitHub décrite plus haut. L’issue #63 reste ouverte jusqu’à cette activation et aux validations visuelles restantes ; une PR de tests ne suffit pas à la clôturer.

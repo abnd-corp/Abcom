@@ -29,7 +29,10 @@ for attempt in $(seq 1 60); do
         sleep 2
         if ! kill -0 "$pid" 2>/dev/null; then cat app.log >&2; exit 1; fi
         grep -F "$image" "$HOME/.config/autostart/Abcom.desktop" >/dev/null
-        echo 'AppImage: native Linux window observed, no FUSE mount required'
+        window=$(xwininfo -root -tree | awk '/"Abcom"/ && !id { id=$1 } END { print id }')
+        xprop -id "$window" _NET_WM_ICON > window-icon.txt
+        grep -q 'CARDINAL)' window-icon.txt
+        echo 'AppImage: native Linux window and EWMH application icon observed, no FUSE required'
         exit 0
     fi
     sleep 0.25
