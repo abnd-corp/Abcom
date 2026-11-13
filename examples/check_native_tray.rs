@@ -43,7 +43,7 @@ impl eframe::App for Probe {
             });
             ui.label("Disposable diagnostic: no account, network or personal data.");
         });
-        if self.started.elapsed() > Duration::from_secs(8) {
+        if self.started.elapsed() > Duration::from_secs(20) {
             root.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
         } else {
             root.ctx().request_repaint_after(Duration::from_millis(100));

@@ -80,7 +80,7 @@ Au 13 novembre 2026, la page publique sert encore une image `opengraph.githubass
 
 ## Captures natives reproductibles
 
-`examples/check_native_tray.rs` appelle le code réel du tray et des icônes dans une fenêtre eframe qui se ferme après huit secondes, sans compte ni données personnelles. `--unread` active le badge ; `--dark` choisit le fond sombre de la fenêtre.
+`examples/check_native_tray.rs` appelle le code réel du tray et des icônes dans une fenêtre eframe qui se ferme après vingt secondes, sans compte ni données personnelles. `--unread` active le badge ; `--dark` choisit le fond sombre de la fenêtre.
 
 Dans un Linux jetable avec XFCE, Xvfb, D-Bus et scrot :
 

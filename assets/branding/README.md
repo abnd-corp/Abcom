@@ -80,7 +80,7 @@ As of November 13, 2026, the public page still serves an `opengraph.githubassets
 
 ## Reproducible native captures
 
-`examples/check_native_tray.rs` calls the actual tray and icon code in an eframe window that exits after eight seconds, without accounts or personal data. `--unread` enables the badge; `--dark` selects the dark window theme.
+`examples/check_native_tray.rs` calls the actual tray and icon code in an eframe window that exits after twenty seconds, without accounts or personal data. `--unread` enables the badge; `--dark` selects the dark window theme.
 
 In disposable Linux with XFCE, Xvfb, D-Bus and scrot:
 
