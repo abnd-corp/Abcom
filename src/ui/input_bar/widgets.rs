@@ -97,30 +97,15 @@ pub(super) fn action_button(
     tooltip: &str,
     selected: bool,
 ) -> egui::Response {
-    let (fill, stroke) = action_button_chrome(ui, selected);
-    ui.scope(|ui| {
-        let widgets = &mut ui.style_mut().visuals.widgets;
-        // egui 0.37 compense les marges avant d'appliquer notre bordure explicite.
-        for visuals in [
-            &mut widgets.noninteractive,
-            &mut widgets.inactive,
-            &mut widgets.hovered,
-            &mut widgets.active,
-            &mut widgets.open,
-        ] {
-            visuals.bg_stroke = stroke;
-            visuals.expansion = 0.0;
-        }
-        ui.add_sized(
-            ACTION_BUTTON_SIZE,
-            egui::Button::new(label)
-                .fill(fill)
-                .stroke(stroke)
-                .corner_radius(egui::CornerRadius::same(10)),
-        )
-        .on_hover_text(tooltip)
+    let galley = egui::WidgetText::from(label).into_galley(
+        ui,
+        Some(egui::TextWrapMode::Extend),
+        f32::INFINITY,
+        egui::TextStyle::Button,
+    );
+    icon_button(ui, tooltip, selected, |painter, rect, color| {
+        painter.galley(rect.center() - galley.size() / 2.0, galley, color);
     })
-    .inner
 }
 
 pub(super) fn icon_button(
@@ -131,14 +116,29 @@ pub(super) fn icon_button(
 ) -> egui::Response {
     let (fill, stroke) = action_button_chrome(ui, selected);
     let response = ui
-        .add_sized(
-            ACTION_BUTTON_SIZE,
-            egui::Button::new(egui::RichText::new(""))
-                .fill(fill)
-                .stroke(stroke)
-                .corner_radius(egui::CornerRadius::same(10)),
-        )
-        .on_hover_text(tooltip);
+        .scope(|ui| {
+            // Keep native hover expansion from changing the toolbar silhouette.
+            let widgets = &mut ui.style_mut().visuals.widgets;
+            for visuals in [
+                &mut widgets.noninteractive,
+                &mut widgets.inactive,
+                &mut widgets.hovered,
+                &mut widgets.active,
+                &mut widgets.open,
+            ] {
+                visuals.expansion = 0.0;
+                visuals.bg_stroke = stroke;
+            }
+            ui.add_sized(
+                ACTION_BUTTON_SIZE,
+                egui::Button::new(egui::RichText::new(""))
+                    .fill(fill)
+                    .stroke(stroke)
+                    .corner_radius(egui::CornerRadius::same(10)),
+            )
+            .on_hover_text(tooltip)
+        })
+        .inner;
     // Bouton sans texte : l'infobulle sert de libellé accessible.
     response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, tooltip));
     paint(
