@@ -469,7 +469,7 @@ impl AbcomApp {
             let s = state.lock_safe();
             (
                 s.pref_bool("notif_preview", true),
-                s.pref_bool("autostart", false),
+                s.pref_bool("autostart", false) && crate::platform::autostart::is_supported(),
                 s.retention_days(),
                 s.purge_includes_images(),
                 appearance::Appearance::from_pref(s.pref_str(appearance::Appearance::PREF_KEY)),
@@ -1546,7 +1546,9 @@ pub fn run(
 
     let mut viewport = egui::ViewportBuilder::default()
         .with_title("Abcom")
-        .with_app_id("abcom")
+        .with_app_id(crate::platform::icons::desktop_app_id(
+            crate::platform::in_flatpak(),
+        ))
         .with_inner_size([860.0, 600.0])
         // En dessous, la barre latérale seule occupe toute la fenêtre.
         .with_min_inner_size([560.0, 360.0]);

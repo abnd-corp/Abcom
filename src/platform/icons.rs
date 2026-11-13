@@ -1,5 +1,13 @@
 //! Politique d'icône de fenêtre et de Dock : le bundle macOS garde son ICNS.
 
+pub(crate) fn desktop_app_id(flatpak: bool) -> &'static str {
+    if flatpak {
+        "corp.abnd.abcom"
+    } else {
+        "abcom"
+    }
+}
+
 pub(crate) fn window_icon_data() -> Option<egui::IconData> {
     #[cfg(target_os = "macos")]
     {

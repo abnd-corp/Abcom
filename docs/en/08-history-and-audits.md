@@ -13,6 +13,30 @@ Results below are dated and do not certify every version or OS. Current procedur
 
 Superseded execution plans and documents have been removed from the current tree. Still-applicable decisions are described in the [overview](01-overview.md#design-decisions) and [architecture](02-architecture.md).
 
+## 12 November 2026 — AppImage and Flatpak without public catalogues
+
+The scripts produce actual `.AppImage` and `.flatpak` files without submitting to AppImageHub or Flathub. The Linux workflow builds and tests them on Ubuntu 22.04; the release workflow can attach them to GitHub artifacts only when explicitly triggered. AppImage tools and runtime are SHA-256 checked. Final checksums exclude their own file, including when it comes from an earlier workflow artifact.
+
+Local aarch64 tests in a Docker Linux VM: release compilation, approximately 18 MB AppImage and 10 MB Flatpak, valid desktop/AppStream metadata. The AppImage remains open after initialization under Xvfb without FUSE mounting, and its autostart points to the durable image file. Early tests found missing dynamically loaded libraries, notably XKB X11; these are now included alongside the PulseAudio client and library notices.
+
+The Flatpak is installed in a dedicated test installation with Freedesktop 25.08, opened under Xvfb and uninstalled. Its WM_CLASS matches `corp.abnd.abcom`. Neither the entire home directory nor the entire session bus is exposed. Autostart is labelled unavailable without Background integration; the test checks that no misleading autostart file is written in its configuration. Docker testing requires system/session buses and namespace capabilities; these belong to the test container, not application-user permissions.
+
+Local checks: 661 Rust tests, seven Python packaging tests, strict Clippy, formatting, minimal compilation and MSRV pass. Both guides are checked for links and test identifiers. The tested files are aarch64; x86_64 CI is prepared, not claimed executed before pushing. These tests do not certify every physical desktop, tray, audio, portal or real-LAN discovery setup.
+
+The Handy comparison confirms that `cjpais.Handy` is in winget-pkgs and its manifest downloads installers from GitHub. That does not make an arbitrary GitHub repository installable by name in WinGet. Direct GitHub routes, the local Homebrew tap, Nix flake and Linux bundles are distinguished in the [recipes](../../packaging/README.md).
+
+## 12 November 2026 — Local Homebrew, WinGet and Nix distribution
+
+Installation no longer depends on public catalogue submissions: recipes are generated from actual artifacts and SHA-256 hashes, with a local-tap cask, a per-user Windows installer and a locked Nix flake. The release workflow prepares those files without publishing to Homebrew/core, winget-pkgs or nixpkgs.
+
+On the test Mac, the old executable, the Launch Agent pointing at a missing directory and two diagnostic bundles were backed up and removed. Data directories for the primary and test instances were retained. Homebrew actually installed, reinstalled, uninstalled and installed Abcom again; metadata for all 74 checked data files stayed identical, without reading their contents. A native window from the installed application was observed and normal termination was verified.
+
+The first launch was rejected. The bundle initially had an incomplete signature; the script now creates and verifies a complete ad-hoc seal after removing only incompatible Finder metadata. Gatekeeper then rejected Homebrew's quarantined download because it lacked Developer ID signing/notarization. The explicit `--local-build` mode, restricted to a local artifact, removes quarantine only from the verified application. It does not change global Gatekeeper settings and does not apply to remote release URLs. A downloaded version without user authorization or notarization can still be blocked: see the [packaging guide](../../packaging/README.md).
+
+The Nix package was built on aarch64-darwin, its bundle signature verified, then added to and removed from a temporary profile. SQLite was missing at link time and is now declared explicitly. The Linux recipe evaluates; actual graphical rendering still needs testing on Linux. A fixture-generated manifest passes Microsoft's official 1.10.0 schema; this check installs no binary. Windows installation tooling and CI tests are prepared but were not executed natively on this Mac; Windows WinGet validation remains open in issue #68.
+
+Local validation: `make check` passes with 659 Rust tests, strict Clippy and formatting; all four Python recipe tests pass. Minimal compilation and EN/FR documentation links pass. Docker's context now excludes secrets and local data, and includes the build script, license and examples. Buildx validates the Dockerfile without warnings; this is neither a containerized binary build nor Linux graphical execution.
+
 ## 12 November 2026 — Final icon checks and GIF button hover
 
 The actual GIF widget test reproduces a width changing from 33 to 31 points on hover and lettering moving by one point. The explicit border was applied after egui 0.37 compensated its margins. The button now uses the same border in this calculation for every state. The test compares its frame and lettering over 24 frames, at the centre and near the edge, in light/dark themes, at 1×, 1.5× and 2×, with the picker open or closed. The old code fails; the fix passes. Tracking: [#64](https://github.com/abnd-corp/Abcom/issues/64).

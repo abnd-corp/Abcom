@@ -5,6 +5,8 @@ import argparse
 from pathlib import Path
 import plistlib
 import shutil
+import subprocess
+import sys
 import tomllib
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -41,6 +43,15 @@ def main():
         "NSPrincipalClass": "NSApplication",
     }
     (contents / "Info.plist").write_bytes(plistlib.dumps(metadata, sort_keys=True))
+    if sys.platform == "darwin":
+        for attribute in ["com.apple.FinderInfo", "com.apple.ResourceFork"]:
+            subprocess.run(["/usr/bin/xattr", "-r", "-d", attribute, str(args.destination)],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        # The executable's ad-hoc signature is not a valid seal for a new bundle.
+        subprocess.run(["/usr/bin/codesign", "--force", "--sign", "-", "--timestamp=none",
+                        str(args.destination)], check=True)
+        subprocess.run(["/usr/bin/codesign", "--verify", "--deep", "--strict",
+                        str(args.destination)], check=True)
     # Expose aussi la mise à jour au niveau du dossier du bundle.
     args.destination.touch()
 

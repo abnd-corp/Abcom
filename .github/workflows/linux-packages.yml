@@ -1,0 +1,65 @@
+name: Paquets Linux locaux
+
+on:
+  workflow_call:
+    inputs:
+      source-ref:
+        type: string
+        default: ""
+  workflow_dispatch:
+  pull_request:
+    branches: [dev]
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - build.rs
+      - src/**
+      - assets/**
+      - packaging/linux/**
+      - scripts/package_appimage.py
+      - scripts/package_flatpak.sh
+      - scripts/test_linux_*.sh
+      - .github/workflows/linux-packages.yml
+
+permissions:
+  contents: read
+
+jobs:
+  packages:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source-ref || github.sha }}
+      - name: Dépendances de construction
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config python3 file libasound2-dev libasound2-plugins libxkbcommon-dev libxkbcommon-x11-0 libwayland-dev libx11-dev libxcursor-dev libxi-dev libxrandr-dev libxcb1-dev libvulkan1 libgl1-mesa-dri mesa-vulkan-drivers flatpak appstream desktop-file-utils squashfs-tools patchelf xvfb xauth x11-utils dbus-x11
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+        with:
+          toolchain: '1.95'
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            target
+          key: linux-formats-rust195-${{ hashFiles('Cargo.lock') }}
+      - name: Construire les fichiers sans publication
+        run: |
+          cargo build --release --locked
+          python3 scripts/package_appimage.py target/release/abcom
+          bash scripts/package_flatpak.sh target/release/abcom
+          python3 scripts/write_checksums.py dist/linux
+      - name: Vérifier les métadonnées
+        run: |
+          desktop-file-validate packaging/linux/corp.abnd.abcom.desktop
+          appstreamcli validate --no-net packaging/linux/corp.abnd.abcom.metainfo.xml
+      - name: Fenêtre AppImage
+        run: dbus-run-session -- xvfb-run -a bash scripts/test_linux_appimage.sh dist/linux/*.AppImage
+      - name: Installation et fenêtre Flatpak
+        run: dbus-run-session -- xvfb-run -a bash scripts/test_linux_flatpak.sh dist/linux/*.flatpak
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: paquets-linux-non-publies
+          path: dist/linux/*

@@ -261,6 +261,8 @@ Le cœur est identique partout ; ces points diffèrent réellement.
 | L7 | Alpine / musl | Installer les paquets de [docs/06](06-installation.md), compiler, lancer. Binaire lié dynamiquement à musl |
 | L8 | KSNI et apparition du watcher | Sur un bus D-Bus privé, créer le tray, changer le badge et quitter ; sur un vrai bureau, vérifier Ouvrir/Quitter, repli/restauration et watcher démarrant après l'application |
 | L9 | Logo Linux | Après installation, le lanceur utilise le nouveau logo ; tray couleur et badge non lu lisibles sur le panneau cible |
+| L10 | AppImage | Télécharger/vérifier le fichier, lancer avec et sans FUSE, vérifier le chemin d’autostart, le tray, le son et les échanges LAN sur le bureau cible |
+| L11 | Flatpak | Installer le bundle, lancer, joindre/exporter par portail, vérifier données isolées et absence d’autostart trompeur ; tester tray/notifications/LAN, puis désinstaller sans effacer les données |
 | L4 | Wayland et X11 | Tester les deux : tray, notifications, focus (test 3.3) |
 | L5 | Tray selon l'environnement | StatusNotifierItem nécessaire ; GNOME peut demander une extension ; vérifier KDE/XFCE |
 
@@ -279,6 +281,7 @@ Le cœur est identique partout ; ces points diffèrent réellement.
 | M5 | Focus (test 3.3) | Cliquer une fenêtre en arrière-plan déclenche l'accusé de lecture |
 | M6 | Permissions de la clé | `stat -f "%Sp" identity.key` → `-rw-------` |
 | M7 | Logos natifs | Nouveau logo Finder/Dock dans le bundle ; repli/restauration conserve le logo ; barre de menus lisible sur fonds clair/sombre et Retina, avec et sans non-lus Exécuter aussi `cargo run --locked --example check_macos_dock_after_frame` pour contrôler l’icône après le rendu du framework. |
+| M8 | Homebrew | Installation, réinstallation et désinstallation via le tap local ; vérifier lancement réel, signature, chemin du démarrage automatique et conservation des données ; distinguer build local et téléchargement en quarantaine |
 
 ## Windows
 
@@ -291,6 +294,7 @@ Le cœur est identique partout ; ces points diffèrent réellement.
 | W5 | Chemins avec espaces | Envoyer un fichier depuis un dossier au nom espacé |
 | W6 | Focus (test 3.3) | Idem, avec la fenêtre restaurée depuis le tray |
 | W7 | Logos natifs | Explorer, raccourcis et barre des tâches utilisent le nouveau logo aux différentes échelles ; tray couleur avec badge visible |
+| W8 | WinGet | Valider le manifeste local, installer et réinstaller l’installateur, vérifier menu Démarrer et lancement, désinstaller ; données conservées, raccourci et démarrage automatique retirés |
 
 ---
 

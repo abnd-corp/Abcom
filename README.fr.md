@@ -14,6 +14,12 @@ Abcom relie les ordinateurs d'un même réseau local pour discuter en privé, en
 - Notifications système, mode résident et réglage des thèmes, textes et polices.
 - La messagerie locale fonctionne hors ligne. Les GIF et le catalogue de polices en ligne, activable sur accord, utilisent Internet.
 
+## Installation de la bêta
+
+[Releases GitHub](https://github.com/abnd-corp/Abcom/releases) · [Homebrew, Nix, WinGet, AppImage et Flatpak](packaging/README.fr.md)
+
+Aucune inscription à un catalogue requise. Homebrew utilisera ce dépôt comme tap après la première release et la promotion de son cask sur `main` ; Nix peut déjà compiler la branche publiée. Les commandes et limites de chaque format sont dans le guide.
+
 ## Démarrage rapide
 
 Installer [Rust](https://rustup.rs/), puis :

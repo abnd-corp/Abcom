@@ -1,6 +1,8 @@
 # Build
 /target
 /dist
+/result
+/result-*
 *.zip
 
 # Secrets et exécution locale

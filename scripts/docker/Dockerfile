@@ -13,8 +13,11 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY Cargo.toml Cargo.lock* ./
+COPY build.rs ./
+COPY LICENSE ./
 COPY src ./src
 COPY assets ./assets
+COPY examples ./examples
 
 RUN cargo build --release --locked
 

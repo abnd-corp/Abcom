@@ -4,6 +4,8 @@
 
 ## Prérequis
 
+Pour Homebrew, WinGet et Nix sans catalogue public, voir les [recettes d’installation](../packaging/README.fr.md). Homebrew et WinGet utilisent les artefacts de release ; Nix construit depuis les sources. Le guide détaille aussi l’essai d’un cask compilé localement et les contraintes de signature macOS. Les prérequis Rust ci-dessous concernent la compilation depuis le dépôt.
+
 - Rust via `rustup`, au moins la version déclarée dans `Cargo.toml` : **1.95**.
 - Session graphique et pilote compatible. La compilation CI ne remplace pas une validation native par OS.
 - Réseau : les machines doivent être sur le même LAN, ports 9000-9001/tcp et 9001/udp ouverts entre elles.
@@ -59,7 +61,7 @@ Sans argument, le pseudo reprend la variable `USER`/`USERNAME`. Le binaire compi
 
 Avec le tray actif, quitter par son menu avant de tester un redémarrage : la croix masque normalement la fenêtre.
 
-Le [workflow de release](../.github/workflows/release.yml) vise Linux x86-64, macOS Apple silicon et Windows x86-64. Vérifier les [releases réellement publiées](https://github.com/abnd-corp/Abcom/releases) pour les téléchargements disponibles. Les binaires macOS nus ne sont pas signés ni notarisés : vérifier leur origine et la somme SHA-256 publiée avant de suivre les autorisations de Confidentialité et sécurité.
+Le [workflow de release](../.github/workflows/release.yml) vise Linux x86-64, macOS Apple silicon et Windows x86-64. Vérifier les [releases réellement publiées](https://github.com/abnd-corp/Abcom/releases) pour les téléchargements disponibles. La signature ad hoc macOS n’est pas une signature Developer ID ni une notarisation : vérifier l’origine et la somme SHA-256 publiée avant toute autorisation de Confidentialité et sécurité.
 
 ### Variables d'environnement
 
@@ -133,7 +135,7 @@ python3 scripts/package_macos.py target/release/abcom dist/Abcom.app
 open dist/Abcom.app
 ```
 
-Le workflow de release archive ce bundle `.app` (`corp.abnd.abcom`). Il n’est ni signé avec un certificat Developer ID ni notarisé ; vérifier son origine et la somme SHA-256 avant les autorisations de sécurité. Les notifications d’un binaire nu peuvent toujours être attribuées au terminal ; vérifier leur attribution en lançant le bundle sur la machine cible.
+Le workflow de release archive ce bundle `.app` (`corp.abnd.abcom`). Le script le signe ad hoc et vérifie son intégrité ; il n’est ni signé avec un certificat Developer ID ni notarisé. Un téléchargement en quarantaine peut rester bloqué, même si Homebrew réussit l’installation : voir les [cas local et distribué](../packaging/README.fr.md#homebrew-sur-macos). Les notifications d’un binaire nu peuvent toujours être attribuées au terminal ; vérifier leur attribution en lançant le bundle sur la machine cible.
 
 ## Windows
 

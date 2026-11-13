@@ -221,6 +221,8 @@ For 11.10, use a disposable copy of a real older database containing a group and
 | L7 | Dynamic musl/Alpine | Builds with documented packages and runs with a GUI/driver |
 | L8 | KSNI startup and watcher arrival | On a private D-Bus session create the tray, change the badge and quit; on a real desktop test Open/Quit, hide/restore and a watcher appearing after startup |
 | L9 | Linux branding | Installed launcher uses the new logo; colour tray and unread badge remain visible on the target panel |
+| L10 | AppImage | Download/verify, launch with and without FUSE, check autostart path, tray, audio and LAN exchanges on the target desktop |
+| L11 | Flatpak | Install bundle, launch, attach/export through portals, verify isolated data and no misleading autostart; test tray/notifications/LAN, then uninstall retaining data |
 
 | ID | macOS check | Expected |
 |---|---|---|
@@ -231,6 +233,7 @@ For 11.10, use a disposable copy of a real older database containing a group and
 | M5 | Refocus open conversation | Read receipt sent |
 | M6 | Inspect `identity.key` | Owner-only permissions |
 | M7 | Native icons | New Finder/Dock logo in the bundle; hide/restore retains it; menu-bar template readable on light/dark backgrounds and Retina, with/without unread messages Also run `cargo run --locked --example check_macos_dock_after_frame` to inspect the icon after framework rendering. |
+| M8 | Homebrew | Install, reinstall and uninstall through the local tap; verify actual launch, signature, autostart path and data retention; distinguish local builds from quarantined downloads |
 
 | ID | Windows check | Expected |
 |---|---|---|
@@ -241,6 +244,7 @@ For 11.10, use a disposable copy of a real older database containing a group and
 | W5 | Send file with spaces in path | Correct transfer |
 | W6 | Refocus restored window | Read receipt sent |
 | W7 | Native icons | Explorer, shortcuts and taskbar use the new logo at different scales; colour tray has a visible badge |
+| W8 | WinGet | Validate the local manifest, install/reinstall, verify Start menu and launch, then uninstall; data retained, shortcut and autostart removed |
 
 ## 14. Minimum pre-release pass
 

@@ -3,7 +3,7 @@ name: Release
 # Publication d'une GitHub Release sur tag `vX.Y.Z` (y compris les préversions
 # `v1.0.0-beta.1`), avec un binaire par plateforme cible.
 #
-# Limite connue et assumée : le binaire macOS n'est **ni signé ni notarisé**
+# Limite connue et assumée : signature macOS ad hoc, sans Developer ID ni notarisation
 # (aucun certificat Developer ID dans les secrets du dépôt). Gatekeeper le
 # bloquera sur une autre machine que celle de build — cf. docs/06-installation.md.
 # Ajouter la signature = fournir les secrets et une étape `codesign`/`notarytool`.
@@ -38,13 +38,29 @@ jobs:
             target: x86_64-pc-windows-msvc
             archive: abcom-windows-x86_64.zip
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Vérifier la version du tag
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          python3 - <<'PYTHON'
+          import os, re, tomllib
+          from pathlib import Path
+          version = tomllib.loads(Path("Cargo.toml").read_text())["package"]["version"]
+          tag = os.environ["RELEASE_TAG"]
+          if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?", tag) or tag != f"v{version}":
+              raise SystemExit("Le tag doit correspondre à la version de Cargo.toml")
+          PYTHON
 
       - name: Dépendances système (Linux)
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
         with:
           targets: ${{ matrix.target }}
 
@@ -65,29 +81,57 @@ jobs:
         if: runner.os == 'Windows'
         run: Compress-Archive -Path target/${{ matrix.target }}/release/abcom.exe -DestinationPath ${{ matrix.archive }}
 
-      - uses: actions/upload-artifact@v4
+      - name: Installateur utilisateur (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./scripts/package_windows.ps1 -BinaryPath target/${{ matrix.target }}/release/abcom.exe
+          Copy-Item dist/windows/abcom-windows-x86_64-setup.exe .
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ${{ matrix.archive }}
-          path: ${{ matrix.archive }}
+          path: |
+            ${{ matrix.archive }}
+            abcom-windows-x86_64-setup.exe
+
+  linux-formats:
+    uses: ./.github/workflows/linux-packages.yml
+    with:
+      source-ref: ${{ inputs.tag || github.ref }}
+    permissions:
+      contents: read
 
   publish:
     name: Publier la Release
-    needs: build
+    needs: [build, linux-formats]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           path: artifacts
           merge-multiple: true
 
-      - name: Empreintes SHA-256
-        run: (cd artifacts && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+      - name: Recettes sans soumission aux catalogues
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          python3 scripts/prepare_packages.py --artifacts artifacts --output dist/packages --base-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}"
+          cp scripts/install-homebrew.sh dist/packages/homebrew/
+          tar -czf artifacts/abcom-package-recipes.tar.gz -C dist/packages homebrew winget
 
-      - uses: softprops/action-gh-release@v2
+      - name: Empreintes SHA-256
+        run: |
+          python3 scripts/write_checksums.py artifacts
+          cat artifacts/SHA256SUMS.txt
+
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
           # Une préversion (`-beta`, `-rc`) n'est pas publiée comme « latest ».
@@ -95,6 +139,49 @@ jobs:
           body: |
             Voir [CHANGELOG.md](https://github.com/abnd-corp/Abcom/blob/main/CHANGELOG.md).
 
-            ⚠️ Le binaire macOS n'est pas signé : au premier lancement, autoriser
-            l'application dans Réglages → Confidentialité et sécurité.
+            ⚠️ Signature macOS ad hoc, sans Developer ID ni notarisation :
+            un téléchargement peut être bloqué par Gatekeeper.
+            Voir les recettes d’installation et les limites dans packaging/README.fr.md.
           files: artifacts/*
+
+  update-tap:
+    name: Proposer le cask Homebrew
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: dev
+          fetch-depth: 0
+      - name: Télécharger la release et générer le tap
+        run: |
+          gh release download "$RELEASE_TAG" --pattern abcom-macos-aarch64.tar.gz --dir dist/tap-artifacts
+          python3 scripts/prepare_packages.py --artifacts dist/tap-artifacts --output dist/tap-recipes --version "${RELEASE_TAG#v}" --base-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}" --tap-output Casks
+      - name: Proposer la mise à jour par PR
+        run: |
+          if git diff --quiet -- Casks && [ -z "$(git ls-files --others --exclude-standard Casks)" ]; then
+            exit 0
+          fi
+          branch="feature/homebrew-${RELEASE_TAG}"
+          git switch -c "$branch"
+          git config user.name abnd-bot
+          git config user.email abnd-bot@users.noreply.github.com
+          git add Casks/abcom.rb
+          git commit -m "chore(distribution): actualise le cask Homebrew ${RELEASE_TAG}"
+          git push origin "$branch"
+          cat > /tmp/tap-pr.md <<'BODY'
+          Actualise le cask avec le binaire macOS publié et son SHA-256 calculé.
+
+          Closes #68
+
+          La promotion vers main rendra cette version disponible dans le tap.
+          Le jeton Actions ne déclenche pas les workflows de PR : un mainteneur
+          doit fermer puis rouvrir cette PR pour lancer les contrôles avant fusion.
+          BODY
+          gh pr create --base dev --head "$branch" --title "chore(distribution): actualise le cask Homebrew ${RELEASE_TAG}" --body-file /tmp/tap-pr.md
