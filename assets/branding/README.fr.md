@@ -77,3 +77,18 @@ Les diagnostics `cargo run --example check_macos_icon_sizes` et `cargo run --exa
 La CI Windows extrait l’icône de l’exécutable installé via le shell Windows, contrôle ses dimensions et la présence du corail du logo. Le test AppImage vérifie aussi la propriété EWMH `_NET_WM_ICON` de la fenêtre X11 réelle. Les tests Python contrôlent les résolutions ICO et les cartes EN/FR de 1280 × 640 pixels sous 1 Mo. Ces contrôles ne remplacent pas un examen visuel de chaque barre des tâches, panneau et réglage DPI.
 
 Au 13 novembre 2026, la page publique sert encore une image `opengraph.githubassets.com`, donc la carte GitHub générique. L’activation de `social-preview.png` reste une opération dans les réglages GitHub décrite plus haut. L’issue #63 reste ouverte jusqu’à cette activation et aux validations visuelles restantes ; une PR de tests ne suffit pas à la clôturer.
+
+## Captures natives reproductibles
+
+`examples/check_native_tray.rs` appelle le code réel du tray et des icônes dans une fenêtre eframe qui se ferme après huit secondes, sans compte ni données personnelles. `--unread` active le badge ; `--dark` choisit le fond sombre de la fenêtre.
+
+Dans un Linux jetable avec XFCE, Xvfb, D-Bus et scrot :
+
+```sh
+cargo build --release --locked --example check_native_tray
+CI=true dbus-run-session -- xvfb-run -a bash scripts/capture_linux_icons.sh target/release/examples/check_native_tray dist/visual-icons --unread
+```
+
+`GTK_THEME=Adwaita` ou `Adwaita:dark` change le panneau. Une capture 2× utilise un écran Xvfb 1920 × 1200 à 192 DPI, `GDK_SCALE=2` et `WINIT_X11_SCALE_FACTOR=2`. Les captures restent hors Git dans `dist/`.
+
+Le workflow `Contrôle visuel des icônes` capture les états clair/sombre et normal/non lu sur le bureau Windows du runner, dans l’artefact `icones-windows`. Le script refuse de tourner hors CI et échoue sans fenêtre interactive. Il indique le DPI réel du runner ; il ne simule pas un changement de DPI système. Ces captures complètent les contrôles ICO et ne certifient pas tous les panneaux ou écrans physiques.
