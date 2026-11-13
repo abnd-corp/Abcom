@@ -3,6 +3,29 @@ use std::path::PathBuf;
 use super::{attachment_label, push_unique_paths, should_send_message};
 
 #[test]
+fn toolbar_text_and_icons_have_identical_hit_boxes() {
+    use eframe::egui;
+    for scale in [1.0, 1.5, 2.0] {
+        let ctx = egui::Context::default();
+        ctx.set_zoom_factor(scale);
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            ui.horizontal(|ui| {
+                let gif = super::widgets::action_button(
+                    ui,
+                    egui::RichText::new("GIF").size(10.5),
+                    "GIF",
+                    false,
+                );
+                let icon = super::widgets::icon_button(ui, "Ajouter", false, |_, _, _| {});
+                assert_eq!(gif.rect.size(), icon.rect.size());
+                assert_eq!(gif.rect.size(), egui::vec2(28.0, 28.0));
+            });
+        });
+        output.textures_delta.clear();
+    }
+}
+
+#[test]
 fn gif_button_keeps_its_frame_and_lettering_still_on_hover() {
     use eframe::egui;
 
