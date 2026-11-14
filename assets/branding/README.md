@@ -76,4 +76,21 @@ The diagnostics `cargo run --example check_macos_icon_sizes` and `cargo run --ex
 
 Windows CI extracts the installed executable's icon through the Windows shell, checks its dimensions and the coral mark. The AppImage test also checks the actual X11 window's EWMH `_NET_WM_ICON` property. Python tests check ICO resolutions and the 1280 × 640 EN/FR sharing cards below 1 MB. These checks do not replace visual inspection of every taskbar, panel and DPI setting.
 
-As of November 13, 2026, the public page still serves an `opengraph.githubassets.com` image, the generic GitHub card. Activating `social-preview.png` remains a GitHub settings operation described above. Issue #63 remains open until activation and the remaining visual checks; a testing PR alone does not close it.
+On November 14, 2026, the custom sharing card is active. The publicly served PNG has the same SHA-256 as `social-preview.png`. Issue #63 remains open for physical Windows multi-DPI validation, as requested by the maintainer.
+
+## Reproducible native captures
+
+`examples/check_native_tray.rs` calls the actual tray and icon code in an eframe window that exits after twenty seconds, without accounts or personal data. `--unread` enables the badge; `--dark` selects the dark window theme.
+
+In disposable Linux with XFCE, Xvfb, D-Bus and scrot:
+
+```sh
+cargo build --release --locked --example check_native_tray
+CI=true dbus-run-session -- xvfb-run -a bash scripts/capture_linux_icons.sh target/release/examples/check_native_tray dist/visual-icons --unread
+```
+
+`GTK_THEME=Adwaita` or `Adwaita:dark` changes the panel. A 2× capture uses a 1920 × 1200 Xvfb screen at 192 DPI, `GDK_SCALE=2` and `WINIT_X11_SCALE_FACTOR=2`. Captures stay outside Git in `dist/`.
+
+The `Contrôle visuel des icônes` workflow captures light/dark and normal/unread states on the Windows runner's desktop in the `icones-windows` artifact. The script refuses to run outside CI and fails without an interactive window. It reports the runner's actual DPI; it does not simulate a system DPI change. These captures complement ICO checks and do not certify every panel or physical display.
+
+The eight XFCE captures (light/dark, normal/unread, 1×/2×) have been inspected. The four Windows Server 2025 captures at 96 DPI show the window icon, taskbar icon and tray with/without a badge, with the hidden-icons menu open. Light/dark refers to the diagnostic window; the Windows panel keeps the runner’s theme. Other Windows configurations remain tracked in #63.
