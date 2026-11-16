@@ -1,4 +1,4 @@
-.PHONY: all build release install uninstall run run2 rung run-multi run-windows help clean check test testv test-verbose test-module test-watch deploy-bin install-bin check-docs
+.PHONY: all build release install uninstall run run2 rung run-multi run-windows help clean check check-dbus test testv test-verbose test-module test-watch deploy-bin install-bin check-docs
 
 export PATH := $(HOME)/.cargo/bin:$(PATH)
 CARGO := cargo
@@ -29,6 +29,10 @@ check: check-docs
 ## Vérifie les guides EN/FR et leurs liens locaux
 check-docs:
 	python3 scripts/check_docs.py
+
+## Vérifie les adaptateurs d'accessibilité Linux portés vers zbus 6
+check-dbus:
+	python3 scripts/test_dbus_adapters.py
 
 ## Compile en mode développement
 build:

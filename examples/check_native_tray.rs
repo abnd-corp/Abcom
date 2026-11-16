@@ -20,6 +20,7 @@ struct Probe {
     unread: bool,
     started: Instant,
     failure: Arc<Mutex<Option<String>>>,
+    clicks: u32,
 }
 
 impl eframe::App for Probe {
@@ -42,6 +43,10 @@ impl eframe::App for Probe {
                 "No unread messages"
             });
             ui.label("Disposable diagnostic: no account, network or personal data.");
+            if ui.button("Accessible action").clicked() {
+                self.clicks += 1;
+            }
+            ui.label(format!("Action count: {}", self.clicks));
         });
         if self.started.elapsed() > Duration::from_secs(20) {
             root.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
@@ -58,7 +63,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let result = failure.clone();
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([480.0, 150.0])
+            .with_inner_size([480.0, 220.0])
             .with_icon(actual_icons::window_icon_data().ok_or("missing window icon")?),
         renderer: eframe::Renderer::Wgpu,
         ..Default::default()
@@ -78,6 +83,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 unread,
                 started: Instant::now(),
                 failure: result,
+                clicks: 0,
             }))
         }),
     )?;

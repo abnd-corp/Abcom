@@ -65,12 +65,14 @@ jobs:
           fi
           dbus-run-session -- cargo test --all-features --locked platform::tray::tests::ksni_creates_menu_and_updates_badge_without_gtk -- --ignored
 
+      - name: Protocole des adaptateurs AT-SPI
+        run: dbus-run-session -- python3 scripts/test_dbus_adapters.py --ksni
+
   supply-chain:
     name: Audit dépendances (vulnérabilités · licences)
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      issues: read
     steps:
       - uses: actions/checkout@v4
 
@@ -83,16 +85,12 @@ jobs:
         with:
           tool: cargo-audit,cargo-deny
 
-      - name: Suivi des exceptions de maintenance
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Chaîne D-Bus maintenue
         run: |
-          if grep -Eq 'id = "RUSTSEC-2026-037[012]"' deny.toml; then
-            state=$(gh issue view 59 --repo abnd-corp/Abcom --json state --jq '.state')
-            if [ "$state" != "OPEN" ]; then
-              echo "L'issue #59 doit rester ouverte tant qu'une exception D-Bus existe."
-              exit 1
-            fi
+          tree=$(cargo tree --all-features --target all --locked --prefix none)
+          if printf '%s\n' "$tree" | grep -E '^(zvariant|zvariant_derive|zbus_names) v|^zbus v5[.]'; then
+            echo "La chaîne D-Bus retirée ne doit pas revenir dans l'application."
+            exit 1
           fi
 
       - name: Vulnérabilités connues (RUSTSEC)

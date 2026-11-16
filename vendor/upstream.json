@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "ksni_upstream_port": {
+    "url": "https://github.com/iovxw/ksni/pull/48",
+    "commit": "93f005b9f94f3da633b3d067665349765089cc31"
+  },
+  "packages": [
+    {
+      "package": "accesskit_atspi_common",
+      "version": "0.21.1",
+      "registry_archive_sha256": "24f5baf62e34a4a6c30e3d697e4782f821a7337049c44c3b40576a27dfbb580d",
+      "repository": "https://github.com/AccessKit/accesskit",
+      "modified_files": [
+        "Cargo.toml",
+        "src/action.rs",
+        "src/rect.rs"
+      ]
+    },
+    {
+      "package": "accesskit_unix",
+      "version": "0.24.1",
+      "registry_archive_sha256": "30d5192871228c54f1b0fb4a85cef000e11a3804f25d2165f14afa0daa67f3f6",
+      "repository": "https://github.com/AccessKit/accesskit",
+      "modified_files": [
+        "Cargo.toml",
+        "src/atspi/bus.rs",
+        "src/atspi/interfaces/value.rs",
+        "src/atspi/object_address.rs",
+        "src/atspi/object_id.rs",
+        "src/context.rs",
+        "src/executor.rs"
+      ]
+    },
+    {
+      "package": "atspi",
+      "version": "0.29.0",
+      "registry_archive_sha256": "c77886257be21c9cd89a4ae7e64860c6f0eefca799bb79127913052bd0eefb3d",
+      "repository": "https://github.com/odilia-app/atspi",
+      "modified_files": [
+        "Cargo.toml"
+      ]
+    },
+    {
+      "package": "atspi-common",
+      "version": "0.13.0",
+      "registry_archive_sha256": "20c5617155740c98003016429ad13fe43ce7a77b007479350a9f8bf95a29f63d",
+      "repository": "https://github.com/odilia-app/atspi",
+      "modified_files": [
+        "Cargo.toml",
+        "src/action.rs",
+        "src/cache.rs",
+        "src/error.rs",
+        "src/events/cache.rs",
+        "src/events/event_body.rs",
+        "src/events/event_wrappers.rs",
+        "src/events/keyboard.rs",
+        "src/events/mouse.rs",
+        "src/events/object.rs",
+        "src/events/registry.rs",
+        "src/events/traits.rs",
+        "src/events/window.rs",
+        "src/interface.rs",
+        "src/lib.rs",
+        "src/macros.rs",
+        "src/object_match.rs",
+        "src/object_ref.rs",
+        "src/relation_type.rs",
+        "src/role.rs",
+        "src/state.rs"
+      ]
+    },
+    {
+      "package": "atspi-proxies",
+      "version": "0.13.0",
+      "registry_archive_sha256": "2230e48787ed3eb4088996eab66a32ca20c0b67bbd4fd6cdfe79f04f1f04c9fc",
+      "repository": "https://github.com/odilia-app/atspi",
+      "modified_files": [
+        "Cargo.toml",
+        "src/accessible.rs",
+        "src/collection.rs",
+        "src/device_event_controller.rs",
+        "src/proxy_ext.rs",
+        "src/socket.rs",
+        "src/text.rs"
+      ]
+    },
+    {
+      "package": "ksni",
+      "version": "0.3.7",
+      "registry_archive_sha256": "1bcc1cb43797140f74b711f1c4a49f48a7a7429f211c5fb78264e7bcd1e99caf",
+      "repository": "https://github.com/iovxw/ksni",
+      "modified_files": [
+        "Cargo.toml",
+        "README.md",
+        "src/dbus_interface.rs",
+        "src/menu/mod.rs",
+        "src/service.rs",
+        "src/tray.rs",
+        "tests/async_tests/mod.rs",
+        "tests/blocking.rs",
+        "tests/common/blocking_zbus.rs",
+        "tests/common/mod.rs"
+      ]
+    }
+  ]
+}

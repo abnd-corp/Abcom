@@ -19,6 +19,7 @@ in rustPlatform.buildRustPackage {
       (root + /Cargo.toml) (root + /Cargo.lock) (root + /build.rs)
       (lib.fileset.fileFilter (file: file.hasExt "rs") (root + /src))
       (root + /assets) (root + /examples)
+      (root + /vendor)
       (root + /scripts/package_macos.py) (root + /LICENSE)
     ];
   };
