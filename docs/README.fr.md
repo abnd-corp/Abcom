@@ -19,6 +19,7 @@ Commencer par l'installation et le guide utilisateur. Les références technique
 
 ## Références de maintenance
 
+- [Stack et entretien des dépendances](stack.fr.md) : versions, notes amont et correctifs des adaptateurs.
 - [Mesurer les performances](12-performances.md) : scénarios reproductibles, outils et interprétation.
 - [Journal de maintenance et audits](08-historique-et-audits.md) : résultats datés et avis de dépendances non résolus.
 

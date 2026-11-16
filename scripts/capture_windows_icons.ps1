@@ -1,7 +1,8 @@
 # Native screenshots on disposable Windows CI, never on a personal desktop.
 param(
     [Parameter(Mandatory = $true)][string]$BinaryPath,
-    [string]$OutputPath = 'dist/visual-icons'
+    [string]$OutputPath = 'dist/visual-icons',
+    [int]$ExpectedDpi = 0
 )
 $ErrorActionPreference = 'Stop'
 if ($env:CI -ne 'true') { throw 'Use a disposable CI runner' }
@@ -16,11 +17,18 @@ Add-Type @'
 using System;
 using System.Runtime.InteropServices;
 public static class VisualMouse {
+    [DllImport("user32.dll")] public static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
+    [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr window);
     [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern IntPtr FindWindow(string name, string title);
     [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
 }
 '@
+[VisualMouse]::SetThreadDpiAwarenessContext([IntPtr](-4)) | Out-Null
+$TaskbarDpi = [VisualMouse]::GetDpiForWindow([VisualMouse]::FindWindow('Shell_TrayWnd', $null))
+if ($TaskbarDpi -eq 0) { throw 'Taskbar DPI unavailable' }
+if ($ExpectedDpi -gt 0 -and $TaskbarDpi -ne $ExpectedDpi) { throw "Expected DPI $ExpectedDpi, got $TaskbarDpi" }
+Write-Output "Taskbar DPI: $TaskbarDpi"
 $Shell = New-Object -ComObject Shell.Application
 $Shell.MinimizeAll()
 function Show-NotificationIcons {
@@ -38,7 +46,7 @@ function Show-NotificationIcons {
         $Name = $Item.Current.Name
         $Rect = $Item.Current.BoundingRectangle
         Write-Output "Taskbar control: name='$Name' id='$($Item.Current.AutomationId)' rect=$Rect"
-        if ($Name -match 'hidden|overflow|chevron' -and $Rect.Width -gt 0 -and $Rect.Height -gt 0) {
+        if ($Name -match 'hidden|overflow|chevron|Afficher les ic.nes' -and $Rect.Width -gt 0 -and $Rect.Height -gt 0) {
             [VisualMouse]::SetCursorPos([int]($Rect.X + $Rect.Width / 2), [int]($Rect.Y + $Rect.Height / 2)) | Out-Null
             [VisualMouse]::mouse_event(2, 0, 0, 0, [UIntPtr]::Zero)
             [VisualMouse]::mouse_event(4, 0, 0, 0, [UIntPtr]::Zero)
@@ -50,6 +58,7 @@ function Show-NotificationIcons {
     }
     throw 'Notification overflow button unavailable; tray badge cannot be certified'
 }
+try {
 foreach ($Theme in @('light', 'dark')) {
     foreach ($State in @('normal', 'unread')) {
         $Arguments = @()
@@ -63,6 +72,7 @@ foreach ($Theme in @('light', 'dark')) {
         }
         if ($Arguments.Count -gt 0) { $Parameters.ArgumentList = $Arguments }
         $Process = Start-Process @Parameters
+        $null = $Process.Handle
         try {
             Start-Sleep -Seconds 4
             $Process.Refresh()
@@ -80,6 +90,8 @@ foreach ($Theme in @('light', 'dark')) {
                 } finally { $Graphics.Dispose() }
             } finally { $Bitmap.Dispose() }
             if (-not $Process.WaitForExit(25000)) { throw 'Native probe did not exit' }
+            $Process.Refresh()
+            if ($null -eq $Process.ExitCode) { throw 'Native probe exit code unavailable' }
             if ($Process.ExitCode -ne 0) { throw "Native probe failed: $($Process.ExitCode)" }
         } finally {
             if (-not $Process.HasExited) { $Process.Kill(); $Process.WaitForExit() }
@@ -87,4 +99,6 @@ foreach ($Theme in @('light', 'dark')) {
     }
 }
 
-$Shell.UndoMinimizeAll()
+} finally {
+    $Shell.UndoMinimizeAll()
+}

@@ -46,8 +46,16 @@ async fn round_trip_large_message_spans_frames() {
     // Noise (cas des annonces d'avatar, qui échouaient en clair à 64 Ko).
     let (mut alice, mut bob, _, _) = secure_pair().await;
     let big: Vec<u8> = (0..300_000u32).map(|i| (i % 251) as u8).collect();
-    alice.send(&big).await.unwrap();
-    assert_eq!(bob.recv().await.unwrap(), big);
+    socket2::SockRef::from(&alice.stream)
+        .set_send_buffer_size(4096)
+        .unwrap();
+    let (sent, received) = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        tokio::join!(alice.send(&big), bob.recv())
+    })
+    .await
+    .expect("les grosses trames doivent circuler même avec un petit tampon TCP");
+    sent.unwrap();
+    assert_eq!(received.unwrap(), big);
 }
 
 #[tokio::test]

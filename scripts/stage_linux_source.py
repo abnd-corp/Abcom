@@ -14,11 +14,14 @@ def main():
     parser.add_argument("destination", type=Path)
     args = parser.parse_args()
     args.destination.mkdir(parents=True, exist_ok=False)
-    tracked = subprocess.check_output(["git", "ls-files", "-z", "--", "src", "assets", "examples"], cwd=ROOT).decode().split("\0")
-    names = {name for name in tracked if name and (name.startswith("assets/") or name.endswith(".rs"))
+    tracked = subprocess.check_output(["git", "ls-files", "-z", "--", "src", "assets", "examples", "tests/fixtures"], cwd=ROOT).decode().split("\0")
+    names = {name for name in tracked if name and (name.startswith(("assets/", "tests/fixtures/")) or name.endswith(".rs"))
              and not any(part.startswith(".env") or part.endswith((".key", ".pem", ".p12")) for part in Path(name).parts)}
     names.update(["Cargo.toml", "Cargo.lock", "build.rs", "LICENSE",
-                  "scripts/package_appimage.py", "scripts/package_flatpak.sh", "scripts/write_checksums.py"])
+                  "scripts/package_appimage.py", "scripts/package_flatpak.sh", "scripts/write_checksums.py",
+                  "scripts/test_linux_accessibility.py"])
+    names.update(str(path.relative_to(ROOT)) for path in (ROOT / "vendor").rglob("*")
+                 if path.is_file() and "target" not in path.parts and path.suffix != ".lock")
     names.update("packaging/linux/" + name for name in [
         "AppRun", "Dockerfile", "appimage-tools.json",
         "corp.abnd.abcom.desktop", "corp.abnd.abcom.metainfo.xml",

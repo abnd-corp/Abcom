@@ -155,3 +155,12 @@ lto = "thin"
 codegen-units = 1
 strip = true
 panic = "abort"
+
+# Adaptateurs Linux portés vers zbus 6 ; provenance et retrait : vendor/README.md.
+[patch.crates-io]
+accesskit_unix = { path = "vendor/accesskit_unix" }
+accesskit_atspi_common = { path = "vendor/accesskit_atspi_common" }
+atspi = { path = "vendor/atspi" }
+atspi-common = { path = "vendor/atspi-common" }
+atspi-proxies = { path = "vendor/atspi-proxies" }
+ksni = { path = "vendor/ksni" }

@@ -19,6 +19,7 @@ Start with installation and the user guide. The technical references describe th
 
 ## Maintenance references
 
+- [Stack and upstream maintenance](stack.md): versions, release notes and local adapter patches.
 - [Performance measurement](en/12-performance.md): reproducible scenarios, tools and interpretation.
 - [Maintenance and audit log](en/08-history-and-audits.md): dated validation results and unresolved dependency advisories.
 

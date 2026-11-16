@@ -18,6 +18,7 @@ COPY LICENSE ./
 COPY src ./src
 COPY assets ./assets
 COPY examples ./examples
+COPY vendor ./vendor
 
 RUN cargo build --release --locked
 
