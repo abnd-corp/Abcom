@@ -2,8 +2,8 @@
 
 use eframe::egui;
 use jiff::civil::Date;
-use jiff::tz::TimeZone;
-use jiff::Timestamp;
+
+use crate::util::local_time;
 
 use crate::message::{ChatMessage, ReactionEntry};
 
@@ -104,16 +104,6 @@ const MONTHS_EN: [&str; 12] = [
 /// Jour local d'un message à partir de son instant Unix (`None` si absent).
 pub(crate) fn message_day(msg: &ChatMessage) -> Option<Date> {
     local_time(msg.timestamp_epoch?).map(|zoned| zoned.date())
-}
-
-/// Instant Unix dans le fuseau du système (`None` hors de la plage représentable).
-fn local_time(epoch: u64) -> Option<jiff::ZonedDateTime> {
-    let seconds = i64::try_from(epoch).ok()?;
-    Some(
-        Timestamp::from_second(seconds)
-            .ok()?
-            .to_zoned_datetime(TimeZone::system()),
-    )
 }
 
 /// Heure d'en-tête au format 24 h, dérivée de l'instant Unix si présent,
