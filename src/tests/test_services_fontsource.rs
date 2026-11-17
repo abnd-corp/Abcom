@@ -277,3 +277,16 @@ fn writing_the_cache_into_an_impossible_place_is_silent() {
         1,
     );
 }
+
+#[test]
+fn italic_files_are_requested_only_when_advertised() {
+    let mut font = font("inter", "Inter");
+    assert_eq!(files_to_fetch(&font).len(), 4);
+    font.styles.push("italic".into());
+    let files = files_to_fetch(&font);
+    assert_eq!(files.len(), 8);
+    assert!(files[4..].iter().all(|(part, url)| part.is_italic()
+        && !part.is_required()
+        && url.ends_with("-italic.woff2")));
+    assert!(files[6..].iter().all(|(part, _)| part.is_bold()));
+}

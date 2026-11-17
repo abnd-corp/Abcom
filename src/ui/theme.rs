@@ -195,6 +195,8 @@ impl Typography {
 pub(crate) const MSG_FAMILY: &str = "msg";
 /// Gras des conversations : noms d'auteur et `**gras**`.
 pub(crate) const MSG_BOLD_FAMILY: &str = "msg-bold";
+/// Gras italique des conversations.
+pub(crate) const MSG_BOLD_ITALIC_FAMILY: &str = "msg-bold-italic";
 /// Italique des conversations.
 pub(crate) const MSG_ITALIC_FAMILY: &str = "msg-italic";
 
@@ -234,6 +236,7 @@ pub(crate) struct TextMetrics {
     pub(crate) msg_real_bold: bool,
     /// La police des conversations a une vraie coupe italique.
     pub(crate) msg_real_italic: bool,
+    pub(crate) msg_real_bold_italic: bool,
 }
 
 impl TextMetrics {
@@ -262,14 +265,16 @@ impl TextMetrics {
                 .max(Self::MIN_COMPOSER_LINE_HEIGHT),
             dark_text_gamma: typography.dark_text_gamma,
             msg_real_bold: typography.font == FontKind::Inter,
-            msg_real_italic: typography.font == FontKind::Inter,
+            msg_real_italic: true,
+            msg_real_bold_italic: true,
         }
     }
 
     /// Reporte sur les métriques les coupes réellement disponibles.
-    pub(crate) fn with_font_cuts(mut self, bold: bool, italic: bool) -> Self {
+    pub(crate) fn with_font_cuts(mut self, bold: bool, italic: bool, bold_italic: bool) -> Self {
         self.msg_real_bold = bold;
         self.msg_real_italic = italic;
+        self.msg_real_bold_italic = bold_italic;
         self
     }
 }

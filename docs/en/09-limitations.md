@@ -43,12 +43,10 @@ Chat and media use separate TCP listeners. Multiplexing would require a delibera
 
 The language selector is session-only and startup uses French. Appearance, theme mode and storage preferences do persist. Personal themes and imported fonts need writable data directories; failed saves can leave changes active only for the session.
 
-The following features are retained in the backlog, with no implementation date:
+The following two ideas are **optional and not a priority**, with no implementation scheduled:
 
-- [VS Code theme import](https://github.com/abnd-corp/Abcom/issues/55).
 - [Abcom theme JSON import/export](https://github.com/abnd-corp/Abcom/issues/56).
 - [Sharing themes in a conversation](https://github.com/abnd-corp/Abcom/issues/57).
-- [Italic variants of the suggested fonts](https://github.com/abnd-corp/Abcom/issues/58).
 
 They are not available yet. The issues describe their scope and expected validation.
 

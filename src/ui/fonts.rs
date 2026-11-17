@@ -187,6 +187,32 @@ impl SuggestedFont {
         }
     }
 
+    fn italic_files(self, bold: bool) -> &'static [&'static [u8]] {
+        macro_rules! cuts {
+            ($dir:literal) => {
+                if bold {
+                    suggestion_files!($dir, ["latin-700-italic", "latin-ext-700-italic"])
+                } else {
+                    suggestion_files!($dir, ["latin-400-italic", "latin-ext-400-italic"])
+                }
+            };
+        }
+        match self {
+            Self::Atkinson => cuts!("atkinson-hyperlegible"),
+            Self::Lexend => &[],
+            Self::OpenDyslexic => {
+                if bold {
+                    suggestion_files!("opendyslexic", ["latin-700-italic"])
+                } else {
+                    suggestion_files!("opendyslexic", ["latin-400-italic"])
+                }
+            }
+            Self::Literata => cuts!("literata"),
+            Self::Nunito => cuts!("nunito"),
+            Self::JetBrainsMono => cuts!("jetbrains-mono"),
+        }
+    }
+
     /// Polices décodées, gardées en mémoire une fois pour toutes.
     pub(crate) fn decoded(self) -> Result<DecodedFont, FontError> {
         static CACHE: OnceLock<Mutex<std::collections::HashMap<SuggestedFont, DecodedFont>>> =
@@ -204,6 +230,8 @@ impl SuggestedFont {
         let font = DecodedFont {
             regular: decode_all(self.regular_files())?,
             bold: decode_all(self.bold_files())?,
+            italic: decode_all(self.italic_files(false))?,
+            bold_italic: decode_all(self.italic_files(true))?,
         };
         if let Ok(mut cache) = cache.lock() {
             cache.insert(self, font.clone());
@@ -213,10 +241,50 @@ impl SuggestedFont {
 }
 
 /// Fichiers d'une police prêts pour egui : un ou plusieurs sous-ensembles par coupe.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub(crate) struct DecodedFont {
     pub(crate) regular: Vec<Arc<Vec<u8>>>,
     pub(crate) bold: Vec<Arc<Vec<u8>>>,
+    pub(crate) italic: Vec<Arc<Vec<u8>>>,
+    pub(crate) bold_italic: Vec<Arc<Vec<u8>>>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum FontCut {
+    Bold,
+    Italic,
+    BoldItalic,
+}
+
+impl FontCut {
+    pub(crate) const ALL: [Self; 3] = [Self::Bold, Self::Italic, Self::BoldItalic];
+    pub(crate) fn id(self) -> &'static str {
+        match self {
+            Self::Bold => "bold",
+            Self::Italic => "italic",
+            Self::BoldItalic => "bold-italic",
+        }
+    }
+    fn is_bold(self) -> bool {
+        self != Self::Italic
+    }
+    fn is_italic(self) -> bool {
+        self != Self::Bold
+    }
+    pub(crate) fn files(self, font: &ImportedFont) -> &[String] {
+        match self {
+            Self::Bold => &font.bold,
+            Self::Italic => &font.italic,
+            Self::BoldItalic => &font.bold_italic,
+        }
+    }
+    fn files_mut(self, font: &mut ImportedFont) -> &mut Vec<String> {
+        match self {
+            Self::Bold => &mut font.bold,
+            Self::Italic => &mut font.italic,
+            Self::BoldItalic => &mut font.bold_italic,
+        }
+    }
 }
 
 /// Choix de police d'une zone (interface ou conversations).
@@ -312,7 +380,16 @@ impl FontPlan {
     }
 
     pub(crate) fn real_italic(&self) -> bool {
-        matches!(self, Self::Theme(FontKind::Inter))
+        match self {
+            Self::Theme(_) => true,
+            Self::Files { font, .. } => !font.italic.is_empty(),
+        }
+    }
+    pub(crate) fn real_bold_italic(&self) -> bool {
+        match self {
+            Self::Theme(_) => true,
+            Self::Files { font, .. } => !font.bold_italic.is_empty(),
+        }
     }
 }
 
@@ -356,7 +433,7 @@ pub(crate) fn resolve_choice(
                 .map(|f| f.hash.clone())
                 .ok_or(FontError::Unreadable)?;
             FontPlan::Files {
-                key: format!("imported:{id}:{hash}"),
+                key: format!("imported:{id}:{hash}:{}", store.revision),
                 font: store.read_font(id)?,
             }
         }
@@ -379,6 +456,10 @@ pub(crate) struct ImportedFont {
     /// Fichiers de la coupe grasse, quand la police en a une.
     #[serde(default)]
     pub(crate) bold: Vec<String>,
+    #[serde(default)]
+    pub(crate) italic: Vec<String>,
+    #[serde(default)]
+    pub(crate) bold_italic: Vec<String>,
     /// D'où vient la police : `fichier` ou `fontsource:<id>`.
     #[serde(default)]
     pub(crate) source: String,
@@ -389,6 +470,8 @@ impl ImportedFont {
         std::iter::once(&self.file)
             .chain(&self.extra)
             .chain(&self.bold)
+            .chain(&self.italic)
+            .chain(&self.bold_italic)
     }
 }
 
@@ -413,6 +496,8 @@ pub(crate) enum ImportError {
     Font(FontError),
     /// Lecture ou écriture impossible.
     Io(String),
+    FamilyMismatch,
+    StyleMismatch,
 }
 
 impl FontStore {
@@ -486,7 +571,19 @@ impl FontStore {
         if !bold.is_empty() {
             check(&bold)?;
         }
-        Ok(DecodedFont { regular, bold })
+        let italic = load(&mut font.italic.iter())?;
+        let bold_italic = load(&mut font.bold_italic.iter())?;
+        for files in [&italic, &bold_italic] {
+            if !files.is_empty() {
+                check(files)?;
+            }
+        }
+        Ok(DecodedFont {
+            regular,
+            bold,
+            italic,
+            bold_italic,
+        })
     }
 
     /// Importe un fichier : taille, décodage, validation, puis copie.
@@ -515,6 +612,17 @@ impl FontStore {
         bold: &[&[u8]],
         source: &str,
     ) -> Result<ImportOutcome, ImportError> {
+        self.import_styles(regular, bold, &[], &[], source)
+    }
+
+    pub(crate) fn import_styles(
+        &mut self,
+        regular: &[&[u8]],
+        bold: &[&[u8]],
+        italic: &[&[u8]],
+        bold_italic: &[&[u8]],
+        source: &str,
+    ) -> Result<ImportOutcome, ImportError> {
         if source != "fichier" {
             if let Some(existing) = self.fonts.iter().find(|f| f.source == source) {
                 return Ok(ImportOutcome::Existing(existing.clone()));
@@ -528,6 +636,8 @@ impl FontStore {
         };
         let regular = decode(regular)?;
         let bold = decode(bold)?;
+        let italic = decode(italic)?;
+        let bold_italic = decode(bold_italic)?;
         let parts = |files: &[Vec<u8>]| -> Vec<(Vec<u8>, u32)> {
             files.iter().map(|f| (f.clone(), 0)).collect()
         };
@@ -540,6 +650,11 @@ impl FontStore {
         let family = check(&regular)?;
         if !bold.is_empty() {
             check(&bold)?;
+        }
+        for files in [&italic, &bold_italic] {
+            if !files.is_empty() {
+                check(files)?;
+            }
         }
         let hash = hex_digest(&regular.concat());
         if let Some(existing) = self.fonts.iter().find(|f| f.hash == hash) {
@@ -556,12 +671,16 @@ impl FontStore {
             .map(|(n, _)| format!("{id}-{}.ttf", n + 1))
             .collect::<Vec<_>>();
         let bold_files = names("-b", bold.len());
+        let italic_files = names("-i", italic.len());
+        let bold_italic_files = names("-bi", bold_italic.len());
         std::fs::create_dir_all(&self.dir).map_err(|e| ImportError::Io(e.to_string()))?;
         let mut written: Vec<String> = Vec::new();
         let outputs = std::iter::once(&file)
             .chain(&extra)
             .zip(&regular)
-            .chain(bold_files.iter().zip(&bold));
+            .chain(bold_files.iter().zip(&bold))
+            .chain(italic_files.iter().zip(&italic))
+            .chain(bold_italic_files.iter().zip(&bold_italic));
         for (name, bytes) in outputs {
             if let Err(err) = write_atomic(&self.dir.join(name), bytes) {
                 for done in &written {
@@ -578,6 +697,8 @@ impl FontStore {
             file,
             extra,
             bold: bold_files,
+            italic: italic_files,
+            bold_italic: bold_italic_files,
             source: source.to_owned(),
         };
         self.fonts.push(font.clone());
@@ -591,6 +712,75 @@ impl FontStore {
         }
         self.revision += 1;
         Ok(ImportOutcome::Added(font))
+    }
+
+    /// Associe une coupe vérifiée ; l'index est écrit avant de retirer l'ancien fichier.
+    pub(crate) fn attach_cut(
+        &mut self,
+        id: &str,
+        cut: FontCut,
+        path: &Path,
+    ) -> Result<(), ImportError> {
+        let index = self
+            .fonts
+            .iter()
+            .position(|f| f.id == id)
+            .ok_or(ImportError::Font(FontError::Unreadable))?;
+        let meta = std::fs::metadata(path).map_err(|e| ImportError::Io(e.to_string()))?;
+        if meta.len() > MAX_FONT_FILE_BYTES {
+            return Err(ImportError::Font(FontError::TooLarge));
+        }
+        let raw = std::fs::read(path).map_err(|e| ImportError::Io(e.to_string()))?;
+        if raw.len() as u64 > MAX_FONT_FILE_BYTES {
+            return Err(ImportError::Font(FontError::TooLarge));
+        }
+        let bytes = decode_font(&raw).map_err(ImportError::Font)?;
+        validate_font_set(&[(&bytes, 0)]).map_err(ImportError::Font)?;
+        let regular = self.read_font(id).map_err(ImportError::Font)?.regular;
+        let family = |data: &[u8]| -> Result<String, ImportError> {
+            let face = skrifa::FontRef::from_index(data, 0)
+                .map_err(|_| ImportError::Font(FontError::Unreadable))?;
+            Ok(face
+                .localized_strings(skrifa::string::StringId::TYPOGRAPHIC_FAMILY_NAME)
+                .english_or_first()
+                .or_else(|| {
+                    face.localized_strings(skrifa::string::StringId::FAMILY_NAME)
+                        .english_or_first()
+                })
+                .map(|name| name.chars().collect::<String>().to_lowercase())
+                .unwrap_or_default())
+        };
+        if family(&bytes)? != family(&regular[0])? {
+            return Err(ImportError::FamilyMismatch);
+        }
+        let face = skrifa::FontRef::from_index(&bytes, 0)
+            .map_err(|_| ImportError::Font(FontError::Unreadable))?;
+        let attributes = face.attributes();
+        let italic = attributes.style != skrifa::attribute::Style::Normal;
+        let bold = attributes.weight.value() >= 600.0;
+        if italic != cut.is_italic() || bold != cut.is_bold() {
+            return Err(ImportError::StyleMismatch);
+        }
+        let name = format!("{id}-{}-{}.ttf", cut.id(), &hex_digest(&bytes)[..16]);
+        let previous = self.fonts[index].clone();
+        let old = cut.files(&previous).to_vec();
+        if old == [name.clone()] {
+            return Ok(());
+        }
+        write_atomic(&self.dir.join(&name), &bytes).map_err(ImportError::Io)?;
+        *cut.files_mut(&mut self.fonts[index]) = vec![name.clone()];
+        if let Err(error) = self.save_index() {
+            self.fonts[index] = previous;
+            let _ = std::fs::remove_file(self.dir.join(&name));
+            return Err(ImportError::Io(error));
+        }
+        for file in old {
+            if file != name {
+                let _ = std::fs::remove_file(self.dir.join(file));
+            }
+        }
+        self.revision += 1;
+        Ok(())
     }
 
     /// Retire une police et son fichier.

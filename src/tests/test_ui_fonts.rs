@@ -199,6 +199,9 @@ fn every_family_ends_on_unifont_and_only_names_embedded_fonts() {
             MSG_FAMILY,
             MSG_BOLD_FAMILY,
             MSG_ITALIC_FAMILY,
+            crate::ui::theme::MSG_BOLD_ITALIC_FAMILY,
+            "ui-italic",
+            "ui-bold-italic",
         ] {
             let chain = &definitions.families[&egui::FontFamily::Name(name.into())];
             assert_eq!(chain.last().map(String::as_str), Some("unifont"), "{name}");
@@ -229,7 +232,7 @@ fn the_message_and_interface_fonts_can_differ() {
 }
 
 #[test]
-fn inter_has_a_real_italic_and_noto_sans_does_not() {
+fn builtin_fonts_have_real_italics() {
     use crate::ui::theme::{FontKind, MSG_ITALIC_FAMILY};
     let italic = |kind| {
         super::build_fonts(
@@ -243,5 +246,5 @@ fn inter_has_a_real_italic_and_noto_sans_does_not() {
             .clone()
     };
     assert_eq!(italic(FontKind::Inter), "inter-italic");
-    assert_eq!(italic(FontKind::NotoSans), "noto-sans");
+    assert_eq!(italic(FontKind::NotoSans), "noto-italic");
 }

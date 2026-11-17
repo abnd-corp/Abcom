@@ -89,6 +89,9 @@ Appearance has four sections:
 - **Colors:** background, surfaces, text and accent, plus advanced roles (21 total). Editing a built-in creates a personal copy. Enter `#RGB` or `#RRGGBB`; live text/background contrast warns below 4.5:1 without blocking the edit. The currently displayed light/dark variant is edited.
 - **Fonts:** separate interface and conversation choices, each previewed in its own font: Noto Sans, Inter, Atkinson Hyperlegible, Lexend, OpenDyslexic, Literata, Nunito and JetBrains Mono. Import `.ttf`, `.otf`, `.ttc`, `.woff` or `.woff2` up to 30 MB; decoded data is limited to 60 MB. Invalid, bitmap/color or unsupported fonts are rejected with a reason. Importing identical data selects the existing copy.
 
+
+True **italic and bold italic** files are bundled where available; Lexend uses a synthetic slant, identified in settings. Messages also recognize `***bold italic***`. For a personal font, expand **Font styles** under its name in Appearance → Fonts and associate bold, italic and bold italic files from the same family. Family and style metadata are checked; a rejected association preserves existing files. Style files are copied into the data directory and survive restarts. A single file remains sufficient: missing bold uses Inter, and missing italic uses a synthetic slant. TTC collections use their first face; variable axes are not adjustable. Missing or unreadable style files at startup cause the family to fall back with a notice.
+
 The online font catalogue is off by default. It sends no request before consent; see [Internet access](03-network-and-security.md#optional-internet-access). Themes, imported fonts and appearance settings persist in the [data directory](04-storage.md). Missing fonts fall back with a notice. A read-only directory can leave appearance changes active only for the session, with a warning.
 
 ## Storage and exports

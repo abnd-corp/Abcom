@@ -56,12 +56,10 @@ Les sélecteurs natifs ont depuis été corrigés : ils suivent une voie asynchr
 
 - La langue est un choix de session et revient au français au démarrage ; les réglages d'apparence et de stockage sont, eux, persistés.
 - Les thèmes personnels et polices importées demandent un dossier inscriptible ; un échec peut laisser le réglage appliqué seulement pour la session.
-Les fonctionnalités suivantes sont retenues dans le backlog, sans date de réalisation :
+Les deux pistes suivantes sont **optionnelles et non prioritaires**, sans réalisation planifiée :
 
-- [Import de thèmes VS Code](https://github.com/abnd-corp/Abcom/issues/55).
 - [Import/export de thèmes Abcom en JSON](https://github.com/abnd-corp/Abcom/issues/56).
 - [Partage de thèmes dans une conversation](https://github.com/abnd-corp/Abcom/issues/57).
-- [Variantes italiques des polices proposées](https://github.com/abnd-corp/Abcom/issues/58).
 
 Elles ne sont pas encore disponibles ; les issues précisent le périmètre et la validation attendue.
 

@@ -45,6 +45,7 @@ def anchors(text):
 def check(root=ROOT):
     errors = []
     pairs = [(root / "README.fr.md", root / "README.md"),
+             (root / "assets/fonts/README.fr.md", root / "assets/fonts/README.md"),
              (root / "docs/README.fr.md", root / "docs/README.md"),
              (root / "docs/stack.fr.md", root / "docs/stack.md"),
              (root / "docs/adr/0001-dbus-maintained.fr.md", root / "docs/adr/0001-dbus-maintained.md"),

@@ -347,9 +347,9 @@ pub(crate) struct AbcomApp {
     /// Remplace le sélecteur natif de fichier de police (tests) : `None` ouvre la feuille native.
     pub(crate) font_picker: Option<Box<dyn FnMut() -> Option<PathBuf>>>,
     /// Zone qui attend un fichier de police : sélecteur à ouvrir à la frame suivante.
-    pub(crate) pending_font_pick: Option<appearance_tab::FontZone>,
+    pub(crate) pending_font_pick: Option<appearance_tab::FontPick>,
     /// Zone pour laquelle un sélecteur est ouvert.
-    font_pick_zone: Option<appearance_tab::FontZone>,
+    font_pick_zone: Option<appearance_tab::FontPick>,
     /// Catalogue de polices en ligne (désactivé tant que l'utilisateur ne l'a pas autorisé).
     pub(crate) online: online_fonts::OnlineFonts,
     /// État de l'onglet Apparence des Paramètres.
@@ -1013,7 +1013,7 @@ impl AbcomApp {
                 }
                 picker::PickerOutcome::Font(path) => {
                     if let Some(zone) = self.font_pick_zone.take() {
-                        self.import_font_file(zone, &path);
+                        self.apply_font_file(zone, &path);
                     }
                 }
                 picker::PickerOutcome::Avatar(path) => {
@@ -1350,13 +1350,28 @@ pub(crate) const BOLD_FAMILY: &str = "bold";
 /// « moche » et « rien », ce qui évite les carrés vides sur du texte non latin.
 /// Polices de tête d'une famille : (normale, grasse, italique).
 ///
-/// Noto Sans garde Inter Bold pour le gras et reste droite en italique (egui
-/// penche alors le bitmap) ; elle ne dessine pas les flèches `→ ← ↑ ↓`, qu'Inter
-/// Bold prête donc en repli. Inter a ses trois coupes.
-fn font_cuts(kind: theme::FontKind) -> (&'static str, &'static str, Option<&'static str>) {
+/// Noto Sans garde Inter Bold pour le gras droit et les flèches absentes.
+fn font_cuts(
+    kind: theme::FontKind,
+) -> (
+    &'static str,
+    &'static str,
+    Option<&'static str>,
+    Option<&'static str>,
+) {
     match kind {
-        theme::FontKind::NotoSans => ("noto-sans", "inter-bold", None),
-        theme::FontKind::Inter => ("inter", "inter-semibold", Some("inter-italic")),
+        theme::FontKind::NotoSans => (
+            "noto-sans",
+            "inter-bold",
+            Some("noto-italic"),
+            Some("noto-bold-italic"),
+        ),
+        theme::FontKind::Inter => (
+            "inter",
+            "inter-semibold",
+            Some("inter-italic"),
+            Some("inter-bold-italic"),
+        ),
     }
 }
 
@@ -1370,6 +1385,12 @@ fn family_chain(head: &str, kind: theme::FontKind) -> Vec<String> {
         theme::FontKind::Inter => &["inter", "noto-symbols2", "unifont"],
     };
     std::iter::once(head)
+        .chain(match head {
+            "noto-italic" => Some("noto-italic-ext"),
+            "noto-bold-italic" => Some("noto-bold-italic-ext"),
+            "inter-bold-italic" => Some("inter-bold-italic-ext"),
+            _ => None,
+        })
         .chain(names.iter().copied().filter(|name| *name != head))
         .map(str::to_owned)
         .collect()
@@ -1392,14 +1413,15 @@ fn zone_chains(
     plan: &fonts::FontPlan,
     zone: &str,
     definitions: &mut egui::FontDefinitions,
-) -> (Vec<String>, Vec<String>, Vec<String>) {
+) -> (Vec<String>, Vec<String>, Vec<String>, Vec<String>) {
     match plan {
         fonts::FontPlan::Theme(kind) => {
-            let (regular, bold, italic) = font_cuts(*kind);
+            let (regular, bold, italic, bold_italic) = font_cuts(*kind);
             (
                 family_chain(regular, *kind),
                 family_chain(bold, *kind),
                 family_chain(italic.unwrap_or(regular), *kind),
+                family_chain(bold_italic.unwrap_or(bold), *kind),
             )
         }
         fonts::FontPlan::Files { font, .. } => {
@@ -1419,6 +1441,8 @@ fn zone_chains(
             };
             let regular = register("r", &font.regular);
             let bold = register("b", &font.bold);
+            let italic = register("i", &font.italic);
+            let bold_italic = register("bi", &font.bold_italic);
             let fallback = family_chain("noto-sans", theme::FontKind::NotoSans);
             let join = |head: Vec<String>, tail: &[String]| -> Vec<String> {
                 let mut chain = head;
@@ -1435,10 +1459,12 @@ fn zone_chains(
                 bold
             };
             let regular_chain = join(regular.clone(), &fallback);
+            let bold_chain = join(join(bold_head, &regular), &fallback);
             (
                 regular_chain.clone(),
-                join(join(bold_head, &regular), &fallback),
-                regular_chain,
+                bold_chain.clone(),
+                join(italic, &regular_chain),
+                join(bold_italic, &bold_chain),
             )
         }
     }
@@ -1481,10 +1507,58 @@ fn build_fonts(plans: &fonts::FontPlans, previews: &[PreviewFont]) -> egui::Font
     );
     embed("unifont", include_bytes!("../../assets/fonts/Unifont.otf"));
 
+    static STYLES: std::sync::OnceLock<Vec<(String, Arc<egui::FontData>)>> =
+        std::sync::OnceLock::new();
+    let styles = STYLES.get_or_init(|| {
+        let mut styles = Vec::new();
+        macro_rules! style {
+            ($name:literal, $dir:literal, $weight:literal) => {
+                for (name, raw) in [
+                    (
+                        $name,
+                        include_bytes!(concat!(
+                            "../../assets/fonts/styles/",
+                            $dir,
+                            "/latin-",
+                            $weight,
+                            "-italic.woff2"
+                        )) as &[u8],
+                    ),
+                    (
+                        concat!($name, "-ext"),
+                        include_bytes!(concat!(
+                            "../../assets/fonts/styles/",
+                            $dir,
+                            "/latin-ext-",
+                            $weight,
+                            "-italic.woff2"
+                        )) as &[u8],
+                    ),
+                ] {
+                    let bytes = fonts::decode_font(raw).expect("embedded italic font");
+                    styles.push((name.to_owned(), Arc::new(egui::FontData::from_owned(bytes))));
+                }
+            };
+        }
+        style!("noto-italic", "noto-sans", "400");
+        style!("noto-bold-italic", "noto-sans", "700");
+        style!("inter-bold-italic", "inter", "700");
+        styles
+    });
+    definitions.font_data.extend(styles.iter().cloned());
     let named = |name: &str| egui::FontFamily::Name(name.into());
-    let (ui_regular, ui_bold, _) = zone_chains(&plans.ui, "ui", &mut definitions);
-    let (msg_regular, msg_bold, msg_italic) = zone_chains(&plans.msg, "msg", &mut definitions);
+    let (ui_regular, ui_bold, ui_italic, ui_bold_italic) =
+        zone_chains(&plans.ui, "ui", &mut definitions);
+    let (msg_regular, msg_bold, msg_italic, msg_bold_italic) =
+        zone_chains(&plans.msg, "msg", &mut definitions);
     definitions.families.insert(named(BOLD_FAMILY), ui_bold);
+    definitions.families.insert(named("ui-italic"), ui_italic);
+    definitions
+        .families
+        .insert(named("ui-bold-italic"), ui_bold_italic);
+    definitions
+        .families
+        .insert(named(theme::MSG_BOLD_ITALIC_FAMILY), msg_bold_italic);
     definitions
         .families
         .insert(named(theme::MSG_FAMILY), msg_regular);

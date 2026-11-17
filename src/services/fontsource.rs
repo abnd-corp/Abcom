@@ -45,11 +45,28 @@ pub enum Part {
     LatinExt,
     BoldLatin,
     BoldLatinExt,
+    ItalicLatin,
+    ItalicLatinExt,
+    BoldItalicLatin,
+    BoldItalicLatinExt,
 }
 
 impl Part {
     pub fn is_bold(self) -> bool {
-        matches!(self, Self::BoldLatin | Self::BoldLatinExt)
+        matches!(
+            self,
+            Self::BoldLatin | Self::BoldLatinExt | Self::BoldItalicLatin | Self::BoldItalicLatinExt
+        )
+    }
+
+    pub fn is_italic(self) -> bool {
+        matches!(
+            self,
+            Self::ItalicLatin
+                | Self::ItalicLatinExt
+                | Self::BoldItalicLatin
+                | Self::BoldItalicLatinExt
+        )
     }
 
     /// Sans lui, la police n'a pas de lettres : le téléchargement échoue.
@@ -168,6 +185,24 @@ pub fn files_to_fetch(font: &CatalogFont) -> Vec<(Part, String)> {
         files.push((Part::BoldLatin, file_url(&font.id, "latin", 700)));
         if has("latin-ext") {
             files.push((Part::BoldLatinExt, file_url(&font.id, "latin-ext", 700)));
+        }
+    }
+    if font.styles.iter().any(|s| s == "italic") {
+        for (part, subset, weight) in [
+            (Part::ItalicLatin, "latin", regular_weight),
+            (Part::ItalicLatinExt, "latin-ext", regular_weight),
+            (Part::BoldItalicLatin, "latin", 700),
+            (Part::BoldItalicLatinExt, "latin-ext", 700),
+        ] {
+            if !has(subset)
+                || (part.is_bold() && (!font.weights.contains(&700) || regular_weight == 700))
+            {
+                continue;
+            }
+            files.push((
+                part,
+                file_url(&font.id, subset, weight).replace("-normal.woff2", "-italic.woff2"),
+            ));
         }
     }
     files

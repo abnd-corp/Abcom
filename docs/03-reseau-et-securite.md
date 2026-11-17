@@ -90,7 +90,7 @@ Cliquer un lien externe ouvre aussi le navigateur du système.
 | Quand | Où | Ce qui part |
 |---|---|---|
 | L'utilisateur coche « Autoriser le téléchargement de polices en ligne », puis ouvre la liste (au plus une fois tous les 7 jours) | `https://api.fontsource.org/v1/fonts` | une requête GET, sans identifiant |
-| L'utilisateur choisit une police | `https://cdn.jsdelivr.net/fontsource/fonts/<police>@latest/<sous-ensemble>-<graisse>-normal.woff2` | jusqu'à quatre requêtes GET |
+| L'utilisateur choisit une police | `https://cdn.jsdelivr.net/fontsource/fonts/<police>@latest/<sous-ensemble>-<graisse>-<style>.woff2` | jusqu'à huit requêtes GET, variantes italiques comprises lorsqu'elles sont annoncées |
 
 Ces deux serveurs voient l'adresse IP de l'utilisateur ; rien d'autre n'est envoyé, et l'avertissement est affiché à côté de la case. Tant qu'elle est décochée, **aucune requête ne part**, ni au démarrage ni à l'ouverture de l'onglet.
 

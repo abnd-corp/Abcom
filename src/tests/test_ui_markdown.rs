@@ -254,3 +254,17 @@ fn only_http_schemes_become_clickable_links() {
         );
     }
 }
+
+#[test]
+fn parses_bold_italic_as_a_combined_style() {
+    for marker in ["***", "___"] {
+        assert_eq!(
+            parse_markdown(&format!("Du {marker}texte accentué{marker}.")),
+            vec![MarkdownBlock::Paragraph(vec![
+                MarkdownSpan::Text("Du ".into()),
+                MarkdownSpan::StrongEmphasis("texte accentué".into()),
+                MarkdownSpan::Text(".".into())
+            ])]
+        );
+    }
+}

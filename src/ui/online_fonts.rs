@@ -218,8 +218,12 @@ impl AbcomApp {
         };
         let mut regular: Vec<(Part, Vec<u8>)> = Vec::new();
         let mut bold: Vec<(Part, Vec<u8>)> = Vec::new();
+        let mut italic: Vec<(Part, Vec<u8>)> = Vec::new();
+        let mut bold_italic: Vec<(Part, Vec<u8>)> = Vec::new();
         for (part, result) in download.received {
             match result {
+                Ok(bytes) if part.is_italic() && part.is_bold() => bold_italic.push((part, bytes)),
+                Ok(bytes) if part.is_italic() => italic.push((part, bytes)),
                 Ok(bytes) if part.is_bold() => bold.push((part, bytes)),
                 Ok(bytes) => regular.push((part, bytes)),
                 Err(error) if part.is_required() => {
@@ -231,13 +235,28 @@ impl AbcomApp {
                 Err(error) => tracing::debug!("{} : {error}", download.font.id),
             }
         }
+        for (files, base) in [
+            (&mut italic, Part::ItalicLatin),
+            (&mut bold_italic, Part::BoldItalicLatin),
+        ] {
+            if !files.iter().any(|(part, _)| *part == base) {
+                files.clear();
+            }
+        }
         // Le latin passe avant son extension, comme dans le catalogue.
         regular.sort_by_key(|(part, _)| *part as u8);
         bold.sort_by_key(|(part, _)| *part as u8);
+        italic.sort_by_key(|(part, _)| *part as u8);
+        bold_italic.sort_by_key(|(part, _)| *part as u8);
+        let italic: Vec<&[u8]> = italic.iter().map(|(_, b)| b.as_slice()).collect();
+        let bold_italic: Vec<&[u8]> = bold_italic.iter().map(|(_, b)| b.as_slice()).collect();
         let regular: Vec<&[u8]> = regular.iter().map(|(_, b)| b.as_slice()).collect();
         let bold: Vec<&[u8]> = bold.iter().map(|(_, b)| b.as_slice()).collect();
         let source = format!("fontsource:{}", download.font.id);
-        match self.fonts.import_set(&regular, &bold, &source) {
+        match self
+            .fonts
+            .import_styles(&regular, &bold, &italic, &bold_italic, &source)
+        {
             Ok(ImportOutcome::Added(font)) | Ok(ImportOutcome::Existing(font)) => {
                 *download.zone.choice_mut(&mut self.appearance) = FontChoice::Imported(font.id);
                 let message = format!(

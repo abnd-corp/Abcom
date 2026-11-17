@@ -244,6 +244,7 @@ pub(crate) fn apply_appearance(
     resolved.text = resolved.text.with_font_cuts(
         resolved.fonts.msg.real_bold(),
         resolved.fonts.msg.real_italic(),
+        resolved.fonts.msg.real_bold_italic(),
     );
     let preview_fonts = if previews {
         preview_fonts(fonts)
