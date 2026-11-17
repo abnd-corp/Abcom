@@ -99,7 +99,7 @@ fn install_panic_hook() {
         let report = format!(
             "abcom {} — {}\n{info}\n",
             env!("CARGO_PKG_VERSION"),
-            chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
+            jiff::ZonedDateTime::now().strftime("%Y-%m-%d %H:%M:%S")
         );
         if std::fs::create_dir_all(&dir).is_ok() {
             let _ = std::fs::write(dir.join("last-panic.txt"), &report);

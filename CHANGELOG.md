@@ -12,6 +12,7 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 - Tailles natives corrigées : tray macOS de 18 points avec cible de clic système, marges optiques du Dock, ICO Windows enrichi et tray adapté au DPI
 - Tray Linux migré vers KSNI sans GTK/AppIndicator, puis chaîne D-Bus migrée vers zbus 6 : plus aucune exception RustSec (issue #59 close), correctifs locaux documentés dans `vendor/`
 - Les tests unitaires tournent aussi sous Windows et macOS en CI, plus seulement `cargo check`
+- `chrono`, déclaré non maintenu (RUSTSEC-2026-0543), est remplacé par `jiff` : heure locale correcte sur les trois systèmes, formats et horodatages stockés inchangés
 - Tests e2e natifs (`scripts/e2e/`, `make e2e`) : l'application réelle sur l'hôte macOS et sur les VM du laboratoire local (Windows, GNOME avec et sans tray, KDE, XFCE), avec des binaires publiés par la CI
 - Mise à jour des dépendances directes et transitives, avec adaptation à egui 0.37 et ZIP 9 ; les vulnérabilités signalées sont corrigées
 

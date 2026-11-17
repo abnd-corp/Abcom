@@ -1,7 +1,9 @@
 //! Rendu d'une ligne du fil : en-tête, corps, réactions, citations, accusés.
 
-use chrono::{Datelike, Local, NaiveDate, TimeZone};
 use eframe::egui;
+use jiff::civil::Date;
+use jiff::tz::TimeZone;
+use jiff::Timestamp;
 
 use crate::message::{ChatMessage, ReactionEntry};
 
@@ -100,22 +102,25 @@ const MONTHS_EN: [&str; 12] = [
 ];
 
 /// Jour local d'un message à partir de son instant Unix (`None` si absent).
-pub(crate) fn message_day(msg: &ChatMessage) -> Option<NaiveDate> {
-    let epoch = msg.timestamp_epoch?;
-    Local
-        .timestamp_opt(epoch as i64, 0)
-        .single()
-        .map(|dt| dt.date_naive())
+pub(crate) fn message_day(msg: &ChatMessage) -> Option<Date> {
+    local_time(msg.timestamp_epoch?).map(|zoned| zoned.date())
+}
+
+/// Instant Unix dans le fuseau du système (`None` hors de la plage représentable).
+fn local_time(epoch: u64) -> Option<jiff::ZonedDateTime> {
+    let seconds = i64::try_from(epoch).ok()?;
+    Some(
+        Timestamp::from_second(seconds)
+            .ok()?
+            .to_zoned_datetime(TimeZone::system()),
+    )
 }
 
 /// Heure d'en-tête au format 24 h, dérivée de l'instant Unix si présent,
 /// sinon repli sur la chaîne `timestamp` (anciens messages / pairs).
 pub(crate) fn header_time(msg: &ChatMessage) -> String {
-    match msg
-        .timestamp_epoch
-        .and_then(|e| Local.timestamp_opt(e as i64, 0).single())
-    {
-        Some(dt) => dt.format("%H:%M").to_string(),
+    match msg.timestamp_epoch.and_then(local_time) {
+        Some(zoned) => zoned.strftime("%H:%M").to_string(),
         None => msg.timestamp.clone(),
     }
 }
@@ -141,14 +146,14 @@ pub(crate) fn starts_new_group(
 
 /// Libellé localisé d'un séparateur de date (« Aujourd'hui », « Hier » ou date
 /// complète selon la langue).
-pub(crate) fn day_divider_label(date: NaiveDate, today: NaiveDate, language: UiLanguage) -> String {
+pub(crate) fn day_divider_label(date: Date, today: Date, language: UiLanguage) -> String {
     if date == today {
         return crate::ui::i18n::AUJOURD_HUI.get(language).to_string();
     }
-    if Some(date) == today.pred_opt() {
+    if today.yesterday().ok() == Some(date) {
         return crate::ui::i18n::HIER.get(language).to_string();
     }
-    let (day, month, year) = (date.day(), date.month0() as usize, date.year());
+    let (day, month, year) = (date.day(), (date.month() - 1) as usize, date.year());
     match language {
         UiLanguage::French => format!("{} {} {}", day, MONTHS_FR[month], year),
         UiLanguage::English => format!("{} {}, {}", MONTHS_EN[month], day, year),

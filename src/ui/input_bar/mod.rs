@@ -27,7 +27,7 @@ impl AbcomApp {
         crate::config::purge_scratch();
         let filename = format!(
             "texte-colle-{}.txt",
-            chrono::Local::now().format("%Y%m%d-%H%M%S")
+            jiff::ZonedDateTime::now().strftime("%Y%m%d-%H%M%S")
         );
         let path = match crate::config::scratch_dir() {
             Ok(dir) => dir.join(filename),
