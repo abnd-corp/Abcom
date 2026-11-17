@@ -67,6 +67,30 @@ pub(crate) struct ReplyInfo {
     pub(crate) author_color: egui::Color32,
 }
 
+/// État de remise de l'un de nos messages privés, du plus faible au plus fort.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum ReceiptStatus {
+    Failed,
+    Sent,
+    Delivered,
+    Read,
+}
+
+impl ReceiptStatus {
+    /// `failed` prime sur tout ; `read` implique la livraison.
+    pub(crate) fn from_flags(delivered: bool, read: bool, failed: bool) -> Self {
+        if failed {
+            Self::Failed
+        } else if read {
+            Self::Read
+        } else if delivered {
+            Self::Delivered
+        } else {
+            Self::Sent
+        }
+    }
+}
+
 /// Une ligne du fil, entièrement pré-dérivée.
 pub(crate) struct ChatRow {
     pub(crate) msg: ChatMessage,
@@ -80,8 +104,8 @@ pub(crate) struct ChatRow {
     pub(crate) starts_group: bool,
     pub(crate) header_time: String,
     pub(crate) name_color: egui::Color32,
-    /// Pour nos messages en 1-à-1 : (livré, lu). Toujours `None` en salon.
-    pub(crate) receipt: Option<(bool, bool, bool)>,
+    /// Pour nos messages en 1-à-1 uniquement ; toujours `None` en salon.
+    pub(crate) receipt: Option<ReceiptStatus>,
     /// Salons et « Tous » : liste nominative reçu/lu (popup « … »), portée
     /// par l'en-tête de chaque groupe de messages, quel qu'en soit l'auteur.
     pub(crate) receipt_detail: Option<ReceiptDetail>,
@@ -339,7 +363,7 @@ impl ChatCache {
                     rows[start].receipt_detail =
                         Some(s.receipt_detail(last_hash, &rows[end - 1].msg));
                 } else if rows[start].msg.from == self.my_name {
-                    rows[start].receipt = Some((
+                    rows[start].receipt = Some(ReceiptStatus::from_flags(
                         !s.is_message_pending(last_hash),
                         s.get_read_count(last_hash) > 0,
                         s.is_message_failed(last_hash),

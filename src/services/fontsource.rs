@@ -6,6 +6,9 @@
 use std::path::Path;
 use std::sync::Arc;
 
+#[cfg(test)]
+use crate::util::now_secs;
+
 use serde::{Deserialize, Serialize};
 
 pub const LIST_URL: &str = "https://api.fontsource.org/v1/fonts";
@@ -213,13 +216,6 @@ pub fn files_to_fetch(font: &CatalogFont) -> Vec<(Part, String)> {
 struct CacheFile {
     fetched_at: u64,
     fonts: Vec<CatalogFont>,
-}
-
-pub fn now_secs() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
 }
 
 /// Relit la liste enregistrée : (polices, âge en secondes).

@@ -108,7 +108,7 @@ impl AbcomApp {
         if !self.appearance.online_fonts_allowed || self.online.status != ListStatus::Idle {
             return;
         }
-        let cached = fontsource::read_cache(&self.catalog_cache_path(), fontsource::now_secs());
+        let cached = fontsource::read_cache(&self.catalog_cache_path(), crate::util::now_secs());
         match cached {
             Some((fonts, age)) if age < CACHE_TTL_SECS => {
                 self.online.fonts = fonts;
@@ -194,7 +194,11 @@ impl AbcomApp {
     fn online_list_arrived(&mut self, result: Response) {
         match result.and_then(|bytes| fontsource::parse_catalog(&bytes)) {
             Ok(fonts) => {
-                fontsource::write_cache(&self.catalog_cache_path(), &fonts, fontsource::now_secs());
+                fontsource::write_cache(
+                    &self.catalog_cache_path(),
+                    &fonts,
+                    crate::util::now_secs(),
+                );
                 self.online.fonts = fonts;
                 self.online.stale = false;
                 self.online.status = ListStatus::Ready;

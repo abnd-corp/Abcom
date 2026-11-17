@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::Sender;
 use tokio::time::{interval, Duration};
@@ -105,17 +104,14 @@ pub async fn run(
         tokio::select! {
             _ = tick_broadcast.tick() => {
                 // Signée à chaque émission : l'horodatage borne la fenêtre de rejeu.
-                let data = sign_announcement(&template, &signing_key, now_epoch());
+                let data = sign_announcement(&template, &signing_key, crate::util::now_secs());
                 // Multicast (local fiable) + broadcast (LAN, best-effort).
                 let _ = socket.send_to(&data, &multicast_addr).await;
                 let _ = socket.send_to(&data, &broadcast_addr).await;
             }
             _ = tick_cleanup.tick() => {
                 // Nettoyer les peers inactifs
-                let now = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs();
+                let now = crate::util::now_secs();
 
                 let disconnected: Vec<String> = peer_timestamps
                     .iter()
@@ -136,12 +132,9 @@ pub async fn run(
                         // Ignorer son propre broadcast
                         if pkt.username != username
                             && crate::protocol::valid_username(&pkt.username)
-                            && announcement_is_authentic(&pkt, now_epoch())
+                            && announcement_is_authentic(&pkt, crate::util::now_secs())
                         {
-                            let now = SystemTime::now()
-                                .duration_since(UNIX_EPOCH)
-                                .unwrap_or_default()
-                                .as_secs();
+                            let now = crate::util::now_secs();
 
                             // Adresse TCP du pair = IP source + port de chat annoncé
                             let tcp_addr = SocketAddr::new(addr.ip(), pkt.port);
@@ -238,13 +231,6 @@ fn adopt_addr(
 /// tâche de découverte paniquerait en debug, sans jamais redémarrer.
 fn peer_is_stale(now: u64, last_seen: u64) -> bool {
     now.saturating_sub(last_seen) >= DISCOVERY_TIMEOUT
-}
-
-fn now_epoch() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
 }
 
 /// Sérialise une annonce horodatée et signée.

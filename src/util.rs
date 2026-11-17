@@ -38,9 +38,36 @@ pub fn decode_image_bounded(bytes: &[u8]) -> Option<image::DynamicImage> {
         .ok()
 }
 
+/// Secondes écoulées depuis l'epoch Unix ; 0 si l'horloge système est avant 1970.
+pub fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// Taille lisible en unités décimales (ko, Mo, Go), partout la même dans l'interface.
+pub fn human_bytes(bytes: u64) -> String {
+    const UNITS: [(&str, u64); 3] = [("Go", 1_000_000_000), ("Mo", 1_000_000), ("ko", 1_000)];
+    for (unit, scale) in UNITS {
+        if bytes >= scale {
+            return format!("{:.1} {unit}", bytes as f64 / scale as f64);
+        }
+    }
+    format!("{bytes} o")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn human_bytes_uses_decimal_units() {
+        assert_eq!(human_bytes(999), "999 o");
+        assert_eq!(human_bytes(1_000), "1.0 ko");
+        assert_eq!(human_bytes(1_500_000), "1.5 Mo");
+        assert_eq!(human_bytes(2_000_000_000), "2.0 Go");
+    }
 
     #[test]
     fn lock_safe_recovers_after_poisoning() {

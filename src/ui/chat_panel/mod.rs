@@ -1,9 +1,10 @@
 use crate::ui::i18n;
 use eframe::egui;
 
-use crate::util::MutexExt;
+use crate::util::{human_bytes, MutexExt};
 
-use super::{AbcomApp, ReplyTarget};
+use super::snapshot::ReceiptStatus;
+use super::{AbcomApp, ReplyTarget, UiLanguage};
 
 mod row;
 mod toolbar;
@@ -36,252 +37,12 @@ impl AbcomApp {
         panel.show(ui, |ui| {
             let rows = self.chat_cache.rows.clone();
             let my_name = self.chat_cache.my_name.clone();
-            let selected_conv: Option<String> = self.chat_cache.conversation().map(str::to_string);
+            self.show_conversation_header(ui);
 
-            // Salon sélectionné : la clé porte l'identifiant, jamais le libellé.
-            let selected_group_id = selected_conv
-                .as_deref()
-                .and_then(|c| c.strip_prefix('#'))
-                .map(str::to_string);
-            let selected_group = selected_group_id
-                .as_deref()
-                .and_then(|id| self.sidebar_cache.groups.iter().find(|g| g.id == id));
-            let conversation_title = match (&self.chat_cache.private_peer_display, selected_group) {
-                (Some(name), _) => name.clone(),
-                // Le titre affiche le nom du salon, pas son identifiant.
-                (None, Some(group)) => group.name.clone(),
-                (None, None) => selected_conv
-                    .clone()
-                    .unwrap_or_else(|| self.t(i18n::TOUS_2).to_string()),
-            };
-            // Sous-titre « N membres » sous le titre.
-            let group_subtitle = selected_group.map(|g| {
-                let n = g.members.len();
-                if n > 1 {
-                    format!("{} {}", n, self.t(i18n::MEMBRES_2))
-                } else {
-                    format!("{} {}", n, self.t(i18n::MEMBRE))
-                }
-            });
-
-            ui.horizontal(|ui| {
-                ui.add_space(8.0);
-                ui.vertical_centered(|ui| {
-                    ui.heading(&conversation_title);
-                    if let Some(subtitle) = &group_subtitle {
-                        ui.label(egui::RichText::new(subtitle).small().weak());
-                    }
-                });
-            });
-            ui.separator();
-
-            // Popup participants (instantané depuis le cache latéral).
-            if self.modals.participants_open {
-                let my_name2 = self.sidebar_cache.my_username.clone();
-                let sel_conv = self.sidebar_cache.selected_conversation.clone();
-                let peers = self.sidebar_cache.peers.clone();
-                // Salon : membres réels du groupe (pas la liste des pairs).
-                let group_view = sel_conv
-                    .as_deref()
-                    .and_then(|c| c.strip_prefix('#'))
-                    .and_then(|id| {
-                        self.sidebar_cache
-                            .groups
-                            .iter()
-                            .find(|g| g.id == id)
-                            .cloned()
-                    });
-                // Un salon s'affiche par son nom : la clé porte un identifiant
-                // qui n'a aucun sens pour l'utilisateur.
-                let conv_name = match (&group_view, &sel_conv) {
-                    (Some(group), _) => format!("#{}", group.name),
-                    (None, Some(conv)) => conv.clone(),
-                    (None, None) => self.t(i18n::TOUS_2).to_string(),
-                };
-                let mut open = self.modals.participants_open;
-                egui::Window::new(self.t(i18n::PARTICIPANTS))
-                    .open(&mut open)
-                    .resizable(false)
-                    .collapsible(false)
-                    .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
-                    .show(ctx, |ui| {
-                        ui.label(
-                            egui::RichText::new(format!(
-                                "{}: {}",
-                                self.t(i18n::CONVERSATION),
-                                conv_name
-                            ))
-                            .strong(),
-                        );
-                        ui.separator();
-                        if sel_conv.is_none() {
-                            for peer in peers.iter() {
-                                ui.label(&peer.username);
-                            }
-                            if peers.is_empty() {
-                                ui.label(self.t(i18n::AUCUN_PARTICIPANT_CONNECTE));
-                            }
-                        } else if let Some(group) = &group_view {
-                            // Membres du salon : présence, couronne du
-                            // propriétaire, « (vous) » pour soi.
-                            for member in &group.members {
-                                let online = *member == my_name2
-                                    || peers.iter().any(|p| p.username == *member && p.online);
-                                let dot = if online { "🟢" } else { "🔴" };
-                                let mut line = format!("{dot} {member}");
-                                if *member == group.owner {
-                                    line.push_str(" 👑");
-                                }
-                                if *member == my_name2 {
-                                    line.push(' ');
-                                    line.push_str(self.t(i18n::VOUS));
-                                }
-                                ui.label(line);
-                            }
-                        } else {
-                            ui.label(format!("{} ({})", my_name2, self.t(i18n::VOUS_3)));
-                            if let Some(peer) = sel_conv {
-                                ui.label(&peer);
-                            }
-                        }
-                    });
-                self.modals.participants_open = open;
-            }
-
-            // Modale de renommage de contact
-            if let Some(target) = self.modals.rename_target.clone() {
-                // Libellés calculés avant la closure (évite d'emprunter `self`
-                // pendant qu'on édite `self.modals.rename_input`).
-                let title = self.t(i18n::RENOMMER_LE_CONTACT);
-                let lbl_original = self.t(i18n::NOM_D_ORIGINE);
-                let hint = self.t(i18n::ALIAS_VIDE_RETIRER);
-                let save_lbl = self.t(i18n::ENREGISTRER);
-                let clear_lbl = self.t(i18n::RETIRER_L_ALIAS);
-
-                let mut open = true;
-                let mut do_save = false;
-                let mut do_clear = false;
-                egui::Window::new(title)
-                    .open(&mut open)
-                    .resizable(false)
-                    .collapsible(false)
-                    .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
-                    .show(ctx, |ui| {
-                        ui.label(format!("{}: {}", lbl_original, target));
-                        ui.add_space(6.0);
-                        ui.add(
-                            egui::TextEdit::singleline(&mut self.modals.rename_input)
-                                .hint_text(hint)
-                                .desired_width(240.0),
-                        );
-                        ui.add_space(8.0);
-                        ui.horizontal(|ui| {
-                            do_save = ui.button(save_lbl).clicked();
-                            do_clear = ui.button(clear_lbl).clicked();
-                        });
-                    });
-
-                if do_save {
-                    let trimmed = self.modals.rename_input.trim();
-                    let alias = (!trimmed.is_empty()).then(|| trimmed.to_string());
-                    self.state.lock_safe().set_peer_alias(&target, alias);
-                    self.modals.rename_target = None;
-                } else if do_clear {
-                    self.state.lock_safe().set_peer_alias(&target, None);
-                    self.modals.rename_target = None;
-                } else if !open {
-                    self.modals.rename_target = None;
-                }
-            }
-
-            // Confirmation de suppression d'une conversation privée (action locale et définitive)
-            if let Some(target) = self.modals.delete_conversation_target.clone() {
-                let title = self.t(i18n::SUPPRIMER_CETTE_CONVERSATION_QUESTION);
-                let warning = self.t(i18n::SUPPRESSION_DEFINITIVE_LOCALE);
-                let confirm_lbl = self.t(i18n::SUPPRIMER_LA_CONVERSATION);
-                let cancel_lbl = self.t(i18n::ANNULER);
-
-                let mut open = true;
-                let mut do_delete = false;
-                let mut do_cancel = false;
-                egui::Window::new(title)
-                    .open(&mut open)
-                    .resizable(false)
-                    .collapsible(false)
-                    .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
-                    .show(ctx, |ui| {
-                        ui.label(&target);
-                        ui.add_space(6.0);
-                        ui.label(warning);
-                        ui.add_space(8.0);
-                        ui.horizontal(|ui| {
-                            do_delete = ui.button(confirm_lbl).clicked();
-                            do_cancel = ui.button(cancel_lbl).clicked();
-                        });
-                    });
-
-                if do_delete {
-                    let was_selected = self.state.lock_safe().selected_conversation.as_deref()
-                        == Some(target.as_str());
-                    if was_selected {
-                        self.switch_conversation(None);
-                    }
-                    self.composer.drafts.remove(&Some(target.clone()));
-                    self.state.lock_safe().delete_private_conversation(&target);
-                    self.modals.delete_conversation_target = None;
-                } else if do_cancel || !open {
-                    self.modals.delete_conversation_target = None;
-                }
-            }
-
-            // Alerte TOFU : la clé présentée par un pair ne correspond plus à
-            // celle épinglée. Deux causes possibles — usurpation, ou
-            // réinstallation légitime du pair. On ne tranche pas à sa place :
-            // la connexion reste refusée tant que l'utilisateur n'a pas
-            // explicitement ré-appairé, empreinte vérifiée hors-bande.
-            if let Some((peer, offered_key)) = self.modals.key_mismatch.clone() {
-                let title = self.t(i18n::CLE_D_IDENTITE_MODIFIEE);
-                let explain = self.t(i18n::LA_CLE_DE_CE_PAIR_NE);
-                let trust_lbl = self.t(i18n::FAIRE_CONFIANCE_A_LA_NOUVELLE_CLE);
-                let keep_lbl = self.t(i18n::GARDER_L_ANCIENNE_CLE);
-
-                // `Modal` plutôt que `Window` : voile de fond et focus piégé —
-                // cette alerte ne doit pas pouvoir être ignorée par inadvertance.
-                let modal = egui::Modal::new(egui::Id::unique("key_mismatch")).show(ctx, |ui| {
-                    ui.set_max_width(360.0);
-                    ui.heading(format!("⚠️ {title}"));
-                    ui.add_space(6.0);
-                    ui.label(egui::RichText::new(&peer).strong());
-                    ui.add_space(6.0);
-                    ui.label(explain);
-                    ui.add_space(10.0);
-                    ui.horizontal(|ui| {
-                        (
-                            ui.button(trust_lbl).clicked(),
-                            ui.button(keep_lbl).clicked(),
-                        )
-                    })
-                    .inner
-                });
-                let (do_trust, do_keep) = modal.inner;
-                // Clic hors modale ou Échap : on garde la clé actuelle, jamais
-                // le contraire — refuser est toujours le choix sûr.
-                let dismissed = modal.backdrop_response.clicked()
-                    || ui.input(|i| i.key_pressed(egui::Key::Escape));
-
-                if do_trust {
-                    // On épingle la clé effectivement présentée, pas la
-                    // prochaine venue : sinon une autre machine du réseau
-                    // pourrait se glisser dans la fenêtre de ré-appairage.
-                    self.trust.repin(&peer, &offered_key);
-                    self.last_notification =
-                        Some(self.t(i18n::NOUVELLE_CLE_ACCEPTEE_POUR_CE_PAIR).to_string());
-                    self.notification_time = std::time::Instant::now();
-                    self.modals.key_mismatch = None;
-                } else if do_keep || dismissed {
-                    self.modals.key_mismatch = None;
-                }
-            }
+            self.show_participants_window(ctx);
+            self.show_rename_contact_modal(ctx);
+            self.show_delete_conversation_modal(ctx);
+            self.show_key_mismatch_alert(ctx);
 
             // Avatars et textures des médias image, préparés hors zone
             // défilante (les deux caches de textures sont persistants :
@@ -699,6 +460,263 @@ impl AbcomApp {
         });
     }
 
+    /// Titre de la conversation, avec « N membres » en sous-titre pour un salon.
+    fn show_conversation_header(&self, ui: &mut egui::Ui) {
+        let selected_conv: Option<String> = self.chat_cache.conversation().map(str::to_string);
+
+        // Salon sélectionné : la clé porte l'identifiant, jamais le libellé.
+        let selected_group_id = selected_conv
+            .as_deref()
+            .and_then(|c| c.strip_prefix('#'))
+            .map(str::to_string);
+        let selected_group = selected_group_id
+            .as_deref()
+            .and_then(|id| self.sidebar_cache.groups.iter().find(|g| g.id == id));
+        let conversation_title = match (&self.chat_cache.private_peer_display, selected_group) {
+            (Some(name), _) => name.clone(),
+            // Le titre affiche le nom du salon, pas son identifiant.
+            (None, Some(group)) => group.name.clone(),
+            (None, None) => selected_conv
+                .clone()
+                .unwrap_or_else(|| self.t(i18n::TOUS_2).to_string()),
+        };
+        // Sous-titre « N membres » sous le titre.
+        let group_subtitle = selected_group.map(|g| {
+            let n = g.members.len();
+            if n > 1 {
+                format!("{} {}", n, self.t(i18n::MEMBRES_2))
+            } else {
+                format!("{} {}", n, self.t(i18n::MEMBRE))
+            }
+        });
+
+        ui.horizontal(|ui| {
+            ui.add_space(8.0);
+            ui.vertical_centered(|ui| {
+                ui.heading(&conversation_title);
+                if let Some(subtitle) = &group_subtitle {
+                    ui.label(egui::RichText::new(subtitle).small().weak());
+                }
+            });
+        });
+        ui.separator();
+    }
+
+    /// Fenêtre des participants (instantané depuis le cache latéral).
+    fn show_participants_window(&mut self, ctx: &egui::Context) {
+        if self.modals.participants_open {
+            let my_name2 = self.sidebar_cache.my_username.clone();
+            let sel_conv = self.sidebar_cache.selected_conversation.clone();
+            let peers = self.sidebar_cache.peers.clone();
+            // Salon : membres réels du groupe (pas la liste des pairs).
+            let group_view = sel_conv
+                .as_deref()
+                .and_then(|c| c.strip_prefix('#'))
+                .and_then(|id| {
+                    self.sidebar_cache
+                        .groups
+                        .iter()
+                        .find(|g| g.id == id)
+                        .cloned()
+                });
+            // Un salon s'affiche par son nom : la clé porte un identifiant
+            // qui n'a aucun sens pour l'utilisateur.
+            let conv_name = match (&group_view, &sel_conv) {
+                (Some(group), _) => format!("#{}", group.name),
+                (None, Some(conv)) => conv.clone(),
+                (None, None) => self.t(i18n::TOUS_2).to_string(),
+            };
+            let mut open = self.modals.participants_open;
+            egui::Window::new(self.t(i18n::PARTICIPANTS))
+                .open(&mut open)
+                .resizable(false)
+                .collapsible(false)
+                .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+                .show(ctx, |ui| {
+                    ui.label(
+                        egui::RichText::new(format!(
+                            "{}: {}",
+                            self.t(i18n::CONVERSATION),
+                            conv_name
+                        ))
+                        .strong(),
+                    );
+                    ui.separator();
+                    if sel_conv.is_none() {
+                        for peer in peers.iter() {
+                            ui.label(&peer.username);
+                        }
+                        if peers.is_empty() {
+                            ui.label(self.t(i18n::AUCUN_PARTICIPANT_CONNECTE));
+                        }
+                    } else if let Some(group) = &group_view {
+                        // Membres du salon : présence, couronne du
+                        // propriétaire, « (vous) » pour soi.
+                        for member in &group.members {
+                            let online = *member == my_name2
+                                || peers.iter().any(|p| p.username == *member && p.online);
+                            let dot = if online { "🟢" } else { "🔴" };
+                            let mut line = format!("{dot} {member}");
+                            if *member == group.owner {
+                                line.push_str(" 👑");
+                            }
+                            if *member == my_name2 {
+                                line.push(' ');
+                                line.push_str(self.t(i18n::VOUS));
+                            }
+                            ui.label(line);
+                        }
+                    } else {
+                        ui.label(format!("{} ({})", my_name2, self.t(i18n::VOUS_3)));
+                        if let Some(peer) = sel_conv {
+                            ui.label(&peer);
+                        }
+                    }
+                });
+            self.modals.participants_open = open;
+        }
+    }
+
+    /// Modale de renommage de contact.
+    fn show_rename_contact_modal(&mut self, ctx: &egui::Context) {
+        if let Some(target) = self.modals.rename_target.clone() {
+            // Libellés calculés avant la closure (évite d'emprunter `self`
+            // pendant qu'on édite `self.modals.rename_input`).
+            let title = self.t(i18n::RENOMMER_LE_CONTACT);
+            let lbl_original = self.t(i18n::NOM_D_ORIGINE);
+            let hint = self.t(i18n::ALIAS_VIDE_RETIRER);
+            let save_lbl = self.t(i18n::ENREGISTRER);
+            let clear_lbl = self.t(i18n::RETIRER_L_ALIAS);
+
+            let mut open = true;
+            let mut do_save = false;
+            let mut do_clear = false;
+            egui::Window::new(title)
+                .open(&mut open)
+                .resizable(false)
+                .collapsible(false)
+                .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+                .show(ctx, |ui| {
+                    ui.label(format!("{}: {}", lbl_original, target));
+                    ui.add_space(6.0);
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.modals.rename_input)
+                            .hint_text(hint)
+                            .desired_width(240.0),
+                    );
+                    ui.add_space(8.0);
+                    ui.horizontal(|ui| {
+                        do_save = ui.button(save_lbl).clicked();
+                        do_clear = ui.button(clear_lbl).clicked();
+                    });
+                });
+
+            if do_save {
+                let trimmed = self.modals.rename_input.trim();
+                let alias = (!trimmed.is_empty()).then(|| trimmed.to_string());
+                self.state.lock_safe().set_peer_alias(&target, alias);
+                self.modals.rename_target = None;
+            } else if do_clear {
+                self.state.lock_safe().set_peer_alias(&target, None);
+                self.modals.rename_target = None;
+            } else if !open {
+                self.modals.rename_target = None;
+            }
+        }
+    }
+
+    /// Confirmation de suppression d'une conversation privée (action locale et définitive).
+    fn show_delete_conversation_modal(&mut self, ctx: &egui::Context) {
+        if let Some(target) = self.modals.delete_conversation_target.clone() {
+            let title = self.t(i18n::SUPPRIMER_CETTE_CONVERSATION_QUESTION);
+            let warning = self.t(i18n::SUPPRESSION_DEFINITIVE_LOCALE);
+            let confirm_lbl = self.t(i18n::SUPPRIMER_LA_CONVERSATION);
+            let cancel_lbl = self.t(i18n::ANNULER);
+
+            let mut open = true;
+            let mut do_delete = false;
+            let mut do_cancel = false;
+            egui::Window::new(title)
+                .open(&mut open)
+                .resizable(false)
+                .collapsible(false)
+                .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+                .show(ctx, |ui| {
+                    ui.label(&target);
+                    ui.add_space(6.0);
+                    ui.label(warning);
+                    ui.add_space(8.0);
+                    ui.horizontal(|ui| {
+                        do_delete = ui.button(confirm_lbl).clicked();
+                        do_cancel = ui.button(cancel_lbl).clicked();
+                    });
+                });
+
+            if do_delete {
+                let was_selected = self.state.lock_safe().selected_conversation.as_deref()
+                    == Some(target.as_str());
+                if was_selected {
+                    self.switch_conversation(None);
+                }
+                self.composer.drafts.remove(&Some(target.clone()));
+                self.state.lock_safe().delete_private_conversation(&target);
+                self.modals.delete_conversation_target = None;
+            } else if do_cancel || !open {
+                self.modals.delete_conversation_target = None;
+            }
+        }
+    }
+
+    /// Alerte TOFU : la clé présentée par un pair ne correspond plus à celle épinglée.
+    ///
+    /// Usurpation ou réinstallation légitime : on ne tranche pas, la connexion reste
+    /// refusée tant que l'utilisateur n'a pas ré-appairé, empreinte vérifiée hors-bande.
+    fn show_key_mismatch_alert(&mut self, ctx: &egui::Context) {
+        if let Some((peer, offered_key)) = self.modals.key_mismatch.clone() {
+            let title = self.t(i18n::CLE_D_IDENTITE_MODIFIEE);
+            let explain = self.t(i18n::LA_CLE_DE_CE_PAIR_NE);
+            let trust_lbl = self.t(i18n::FAIRE_CONFIANCE_A_LA_NOUVELLE_CLE);
+            let keep_lbl = self.t(i18n::GARDER_L_ANCIENNE_CLE);
+
+            // `Modal` plutôt que `Window` : voile de fond et focus piégé —
+            // cette alerte ne doit pas pouvoir être ignorée par inadvertance.
+            let modal = egui::Modal::new(egui::Id::unique("key_mismatch")).show(ctx, |ui| {
+                ui.set_max_width(360.0);
+                ui.heading(format!("⚠️ {title}"));
+                ui.add_space(6.0);
+                ui.label(egui::RichText::new(&peer).strong());
+                ui.add_space(6.0);
+                ui.label(explain);
+                ui.add_space(10.0);
+                ui.horizontal(|ui| {
+                    (
+                        ui.button(trust_lbl).clicked(),
+                        ui.button(keep_lbl).clicked(),
+                    )
+                })
+                .inner
+            });
+            let (do_trust, do_keep) = modal.inner;
+            // Clic hors modale ou Échap : on garde la clé actuelle, jamais
+            // le contraire — refuser est toujours le choix sûr.
+            let dismissed = modal.backdrop_response.clicked()
+                || ctx.input(|i| i.key_pressed(egui::Key::Escape));
+
+            if do_trust {
+                // On épingle la clé effectivement présentée, pas la
+                // prochaine venue : sinon une autre machine du réseau
+                // pourrait se glisser dans la fenêtre de ré-appairage.
+                self.trust.repin(&peer, &offered_key);
+                self.last_notification =
+                    Some(self.t(i18n::NOUVELLE_CLE_ACCEPTEE_POUR_CE_PAIR).to_string());
+                self.notification_time = std::time::Instant::now();
+                self.modals.key_mismatch = None;
+            } else if do_keep || dismissed {
+                self.modals.key_mismatch = None;
+            }
+        }
+    }
+
     /// Bandeaux d'acceptation des médias volumineux (au-delà du seuil d'accord) reçus. Accepter →
     /// le pair streame alors le média ; Refuser → l'envoi est abandonné.
     fn render_media_offers(&mut self, ui: &mut egui::Ui) {
@@ -725,7 +743,7 @@ impl AbcomApp {
                         egui::RichText::new(format!(
                             "{} ({})",
                             offer.filename,
-                            format_bytes(offer.size_bytes)
+                            human_bytes(offer.size_bytes)
                         ))
                         .small(),
                     );
@@ -779,51 +797,32 @@ impl AbcomApp {
     }
 }
 
-/// Formate une taille en octets de façon lisible (o / Ko / Mo / Go).
-pub(crate) fn format_bytes(bytes: u64) -> String {
-    const KB: f64 = 1024.0;
-    const MB: f64 = KB * 1024.0;
-    const GB: f64 = MB * 1024.0;
-    let b = bytes as f64;
-    if b >= GB {
-        format!("{:.1} Go", b / GB)
-    } else if b >= MB {
-        format!("{:.1} Mo", b / MB)
-    } else if b >= KB {
-        format!("{:.1} Ko", b / KB)
-    } else {
-        format!("{} o", bytes)
-    }
-}
-
-/// Dessine une ou deux coches selon le statut de lecture du message.
-/// `read = false` → une coche grise (envoyé) ; `read = true` → deux coches bleues (lu).
 /// Affiche l'indicateur de statut d'un message :
 /// - ✓  gris  = envoyé, livraison en attente
 /// - ✓✓ gris  = livré (ACK reçu), pas encore lu
 /// - ✓✓ bleu  = lu (ReadReceipt reçu)
-fn show_receipt(ui: &mut egui::Ui, delivered: bool, read: bool, failed: bool) {
-    if failed {
+fn show_receipt(ui: &mut egui::Ui, status: ReceiptStatus, language: UiLanguage) {
+    if status == ReceiptStatus::Failed {
         ui.label(
             egui::RichText::new("!")
                 .strong()
                 .color(crate::ui::theme::palette(ui).danger),
         )
-        .on_hover_text("Échec de livraison / Delivery failed");
+        .on_hover_text(i18n::ETAT_ECHEC_DE_LIVRAISON.get(language));
         return;
     }
-    let double = delivered || read;
+    let read = status == ReceiptStatus::Read;
+    let double = status >= ReceiptStatus::Delivered;
     let w = if double { 17.0_f32 } else { 9.0_f32 };
     let (rect, response) = ui.allocate_exact_size(egui::vec2(w, 12.0), egui::Sense::hover());
     // Les coches sont peintes : sans libellé, l'état de livraison n'existe
     // pas pour un lecteur d'écran.
-    let state = if read {
-        "Lu"
-    } else if delivered {
-        "Reçu"
-    } else {
-        "Envoyé"
-    };
+    let state = match status {
+        ReceiptStatus::Read => i18n::ETAT_LU,
+        ReceiptStatus::Delivered => i18n::ETAT_RECU,
+        _ => i18n::ETAT_ENVOYE,
+    }
+    .get(language);
     response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, state));
     if !ui.is_rect_visible(rect) {
         return;

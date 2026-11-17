@@ -7,6 +7,7 @@ use crate::message::{ChatMessage, ReactionEntry};
 
 use super::show_receipt;
 use crate::ui::i18n;
+use crate::ui::snapshot::ReceiptStatus;
 use crate::ui::UiLanguage;
 
 /// Diamètre de l'avatar affiché en tête de chaque groupe de messages.
@@ -208,7 +209,7 @@ pub(super) fn render_message_header(
     display_name: &str,
     timestamp: &str,
     name_color: egui::Color32,
-    receipt: Option<(bool, bool, bool)>,
+    receipt: Option<ReceiptStatus>,
     receipt_detail: Option<&crate::app::ReceiptDetail>,
     row_hash: u64,
     language: UiLanguage,
@@ -230,8 +231,8 @@ pub(super) fn render_message_header(
         );
         if let Some(detail) = receipt_detail {
             show_receipt_detail_button(ui, detail, row_hash, language);
-        } else if let Some((delivered, read, failed)) = receipt {
-            show_receipt(ui, delivered, read, failed);
+        } else if let Some(status) = receipt {
+            show_receipt(ui, status, language);
         }
     });
 }

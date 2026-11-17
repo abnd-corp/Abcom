@@ -1966,7 +1966,7 @@ fn write_old_cache(dir: &std::path::Path, age_days: u64) {
         .unwrap(),
     )
     .unwrap();
-    let now = fontsource::now_secs();
+    let now = crate::util::now_secs();
     fontsource::write_cache(
         &dir.join("fonts").join("fontsource.json"),
         &list,

@@ -1,7 +1,7 @@
 use super::i18n;
 use eframe::egui;
 
-use crate::util::MutexExt;
+use crate::util::{human_bytes, MutexExt};
 
 use super::avatar::show_avatar;
 use super::{AbcomApp, SettingsTab, UiLanguage};
@@ -34,9 +34,6 @@ impl AbcomApp {
             return;
         }
 
-        let version = env!("CARGO_PKG_VERSION");
-        let service_name = "Abcom";
-
         let title = self.t(i18n::PARAMETRES);
         let profile_label = self.t(i18n::PROFIL);
         let appearance_label = self.t(i18n::APPARENCE);
@@ -44,13 +41,6 @@ impl AbcomApp {
         let storage_label = self.t(i18n::STOCKAGE);
         let credits_label = self.t(i18n::CREDITS);
         let license_label = self.t(i18n::LICENCE);
-
-        // Onglet Profil
-        let profile_heading = self.t(i18n::IMAGE_DE_PROFIL);
-        let profile_hint = self.t(i18n::VISIBLE_PAR_LES_AUTRES_PAIRS_DANS);
-        let choose_label = self.t(i18n::CHOISIR_UNE_IMAGE);
-        let change_label = self.t(i18n::CHANGER_L_IMAGE);
-        let remove_label = self.t(i18n::RETIRER);
 
         // Avatar courant (texture chargée paresseusement) calculé avant la
         // fenêtre pour éviter un double emprunt de `self` dans la closure.
@@ -63,545 +53,94 @@ impl AbcomApp {
         // la closure qui emprunte déjà `self`.
         let mut storage_actions = StorageActions::default();
 
-        // Onglet Général
-        let language_label = self.t(i18n::LANGUE);
-
-        // Onglet Crédits
-        let description_text = self.t(i18n::MESSAGERIE_PAIR_A_PAIR_LOCALE_DECOUVERTE);
-        let warranty_text = self.t(i18n::LOGICIEL_DISTRIBUE_SANS_GARANTIE_VOIR_LA);
-        let klipy_role = self.t(i18n::GIF_ANIMES_MEMES_STATIQUES_ET_STICKERS);
-        let openmoji_role = self.t(i18n::JEU_D_EMOJIS_UTILISE_DANS_LE);
-        let inter_role = self.t(i18n::POLICE_D_ECRITURE_EN_GRAS_UTILISEE);
-        let symbols_role = self.t(i18n::POLICE_DE_SYMBOLES_UTILISEE_EN_REPLI);
-        let noto_sans_role = self.t(i18n::POLICE_DE_TEXTE_DE_L_INTERFACE);
-        let unifont_role = self.t(i18n::POLICE_DE_DERNIER_RECOURS);
-
         // Taille fixe pour que la fenêtre ne change pas d'un onglet à l'autre ;
         // `Modal` la ramène à la fenêtre de l'application si elle est plus petite.
         const SETTINGS_SIZE: egui::Vec2 = egui::vec2(760.0, 560.0);
 
         let mut open = self.modals.settings_open;
-        super::dialog::Modal::new("settings_modal", title, self.t(i18n::FERMER), SETTINGS_SIZE.x)
-            .height(SETTINGS_SIZE.y)
-            .show(ctx, &mut open, |ui| {
-                // Un libellé long revient à la ligne plutôt que de pousser la fenêtre hors de l'écran.
-                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Wrap);
-                // Tout défile d'un bloc : à grande police dans une petite fenêtre, la
-                // boîte garde la taille de la fenêtre au lieu de la dépasser.
-                egui::ScrollArea::vertical()
-                    .id_salt(("settings_outer_scroll", self.modals.settings_tab as u8))
-                    .auto_shrink([false, false])
-                    .show(ui, |ui| {
-                        // Bandeau d'onglets
-                        ui.horizontal_wrapped(|ui| {
-                            for (tab, label) in [
-                                (SettingsTab::Profile, profile_label),
-                                (SettingsTab::General, general_label),
-                                (SettingsTab::Appearance, appearance_label),
-                                (SettingsTab::Storage, storage_label),
-                                (SettingsTab::Credits, credits_label),
-                                (SettingsTab::License, license_label),
-                            ] {
-                                if ui
-                                    .selectable_label(self.modals.settings_tab == tab, label)
-                                    .clicked()
-                                {
-                                    // Revenir sur Stockage doit repartir du disque : le
-                                    // dossier a pu changer depuis le dernier calcul, et
-                                    // un aperçu périmé activerait « Purger » à tort.
-                                    if tab == SettingsTab::Storage {
-                                        storage_actions.refresh = true;
-                                        storage_actions.preview = true;
-                                    }
-                                    self.modals.settings_tab = tab;
+        super::dialog::Modal::new(
+            "settings_modal",
+            title,
+            self.t(i18n::FERMER),
+            SETTINGS_SIZE.x,
+        )
+        .height(SETTINGS_SIZE.y)
+        .show(ctx, &mut open, |ui| {
+            // Un libellé long revient à la ligne plutôt que de pousser la fenêtre hors de l'écran.
+            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Wrap);
+            // Tout défile d'un bloc : à grande police dans une petite fenêtre, la
+            // boîte garde la taille de la fenêtre au lieu de la dépasser.
+            egui::ScrollArea::vertical()
+                .id_salt(("settings_outer_scroll", self.modals.settings_tab as u8))
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    // Bandeau d'onglets
+                    ui.horizontal_wrapped(|ui| {
+                        for (tab, label) in [
+                            (SettingsTab::Profile, profile_label),
+                            (SettingsTab::General, general_label),
+                            (SettingsTab::Appearance, appearance_label),
+                            (SettingsTab::Storage, storage_label),
+                            (SettingsTab::Credits, credits_label),
+                            (SettingsTab::License, license_label),
+                        ] {
+                            if ui
+                                .selectable_label(self.modals.settings_tab == tab, label)
+                                .clicked()
+                            {
+                                // Revenir sur Stockage doit repartir du disque : le
+                                // dossier a pu changer depuis le dernier calcul, et
+                                // un aperçu périmé activerait « Purger » à tort.
+                                if tab == SettingsTab::Storage {
+                                    storage_actions.refresh = true;
+                                    storage_actions.preview = true;
                                 }
-                            }
-                        });
-                        ui.separator();
-                        ui.add_space(8.0);
-
-                        match self.modals.settings_tab {
-                            SettingsTab::Profile => {
-                                ui.label(egui::RichText::new(profile_heading).strong());
-                                ui.add_space(8.0);
-                                // Empreinte de la clé d'identité (Noise) : à comparer
-                                // hors-bande avec un pair pour vérifier l'appairage.
-                                ui.label(
-                                    egui::RichText::new(format!(
-                                        "{} : {}",
-                                        self.t(i18n::EMPREINTE_DE_VOTRE_CLE),
-                                        self.identity_fingerprint
-                                    ))
-                                    .small()
-                                    .weak(),
-                                );
-                                let psk_label = if self.psk_active {
-                                    self.t(i18n::PASSPHRASE_DE_SALON_ACTIVE)
-                                } else {
-                                    self.t(i18n::PASSPHRASE_DE_SALON_DESACTIVEE_ABCOM_PASSPHRASE)
-                                };
-                                ui.label(egui::RichText::new(psk_label).small().weak());
-                                ui.add_space(12.0);
-                                ui.horizontal(|ui| {
-                                    show_avatar(ui, avatar_texture.as_ref(), &my_name, PROFILE_AVATAR_SIZE);
-                                    ui.add_space(16.0);
-                                    ui.vertical(|ui| {
-                                        ui.add_space(4.0);
-                                        ui.label(egui::RichText::new(&my_name).heading().strong());
-                                        ui.add_space(2.0);
-                                        ui.label(egui::RichText::new(profile_hint).small().weak());
-                                        ui.add_space(10.0);
-                                        ui.horizontal_wrapped(|ui| {
-                                            let button_label = if has_avatar {
-                                                change_label
-                                            } else {
-                                                choose_label
-                                            };
-                                            if ui.button(button_label).clicked() {
-                                                pick_avatar = true;
-                                            }
-                                            if has_avatar && ui.button(remove_label).clicked() {
-                                                clear_avatar = true;
-                                            }
-                                        });
-                                    });
-                                });
-                            }
-                            SettingsTab::General => {
-                                egui::Grid::new("settings_general")
-                                    .max_col_width((ui.available_width() - 16.0) / 2.0)
-                                    .num_columns(2)
-                                    .spacing([16.0, 12.0])
-                                    .show(ui, |ui| {
-                                        ui.label(egui::RichText::new(language_label).strong());
-                                        ui.horizontal_wrapped(|ui| {
-                                            ui.radio_value(
-                                                &mut self.ui_language,
-                                                UiLanguage::French,
-                                                "Français",
-                                            );
-                                            ui.radio_value(
-                                                &mut self.ui_language,
-                                                UiLanguage::English,
-                                                "English",
-                                            );
-                                        });
-                                        ui.end_row();
-
-                                        ui.label(egui::RichText::new(self.t(i18n::NOTIFICATIONS)).strong());
-                                        ui.horizontal_wrapped(|ui| {
-                                            let label = self.t(i18n::AFFICHER_UN_APERCU_DU_MESSAGE);
-                                            if ui.checkbox(&mut self.notif_preview, label).changed() {
-                                                let v = if self.notif_preview { "1" } else { "0" };
-                                                self.state.lock_safe().set_pref("notif_preview", v);
-                                            }
-                                        });
-                                        ui.end_row();
-
-                                        ui.label(egui::RichText::new(self.t(i18n::DEMARRAGE)).strong());
-                                        ui.horizontal_wrapped(|ui| {
-                                            let label = self.t(i18n::LANCER_ABCOM_A_L_OUVERTURE_DE);
-                                            let supported = crate::platform::autostart::is_supported();
-                                            let response = ui.add_enabled(supported, egui::Checkbox::new(&mut self.autostart_enabled, label));
-                                            let response = response.on_disabled_hover_text(self.t(i18n::FLATPAK_AUTOSTART_UNAVAILABLE));
-                                            if response.changed() {
-                                                match crate::platform::autostart::set_enabled(
-                                                    self.autostart_enabled,
-                                                ) {
-                                                    Ok(()) => {
-                                                        let v =
-                                                            if self.autostart_enabled { "1" } else { "0" };
-                                                        self.state.lock_safe().set_pref("autostart", v);
-                                                    }
-                                                    Err(e) => {
-                                                        tracing::warn!("échec autostart : {e}");
-                                                        self.autostart_enabled = !self.autostart_enabled;
-                                                    }
-                                                }
-                                            }
-                                        });
-                                        ui.end_row();
-
-                                        ui.label(egui::RichText::new(self.t(i18n::DONNEES)).strong());
-                                        ui.horizontal_wrapped(|ui| {
-                                            if ui
-                                                .button(self.t(i18n::EXPORTER_LA_CONVERSATION_2))
-                                                .clicked()
-                                            {
-                                                self.pending_export = true;
-                                            }
-                                            if ui.button(self.t(i18n::COMPACTER_LA_BASE)).clicked() {
-                                                self.state.lock_safe().compact_storage();
-                                                self.last_notification = Some(
-                                                    self.t(i18n::COMPACTION_DE_LA_BASE_LANCEE).to_string(),
-                                                );
-                                                self.notification_time = std::time::Instant::now();
-                                            }
-                                        });
-                                        ui.end_row();
-
-                                        // Diagnostic : compteurs de la session en cours
-                                        // (cf. `metrics`). « Jetés » non nul = file
-                                        // saturée ou pair injoignable.
-                                        ui.label(egui::RichText::new(self.t(i18n::DIAGNOSTIC)).strong());
-                                        ui.horizontal_wrapped(|ui| {
-                                            let m = crate::metrics::snapshot();
-                                            let line = format!(
-                                                "{} {} · {} {} · {} {} · {} {}",
-                                                self.t(i18n::ENVOYES),
-                                                m.packets_sent,
-                                                self.t(i18n::RECUS),
-                                                m.packets_received,
-                                                self.t(i18n::JETES),
-                                                m.packets_dropped,
-                                                self.t(i18n::PAIRS_VUS),
-                                                m.peers_seen,
-                                            );
-                                            ui.label(egui::RichText::new(line).small().weak());
-                                        });
-                                        ui.end_row();
-                                    });
-                            }
-                            SettingsTab::Appearance => self.render_appearance_tab(ui),
-                            SettingsTab::Storage => {
-                                storage_tab(
-                                    ui,
-                                    self.storage_usage.as_ref(),
-                                    self.purge_preview.as_ref(),
-                                    &mut self.retention_days,
-                                    &mut self.purge_includes_images,
-                                    self.ui_language,
-                                    &mut storage_actions,
-                                );
-                            }
-                            SettingsTab::Credits => {
-                                // ── Abcom ────────────────────────────────────
-                                ui.label(egui::RichText::new(service_name).strong().heading());
-                                ui.add_space(4.0);
-                                egui::Grid::new("credits_abcom")
-                                    .max_col_width((ui.available_width() - 12.0) / 2.0)
-                                    .num_columns(2)
-                                    .spacing([12.0, 4.0])
-                                    .show(ui, |ui| {
-                                        let lbl = |ui: &mut egui::Ui, t: &str| {
-                                            ui.label(egui::RichText::new(t).strong());
-                                        };
-                                        lbl(ui, self.t(i18n::VERSION));
-                                        ui.label(version);
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::DESCRIPTION));
-                                        ui.add(
-                                            egui::Label::new(description_text)
-                                                .wrap_mode(egui::TextWrapMode::Wrap),
-                                        );
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::DEVELOPPEURS));
-                                        ui.label("Hugo Lagouardat Massiroles, Rudy Alves");
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::COPYRIGHT));
-                                        ui.label("Abnd © 2026");
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::LICENCE));
-                                        ui.label("GNU Affero General Public License v3");
-                                        ui.end_row();
-                                    });
-                                ui.add_space(2.0);
-                                ui.label(egui::RichText::new(warranty_text).small().weak());
-
-                                ui.add_space(14.0);
-                                ui.separator();
-                                ui.add_space(8.0);
-
-                                // ── Klipy ────────────────────────────────────
-                                ui.label(egui::RichText::new("Klipy").strong().heading());
-                                ui.add_space(4.0);
-                                egui::Grid::new("credits_klipy")
-                                    .max_col_width((ui.available_width() - 12.0) / 2.0)
-                                    .num_columns(2)
-                                    .spacing([12.0, 4.0])
-                                    .show(ui, |ui| {
-                                        let lbl = |ui: &mut egui::Ui, t: &str| {
-                                            ui.label(egui::RichText::new(t).strong());
-                                        };
-                                        lbl(ui, self.t(i18n::FOURNISSEUR));
-                                        ui.label("KLIPY (klipy.com)");
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::ROLE));
-                                        ui.add(
-                                            egui::Label::new(klipy_role)
-                                                .wrap_mode(egui::TextWrapMode::Wrap),
-                                        );
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::LICENCE));
-                                        ui.label("Klipy API Terms of Service");
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::ATTRIBUTION));
-                                        ui.label("© KLIPY — Powered by KLIPY");
-                                        ui.end_row();
-                                    });
-
-                                ui.add_space(14.0);
-                                ui.separator();
-                                ui.add_space(8.0);
-
-                                // ── OpenEmoji ────────────────────────────────
-                                ui.label(egui::RichText::new("OpenEmoji").strong().heading());
-                                ui.add_space(4.0);
-                                egui::Grid::new("credits_openmoji")
-                                    .max_col_width((ui.available_width() - 12.0) / 2.0)
-                                    .num_columns(2)
-                                    .spacing([12.0, 4.0])
-                                    .show(ui, |ui| {
-                                        let lbl = |ui: &mut egui::Ui, t: &str| {
-                                            ui.label(egui::RichText::new(t).strong());
-                                        };
-                                        lbl(ui, self.t(i18n::SOURCE));
-                                        ui.label("OpenEmoji (openmoji.org)");
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::ROLE));
-                                        ui.add(
-                                            egui::Label::new(openmoji_role)
-                                                .wrap_mode(egui::TextWrapMode::Wrap),
-                                        );
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::LICENCE));
-                                        ui.label("CC BY 4.0");
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::AUTEURS));
-                                        ui.label("HfG Schwäbisch Gmünd & contributeurs OpenEmoji");
-                                        ui.end_row();
-                                    });
-
-                                ui.add_space(14.0);
-                                ui.separator();
-                                ui.add_space(8.0);
-
-                                // ── Noto Sans ────────────────────────────────
-                                ui.label(
-                                    egui::RichText::new("Noto Sans (police de texte)")
-                                        .strong()
-                                        .heading(),
-                                );
-                                ui.add_space(4.0);
-                                egui::Grid::new("credits_noto_sans")
-                                    .max_col_width((ui.available_width() - 12.0) / 2.0)
-                                    .num_columns(2)
-                                    .spacing([12.0, 4.0])
-                                    .show(ui, |ui| {
-                                        let lbl = |ui: &mut egui::Ui, t: &str| {
-                                            ui.label(egui::RichText::new(t).strong());
-                                        };
-                                        lbl(ui, self.t(i18n::AUTEURS));
-                                        ui.label("The Noto Project Authors");
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::ROLE));
-                                        ui.add(
-                                            egui::Label::new(noto_sans_role)
-                                                .wrap_mode(egui::TextWrapMode::Wrap),
-                                        );
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::LICENCE));
-                                        ui.label("SIL Open Font License v1.1");
-                                        ui.end_row();
-                                    });
-
-                                ui.add_space(14.0);
-                                ui.separator();
-                                ui.add_space(8.0);
-
-                                // ── Inter ────────────────────────────────────
-                                ui.label(
-                                    egui::RichText::new("Inter (police d'écriture)")
-                                        .strong()
-                                        .heading(),
-                                );
-                                ui.add_space(4.0);
-                                egui::Grid::new("credits_inter")
-                                    .max_col_width((ui.available_width() - 12.0) / 2.0)
-                                    .num_columns(2)
-                                    .spacing([12.0, 4.0])
-                                    .show(ui, |ui| {
-                                        let lbl = |ui: &mut egui::Ui, t: &str| {
-                                            ui.label(egui::RichText::new(t).strong());
-                                        };
-                                        lbl(ui, self.t(i18n::AUTEUR));
-                                        ui.label("Rasmus Andersson");
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::ROLE));
-                                        ui.add(
-                                            egui::Label::new(inter_role)
-                                                .wrap_mode(egui::TextWrapMode::Wrap),
-                                        );
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::LICENCE));
-                                        ui.label("SIL Open Font License v1.1");
-                                        ui.end_row();
-                                    });
-
-                                ui.add_space(14.0);
-                                ui.separator();
-                                ui.add_space(8.0);
-
-                                // ── Noto Sans Symbols 2 ──────────────────────
-                                ui.label(
-                                    egui::RichText::new("Noto Sans Symbols 2 (police de symboles)")
-                                        .strong()
-                                        .heading(),
-                                );
-                                ui.add_space(4.0);
-                                egui::Grid::new("credits_noto_symbols")
-                                    .max_col_width((ui.available_width() - 12.0) / 2.0)
-                                    .num_columns(2)
-                                    .spacing([12.0, 4.0])
-                                    .show(ui, |ui| {
-                                        let lbl = |ui: &mut egui::Ui, t: &str| {
-                                            ui.label(egui::RichText::new(t).strong());
-                                        };
-                                        lbl(ui, self.t(i18n::AUTEURS));
-                                        ui.label("The Noto Project Authors");
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::ROLE));
-                                        ui.add(
-                                            egui::Label::new(symbols_role)
-                                                .wrap_mode(egui::TextWrapMode::Wrap),
-                                        );
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::LICENCE));
-                                        ui.label("SIL Open Font License v1.1");
-                                        ui.end_row();
-                                    });
-
-                                ui.add_space(14.0);
-                                ui.separator();
-                                ui.add_space(8.0);
-
-                                // ── Unifont ──────────────────────────────────
-                                ui.label(
-                                    egui::RichText::new("GNU Unifont (dernier recours)")
-                                        .strong()
-                                        .heading(),
-                                );
-                                ui.add_space(4.0);
-                                egui::Grid::new("credits_unifont")
-                                    .max_col_width((ui.available_width() - 12.0) / 2.0)
-                                    .num_columns(2)
-                                    .spacing([12.0, 4.0])
-                                    .show(ui, |ui| {
-                                        let lbl = |ui: &mut egui::Ui, t: &str| {
-                                            ui.label(egui::RichText::new(t).strong());
-                                        };
-                                        lbl(ui, self.t(i18n::AUTEURS));
-                                        ui.label("Roman Czyborra, Paul Hardy & contributeurs");
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::ROLE));
-                                        ui.add(
-                                            egui::Label::new(unifont_role)
-                                                .wrap_mode(egui::TextWrapMode::Wrap),
-                                        );
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::LICENCE));
-                                        ui.label("SIL Open Font License v1.1 / GPLv2+ avec exception d'embarquement");
-                                        ui.end_row();
-                                    });
-
-                                ui.add_space(14.0);
-                                ui.separator();
-                                ui.add_space(8.0);
-
-                                // ── Polices proposées ───────────────────────
-                                ui.label(
-                                    egui::RichText::new(self.t(i18n::POLICES_PROPOSEES))
-                                        .strong()
-                                        .heading(),
-                                );
-                                ui.add_space(4.0);
-                                egui::Grid::new("credits_suggested_fonts")
-                                    .max_col_width((ui.available_width() - 12.0) / 2.0)
-                                    .num_columns(2)
-                                    .spacing([12.0, 4.0])
-                                    .show(ui, |ui| {
-                                        let lbl = |ui: &mut egui::Ui, t: &str| {
-                                            ui.label(egui::RichText::new(t).strong());
-                                        };
-                                        lbl(ui, self.t(i18n::AUTEURS));
-                                        ui.add(
-                                            egui::Label::new(
-                                                "Atkinson Hyperlegible (Braille Institute of America), \
-                                                 Lexend (The Lexend Project Authors), \
-                                                 OpenDyslexic (Abbie Gonzalez), \
-                                                 Literata (The Literata Project Authors), \
-                                                 Nunito (The Nunito Project Authors), \
-                                                 JetBrains Mono (The JetBrains Mono Project Authors)",
-                                            )
-                                            .wrap_mode(egui::TextWrapMode::Wrap),
-                                        );
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::ROLE));
-                                        ui.add(
-                                            egui::Label::new(self.t(i18n::POLICES_PROPOSEES_ROLE))
-                                                .wrap_mode(egui::TextWrapMode::Wrap),
-                                        );
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::LICENCE));
-                                        ui.label("SIL Open Font License v1.1");
-                                        ui.end_row();
-                                    });
-
-                                ui.add_space(14.0);
-                                ui.separator();
-                                ui.add_space(8.0);
-
-                                // ── Palettes ─────────────────────────────────
-                                ui.label(
-                                    egui::RichText::new(self.t(i18n::PALETTES_DE_COULEURS))
-                                        .strong()
-                                        .heading(),
-                                );
-                                ui.add_space(4.0);
-                                egui::Grid::new("credits_palettes")
-                                    .max_col_width((ui.available_width() - 12.0) / 2.0)
-                                    .num_columns(2)
-                                    .spacing([12.0, 4.0])
-                                    .show(ui, |ui| {
-                                        let lbl = |ui: &mut egui::Ui, t: &str| {
-                                            ui.label(egui::RichText::new(t).strong());
-                                        };
-                                        lbl(ui, self.t(i18n::AUTEURS));
-                                        ui.add(
-                                            egui::Label::new(
-                                                "Nord (Arctic Ice Studio), Dracula (Zeno Rocha), \
-                                                 Solarized (Ethan Schoonover), One Dark (Atom), \
-                                                 Catppuccin, GitHub Primer",
-                                            )
-                                            .wrap_mode(egui::TextWrapMode::Wrap),
-                                        );
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::ROLE));
-                                        ui.add(
-                                            egui::Label::new(
-                                                self.t(i18n::PALETTES_INSPIREES_DE_CES_PROJETS),
-                                            )
-                                            .wrap_mode(egui::TextWrapMode::Wrap),
-                                        );
-                                        ui.end_row();
-                                        lbl(ui, self.t(i18n::LICENCE));
-                                        ui.label("MIT");
-                                        ui.end_row();
-                                    });
-                                ui.add_space(8.0);
-                            }
-                            SettingsTab::License => {
-                                ui.label(
-                                    egui::RichText::new("GNU Affero General Public License v3")
-                                        .strong()
-                                        .heading(),
-                                );
-                                ui.add_space(6.0);
-                                ui.add(egui::Label::new(license_text_for_display()).wrap());
+                                self.modals.settings_tab = tab;
                             }
                         }
                     });
-            });
+                    ui.separator();
+                    ui.add_space(8.0);
+
+                    match self.modals.settings_tab {
+                        SettingsTab::Profile => {
+                            let action = self.render_profile_tab(
+                                ui,
+                                avatar_texture.as_ref(),
+                                &my_name,
+                                has_avatar,
+                            );
+                            pick_avatar |= action.pick;
+                            clear_avatar |= action.clear;
+                        }
+                        SettingsTab::General => self.render_general_tab(ui),
+                        SettingsTab::Appearance => self.render_appearance_tab(ui),
+                        SettingsTab::Storage => {
+                            storage_tab(
+                                ui,
+                                self.storage_usage.as_ref(),
+                                self.purge_preview.as_ref(),
+                                &mut self.retention_days,
+                                &mut self.purge_includes_images,
+                                self.ui_language,
+                                &mut storage_actions,
+                            );
+                        }
+                        SettingsTab::Credits => {
+                            super::credits::show_credits(ui, self.ui_language);
+                        }
+                        SettingsTab::License => {
+                            ui.label(
+                                egui::RichText::new("GNU Affero General Public License v3")
+                                    .strong()
+                                    .heading(),
+                            );
+                            ui.add_space(6.0);
+                            ui.add(egui::Label::new(license_text_for_display()).wrap());
+                        }
+                    }
+                });
+        });
         self.modals.settings_open = open;
 
         // Application différée des actions de l'onglet Profil (hors closure pour
@@ -616,6 +155,155 @@ impl AbcomApp {
             self.broadcast_my_avatar();
         }
         self.apply_storage_actions(storage_actions);
+    }
+
+    /// Onglet Profil : empreinte d'identité, avatar et ses deux actions.
+    fn render_profile_tab(
+        &mut self,
+        ui: &mut egui::Ui,
+        avatar_texture: Option<&egui::TextureHandle>,
+        my_name: &str,
+        has_avatar: bool,
+    ) -> AvatarAction {
+        let mut action = AvatarAction::default();
+        ui.label(egui::RichText::new(self.t(i18n::IMAGE_DE_PROFIL)).strong());
+        ui.add_space(8.0);
+        // Empreinte de la clé d'identité (Noise) : à comparer
+        // hors-bande avec un pair pour vérifier l'appairage.
+        ui.label(
+            egui::RichText::new(format!(
+                "{} : {}",
+                self.t(i18n::EMPREINTE_DE_VOTRE_CLE),
+                self.identity_fingerprint
+            ))
+            .small()
+            .weak(),
+        );
+        let psk_label = if self.psk_active {
+            self.t(i18n::PASSPHRASE_DE_SALON_ACTIVE)
+        } else {
+            self.t(i18n::PASSPHRASE_DE_SALON_DESACTIVEE_ABCOM_PASSPHRASE)
+        };
+        ui.label(egui::RichText::new(psk_label).small().weak());
+        ui.add_space(12.0);
+        ui.horizontal(|ui| {
+            show_avatar(ui, avatar_texture, my_name, PROFILE_AVATAR_SIZE);
+            ui.add_space(16.0);
+            ui.vertical(|ui| {
+                ui.add_space(4.0);
+                ui.label(egui::RichText::new(my_name).heading().strong());
+                ui.add_space(2.0);
+                ui.label(
+                    egui::RichText::new(self.t(i18n::VISIBLE_PAR_LES_AUTRES_PAIRS_DANS))
+                        .small()
+                        .weak(),
+                );
+                ui.add_space(10.0);
+                ui.horizontal_wrapped(|ui| {
+                    let button_label = if has_avatar {
+                        self.t(i18n::CHANGER_L_IMAGE)
+                    } else {
+                        self.t(i18n::CHOISIR_UNE_IMAGE)
+                    };
+                    if ui.button(button_label).clicked() {
+                        action.pick = true;
+                    }
+                    if has_avatar && ui.button(self.t(i18n::RETIRER)).clicked() {
+                        action.clear = true;
+                    }
+                });
+            });
+        });
+        action
+    }
+
+    /// Onglet Général : langue, notifications, démarrage, données et diagnostic.
+    fn render_general_tab(&mut self, ui: &mut egui::Ui) {
+        egui::Grid::new("settings_general")
+            .max_col_width((ui.available_width() - 16.0) / 2.0)
+            .num_columns(2)
+            .spacing([16.0, 12.0])
+            .show(ui, |ui| {
+                ui.label(egui::RichText::new(self.t(i18n::LANGUE)).strong());
+                ui.horizontal_wrapped(|ui| {
+                    ui.radio_value(&mut self.ui_language, UiLanguage::French, "Français");
+                    ui.radio_value(&mut self.ui_language, UiLanguage::English, "English");
+                });
+                ui.end_row();
+
+                ui.label(egui::RichText::new(self.t(i18n::NOTIFICATIONS)).strong());
+                ui.horizontal_wrapped(|ui| {
+                    let label = self.t(i18n::AFFICHER_UN_APERCU_DU_MESSAGE);
+                    if ui.checkbox(&mut self.notif_preview, label).changed() {
+                        let v = if self.notif_preview { "1" } else { "0" };
+                        self.state.lock_safe().set_pref("notif_preview", v);
+                    }
+                });
+                ui.end_row();
+
+                ui.label(egui::RichText::new(self.t(i18n::DEMARRAGE)).strong());
+                ui.horizontal_wrapped(|ui| {
+                    let label = self.t(i18n::LANCER_ABCOM_A_L_OUVERTURE_DE);
+                    let supported = crate::platform::autostart::is_supported();
+                    let response = ui.add_enabled(
+                        supported,
+                        egui::Checkbox::new(&mut self.autostart_enabled, label),
+                    );
+                    let response = response
+                        .on_disabled_hover_text(self.t(i18n::FLATPAK_AUTOSTART_UNAVAILABLE));
+                    if response.changed() {
+                        match crate::platform::autostart::set_enabled(self.autostart_enabled) {
+                            Ok(()) => {
+                                let v = if self.autostart_enabled { "1" } else { "0" };
+                                self.state.lock_safe().set_pref("autostart", v);
+                            }
+                            Err(e) => {
+                                tracing::warn!("échec autostart : {e}");
+                                self.autostart_enabled = !self.autostart_enabled;
+                            }
+                        }
+                    }
+                });
+                ui.end_row();
+
+                ui.label(egui::RichText::new(self.t(i18n::DONNEES)).strong());
+                ui.horizontal_wrapped(|ui| {
+                    if ui
+                        .button(self.t(i18n::EXPORTER_LA_CONVERSATION_2))
+                        .clicked()
+                    {
+                        self.pending_export = true;
+                    }
+                    if ui.button(self.t(i18n::COMPACTER_LA_BASE)).clicked() {
+                        self.state.lock_safe().compact_storage();
+                        self.last_notification =
+                            Some(self.t(i18n::COMPACTION_DE_LA_BASE_LANCEE).to_string());
+                        self.notification_time = std::time::Instant::now();
+                    }
+                });
+                ui.end_row();
+
+                // Diagnostic : compteurs de la session en cours
+                // (cf. `metrics`). « Jetés » non nul = file
+                // saturée ou pair injoignable.
+                ui.label(egui::RichText::new(self.t(i18n::DIAGNOSTIC)).strong());
+                ui.horizontal_wrapped(|ui| {
+                    let m = crate::metrics::snapshot();
+                    let line = format!(
+                        "{} {} · {} {} · {} {} · {} {}",
+                        self.t(i18n::ENVOYES),
+                        m.packets_sent,
+                        self.t(i18n::RECUS),
+                        m.packets_received,
+                        self.t(i18n::JETES),
+                        m.packets_dropped,
+                        self.t(i18n::PAIRS_VUS),
+                        m.peers_seen,
+                    );
+                    ui.label(egui::RichText::new(line).small().weak());
+                });
+                ui.end_row();
+            });
     }
 
     /// Applique les demandes de l'onglet Stockage. Hors de la closure de la
@@ -688,14 +376,11 @@ fn open_in_file_manager(dir: &std::path::Path) -> std::io::Result<()> {
 
 /// Formate une taille en unité lisible. Les octets bruts d'un cache de
 /// plusieurs gigaoctets ne disent rien à l'œil.
-pub(crate) fn human_bytes(bytes: u64) -> String {
-    const UNITS: [(&str, u64); 3] = [("Go", 1_000_000_000), ("Mo", 1_000_000), ("ko", 1_000)];
-    for (unit, scale) in UNITS {
-        if bytes >= scale {
-            return format!("{:.1} {unit}", bytes as f64 / scale as f64);
-        }
-    }
-    format!("{bytes} o")
+/// Ce que l'onglet Profil demande, appliqué hors de la closure de la fenêtre.
+#[derive(Default)]
+struct AvatarAction {
+    pick: bool,
+    clear: bool,
 }
 
 /// Ce que l'onglet Stockage demande à l'application, appliqué hors de la

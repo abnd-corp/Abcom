@@ -1,5 +1,4 @@
 use std::net::SocketAddr;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::AppState;
 
@@ -16,10 +15,7 @@ impl AppState {
     /// Ajoute ou met à jour un pair. `addr` est l'adresse TCP de chat complète
     /// (IP source + port annoncé lors de la découverte).
     pub fn add_peer(&mut self, username: String, addr: SocketAddr) {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
+        let now = crate::util::now_secs();
 
         for peer in &mut self.peers {
             if peer.username == username {
@@ -50,10 +46,7 @@ impl AppState {
     /// de sécurité testé, réutilisable si la politique change.
     #[allow(dead_code)]
     pub fn cleanup_inactive_peers(&mut self, timeout_secs: u64) -> Vec<String> {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
+        let now = crate::util::now_secs();
 
         let mut disconnected = Vec::new();
         for peer in &mut self.peers {
