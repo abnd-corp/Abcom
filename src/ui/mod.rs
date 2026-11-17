@@ -19,6 +19,7 @@ mod avatar;
 mod chat_panel;
 mod colors;
 pub mod composer;
+mod credits;
 mod custom_themes;
 mod dialog;
 mod emoji_picker;
