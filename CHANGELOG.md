@@ -10,8 +10,13 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 ### Maintenance
 - Dock macOS : empêche eframe de remplacer l’ICNS du bundle par le PNG de fenêtre ; contrôle natif de l’icône après trois frames, avec contre-épreuve de l’ancien défaut
 - Tailles natives corrigées : tray macOS de 18 points avec cible de clic système, marges optiques du Dock, ICO Windows enrichi et tray adapté au DPI
-- Tray Linux migré vers KSNI sans GTK/AppIndicator ; trois exceptions de maintenance D-Bus approuvées et suivies dans l’issue #59, qui doit rester ouverte jusqu’à leur retrait
+- Tray Linux migré vers KSNI sans GTK/AppIndicator, puis chaîne D-Bus migrée vers zbus 6 : plus aucune exception RustSec (issue #59 close), correctifs locaux documentés dans `vendor/`
+- Les tests unitaires tournent aussi sous Windows et macOS en CI, plus seulement `cargo check`
 - Mise à jour des dépendances directes et transitives, avec adaptation à egui 0.37 et ZIP 9 ; les vulnérabilités signalées sont corrigées
+
+### Corrigé
+- `abcom --help` et `--version` répondent sans démarrer l'application ; auparavant, `--help` était pris pour un pseudo et annoncé sur le réseau local, et toute option inconnue est désormais refusée
+- Les tailles de fichier s'affichent identiquement dans la conversation et dans l'onglet Stockage (unités décimales : ko, Mo, Go)
 
 ### Documentation
 - Cartes de partage GitHub EN/FR de 1280 × 640 px, sources SVG et PNG reproductibles avec la nouvelle identité ; procédure d’activation documentée
