@@ -3,7 +3,8 @@ use eframe::egui;
 
 use crate::util::{human_bytes, MutexExt};
 
-use super::{AbcomApp, ReplyTarget};
+use super::snapshot::ReceiptStatus;
+use super::{AbcomApp, ReplyTarget, UiLanguage};
 
 mod row;
 mod toolbar;
@@ -783,28 +784,28 @@ impl AbcomApp {
 /// - ✓  gris  = envoyé, livraison en attente
 /// - ✓✓ gris  = livré (ACK reçu), pas encore lu
 /// - ✓✓ bleu  = lu (ReadReceipt reçu)
-fn show_receipt(ui: &mut egui::Ui, delivered: bool, read: bool, failed: bool) {
-    if failed {
+fn show_receipt(ui: &mut egui::Ui, status: ReceiptStatus, language: UiLanguage) {
+    if status == ReceiptStatus::Failed {
         ui.label(
             egui::RichText::new("!")
                 .strong()
                 .color(crate::ui::theme::palette(ui).danger),
         )
-        .on_hover_text("Échec de livraison / Delivery failed");
+        .on_hover_text(i18n::ETAT_ECHEC_DE_LIVRAISON.get(language));
         return;
     }
-    let double = delivered || read;
+    let read = status == ReceiptStatus::Read;
+    let double = status >= ReceiptStatus::Delivered;
     let w = if double { 17.0_f32 } else { 9.0_f32 };
     let (rect, response) = ui.allocate_exact_size(egui::vec2(w, 12.0), egui::Sense::hover());
     // Les coches sont peintes : sans libellé, l'état de livraison n'existe
     // pas pour un lecteur d'écran.
-    let state = if read {
-        "Lu"
-    } else if delivered {
-        "Reçu"
-    } else {
-        "Envoyé"
-    };
+    let state = match status {
+        ReceiptStatus::Read => i18n::ETAT_LU,
+        ReceiptStatus::Delivered => i18n::ETAT_RECU,
+        _ => i18n::ETAT_ENVOYE,
+    }
+    .get(language);
     response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, state));
     if !ui.is_rect_visible(rect) {
         return;

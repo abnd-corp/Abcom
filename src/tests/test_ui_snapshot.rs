@@ -1,4 +1,4 @@
-use super::SidebarCache;
+use super::{ReceiptStatus, SidebarCache};
 use crate::app::AppState;
 use std::net::SocketAddr;
 
@@ -85,4 +85,29 @@ fn collapse_preview_counts_unicode_chars_not_bytes() {
     let content = "héhé😀".repeat(1_000); // 5 000 caractères
     let info = super::collapse_info(&content, &emoji_map).expect("doit être replié");
     assert_eq!(info.total_chars, 5_000);
+}
+
+#[test]
+fn receipt_status_ranks_failure_first_then_read_over_delivered() {
+    assert_eq!(
+        ReceiptStatus::from_flags(false, false, false),
+        ReceiptStatus::Sent
+    );
+    assert_eq!(
+        ReceiptStatus::from_flags(true, false, false),
+        ReceiptStatus::Delivered
+    );
+    assert_eq!(
+        ReceiptStatus::from_flags(true, true, false),
+        ReceiptStatus::Read
+    );
+    assert_eq!(
+        ReceiptStatus::from_flags(false, true, false),
+        ReceiptStatus::Read
+    );
+    assert_eq!(
+        ReceiptStatus::from_flags(true, true, true),
+        ReceiptStatus::Failed
+    );
+    assert!(ReceiptStatus::Read > ReceiptStatus::Delivered);
 }
