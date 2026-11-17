@@ -260,7 +260,7 @@ impl AbcomApp {
             let recipients = s.receipt_recipients(&msg);
             if !recipients.is_empty() {
                 let msg_hash = AppState::message_hash(&msg);
-                let now = chrono::Local::now().format("%H:%M").to_string();
+                let now = jiff::ZonedDateTime::now().strftime("%H:%M").to_string();
 
                 // Conversation source côté destinataire : « Tous »
                 // (None), le salon (#…) ou le pair émetteur.
@@ -547,7 +547,7 @@ fn delivery_acks(state: &AppState, media_id: &str) -> Vec<NetworkSendRequest> {
         return Vec::new();
     }
     let hash = AppState::message_hash(msg);
-    let now = chrono::Local::now().format("%H:%M").to_string();
+    let now = jiff::ZonedDateTime::now().strftime("%H:%M").to_string();
     state
         .receipt_recipients(msg)
         .into_iter()

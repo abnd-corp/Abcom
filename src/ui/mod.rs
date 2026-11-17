@@ -874,7 +874,7 @@ impl AbcomApp {
     pub(crate) fn send_read_receipts_for_conversation(&mut self, conv: Option<String>) {
         let s = self.state.lock_safe();
         let my_name = s.my_username.clone();
-        let now = chrono::Local::now().format("%H:%M").to_string();
+        let now = jiff::ZonedDateTime::now().strftime("%H:%M").to_string();
 
         let mut receipts: Vec<ReadReceiptRequest> = Vec::new();
         for m in s.messages.iter().filter(|m| m.from != my_name) {

@@ -1,6 +1,6 @@
 use super::{day_divider_label, starts_new_group, GROUP_BREAK_SECS};
 use crate::ui::UiLanguage;
-use chrono::NaiveDate;
+use jiff::civil::date;
 
 #[test]
 fn group_breaks_on_author_change() {
@@ -54,8 +54,8 @@ fn group_falls_back_to_author_without_epoch() {
 
 #[test]
 fn divider_labels_today_and_yesterday() {
-    let today = NaiveDate::from_ymd_opt(2026, 5, 20).unwrap();
-    let yesterday = NaiveDate::from_ymd_opt(2026, 5, 19).unwrap();
+    let today = date(2026, 5, 20);
+    let yesterday = date(2026, 5, 19);
     assert_eq!(
         day_divider_label(today, today, UiLanguage::French),
         "Aujourd'hui"
@@ -76,8 +76,8 @@ fn divider_labels_today_and_yesterday() {
 
 #[test]
 fn divider_labels_full_date_localized() {
-    let today = NaiveDate::from_ymd_opt(2026, 6, 23).unwrap();
-    let date = NaiveDate::from_ymd_opt(2026, 5, 18).unwrap();
+    let today = date(2026, 6, 23);
+    let date = date(2026, 5, 18);
     assert_eq!(
         day_divider_label(date, today, UiLanguage::French),
         "18 mai 2026"

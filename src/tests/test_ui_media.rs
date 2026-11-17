@@ -59,7 +59,7 @@ fn media_id_sanitizes_and_keeps_extension() {
 #[test]
 fn media_id_starts_with_a_readable_date() {
     let id = media_id("rapport.pdf");
-    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let today = jiff::ZonedDateTime::now().strftime("%Y-%m-%d").to_string();
     assert!(
         id.starts_with(&today),
         "l'identifiant doit commencer par la date du jour : {id}"

@@ -191,7 +191,7 @@ impl AbcomApp {
                                 from: my_name.clone(),
                                 to: msg.from.clone(),
                                 message_hash: msg_hash,
-                                timestamp: chrono::Local::now().format("%H:%M").to_string(),
+                                timestamp: jiff::ZonedDateTime::now().strftime("%H:%M").to_string(),
                             };
                             let req = ReadReceiptRequest {
                                 to_peer: peer_name.clone(),

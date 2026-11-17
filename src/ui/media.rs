@@ -65,12 +65,12 @@ pub(crate) fn refused_media_message(
     filename: &str,
     to_user: Option<String>,
 ) -> ChatMessage {
-    let now = chrono::Local::now();
+    let now = jiff::ZonedDateTime::now();
     ChatMessage {
         from: sender.to_string(),
         content: format!("Fichier refusé : {filename}"),
-        timestamp: now.format("%H:%M").to_string(),
-        timestamp_epoch: Some(now.timestamp() as u64),
+        timestamp: now.strftime("%H:%M").to_string(),
+        timestamp_epoch: Some(now.timestamp().as_second() as u64),
         to_user,
         media: None,
         reply_to: None,
@@ -89,9 +89,9 @@ pub(crate) fn refused_media_message(
 /// préfixe : deux fichiers envoyés dans la même seconde doivent rester
 /// distincts, et l'identifiant sert de clé au message.
 pub(crate) fn media_id(filename: &str) -> String {
-    let now = chrono::Local::now();
-    let stamp = now.format("%Y-%m-%d_%H%M%S");
-    let micros = now.timestamp_subsec_micros();
+    let now = jiff::ZonedDateTime::now();
+    let stamp = now.strftime("%Y-%m-%d_%H%M%S");
+    let micros = now.timestamp().subsec_microsecond();
     let safe: String = filename
         .chars()
         .map(|c| {
