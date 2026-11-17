@@ -38,6 +38,14 @@ pub fn decode_image_bounded(bytes: &[u8]) -> Option<image::DynamicImage> {
         .ok()
 }
 
+/// Secondes écoulées depuis l'epoch Unix ; 0 si l'horloge système est avant 1970.
+pub fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
 /// Taille lisible en unités décimales (ko, Mo, Go), partout la même dans l'interface.
 pub fn human_bytes(bytes: u64) -> String {
     const UNITS: [(&str, u64); 3] = [("Go", 1_000_000_000), ("Mo", 1_000_000), ("ko", 1_000)];
