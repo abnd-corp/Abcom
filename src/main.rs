@@ -109,14 +109,55 @@ fn install_panic_hook() {
     }));
 }
 
+/// Ce que demande la ligne de commande avant tout démarrage de l'application.
+#[derive(Debug, PartialEq, Eq)]
+enum CliRequest<'a> {
+    Help,
+    Version,
+    Run(Option<&'a str>),
+}
+
+/// Un premier argument en `-` est une option, jamais un pseudo : refus explicite plutôt qu'un lancement.
+fn parse_cli(arg: Option<&str>) -> anyhow::Result<CliRequest<'_>> {
+    match arg {
+        Some("-h" | "--help") => Ok(CliRequest::Help),
+        Some("-V" | "--version") => Ok(CliRequest::Version),
+        Some(option) if option.starts_with('-') => {
+            anyhow::bail!("option inconnue : {option} (voir --help)")
+        }
+        other => Ok(CliRequest::Run(other)),
+    }
+}
+
+const USAGE: &str = concat!(
+    "abcom ",
+    env!("CARGO_PKG_VERSION"),
+    "\nChat P2P local avec découverte automatique des pairs.\n\n",
+    "Usage : abcom [PSEUDO]\n\n",
+    "Options :\n  -h, --help     affiche cette aide\n  -V, --version  affiche la version\n\n",
+    "Sans PSEUDO, le nom de l'utilisateur du système est utilisé."
+);
+
 fn main() -> anyhow::Result<()> {
+    let first_arg = std::env::args().nth(1);
+    let requested_name = match parse_cli(first_arg.as_deref())? {
+        CliRequest::Help => {
+            println!("{USAGE}");
+            return Ok(());
+        }
+        CliRequest::Version => {
+            println!("abcom {}", env!("CARGO_PKG_VERSION"));
+            return Ok(());
+        }
+        CliRequest::Run(name) => name.map(str::to_string),
+    };
     load_dotenv(".env");
     // Le garde doit vivre aussi longtemps que le processus, sinon les
     // dernières lignes ne sont jamais écrites sur disque.
     let _log_guard = init_logging();
     install_panic_hook();
 
-    let username = std::env::args().nth(1).unwrap_or_else(|| {
+    let username = requested_name.unwrap_or_else(|| {
         std::env::var("USER")
             .or_else(|_| std::env::var("USERNAME"))
             .unwrap_or_else(|_| "anonymous".to_string())
@@ -261,7 +302,21 @@ fn main() -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_dotenv;
+    use super::{parse_cli, parse_dotenv, CliRequest};
+
+    #[test]
+    fn cli_options_never_become_usernames() {
+        assert_eq!(parse_cli(Some("--help")).unwrap(), CliRequest::Help);
+        assert_eq!(parse_cli(Some("-h")).unwrap(), CliRequest::Help);
+        assert_eq!(parse_cli(Some("--version")).unwrap(), CliRequest::Version);
+        assert!(parse_cli(Some("--inconnue")).is_err());
+        assert!(parse_cli(Some("-x")).is_err());
+        assert_eq!(
+            parse_cli(Some("alice")).unwrap(),
+            CliRequest::Run(Some("alice"))
+        );
+        assert_eq!(parse_cli(None).unwrap(), CliRequest::Run(None));
+    }
 
     #[test]
     fn parses_quotes_comments_and_ignores_unknown_keys() {
