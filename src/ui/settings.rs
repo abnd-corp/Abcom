@@ -42,13 +42,6 @@ impl AbcomApp {
         let credits_label = self.t(i18n::CREDITS);
         let license_label = self.t(i18n::LICENCE);
 
-        // Onglet Profil
-        let profile_heading = self.t(i18n::IMAGE_DE_PROFIL);
-        let profile_hint = self.t(i18n::VISIBLE_PAR_LES_AUTRES_PAIRS_DANS);
-        let choose_label = self.t(i18n::CHOISIR_UNE_IMAGE);
-        let change_label = self.t(i18n::CHANGER_L_IMAGE);
-        let remove_label = self.t(i18n::RETIRER);
-
         // Avatar courant (texture chargée paresseusement) calculé avant la
         // fenêtre pour éviter un double emprunt de `self` dans la closure.
         let my_name = self.state.lock_safe().my_username.clone();
@@ -59,9 +52,6 @@ impl AbcomApp {
         // Le scan parcourt des dossiers : demandé après la fenêtre, hors de
         // la closure qui emprunte déjà `self`.
         let mut storage_actions = StorageActions::default();
-
-        // Onglet Général
-        let language_label = self.t(i18n::LANGUE);
 
         // Taille fixe pour que la fenêtre ne change pas d'un onglet à l'autre ;
         // `Modal` la ramène à la fenêtre de l'application si elle est plus petite.
@@ -114,165 +104,16 @@ impl AbcomApp {
 
                     match self.modals.settings_tab {
                         SettingsTab::Profile => {
-                            ui.label(egui::RichText::new(profile_heading).strong());
-                            ui.add_space(8.0);
-                            // Empreinte de la clé d'identité (Noise) : à comparer
-                            // hors-bande avec un pair pour vérifier l'appairage.
-                            ui.label(
-                                egui::RichText::new(format!(
-                                    "{} : {}",
-                                    self.t(i18n::EMPREINTE_DE_VOTRE_CLE),
-                                    self.identity_fingerprint
-                                ))
-                                .small()
-                                .weak(),
+                            let action = self.render_profile_tab(
+                                ui,
+                                avatar_texture.as_ref(),
+                                &my_name,
+                                has_avatar,
                             );
-                            let psk_label = if self.psk_active {
-                                self.t(i18n::PASSPHRASE_DE_SALON_ACTIVE)
-                            } else {
-                                self.t(i18n::PASSPHRASE_DE_SALON_DESACTIVEE_ABCOM_PASSPHRASE)
-                            };
-                            ui.label(egui::RichText::new(psk_label).small().weak());
-                            ui.add_space(12.0);
-                            ui.horizontal(|ui| {
-                                show_avatar(
-                                    ui,
-                                    avatar_texture.as_ref(),
-                                    &my_name,
-                                    PROFILE_AVATAR_SIZE,
-                                );
-                                ui.add_space(16.0);
-                                ui.vertical(|ui| {
-                                    ui.add_space(4.0);
-                                    ui.label(egui::RichText::new(&my_name).heading().strong());
-                                    ui.add_space(2.0);
-                                    ui.label(egui::RichText::new(profile_hint).small().weak());
-                                    ui.add_space(10.0);
-                                    ui.horizontal_wrapped(|ui| {
-                                        let button_label = if has_avatar {
-                                            change_label
-                                        } else {
-                                            choose_label
-                                        };
-                                        if ui.button(button_label).clicked() {
-                                            pick_avatar = true;
-                                        }
-                                        if has_avatar && ui.button(remove_label).clicked() {
-                                            clear_avatar = true;
-                                        }
-                                    });
-                                });
-                            });
+                            pick_avatar |= action.pick;
+                            clear_avatar |= action.clear;
                         }
-                        SettingsTab::General => {
-                            egui::Grid::new("settings_general")
-                                .max_col_width((ui.available_width() - 16.0) / 2.0)
-                                .num_columns(2)
-                                .spacing([16.0, 12.0])
-                                .show(ui, |ui| {
-                                    ui.label(egui::RichText::new(language_label).strong());
-                                    ui.horizontal_wrapped(|ui| {
-                                        ui.radio_value(
-                                            &mut self.ui_language,
-                                            UiLanguage::French,
-                                            "Français",
-                                        );
-                                        ui.radio_value(
-                                            &mut self.ui_language,
-                                            UiLanguage::English,
-                                            "English",
-                                        );
-                                    });
-                                    ui.end_row();
-
-                                    ui.label(
-                                        egui::RichText::new(self.t(i18n::NOTIFICATIONS)).strong(),
-                                    );
-                                    ui.horizontal_wrapped(|ui| {
-                                        let label = self.t(i18n::AFFICHER_UN_APERCU_DU_MESSAGE);
-                                        if ui.checkbox(&mut self.notif_preview, label).changed() {
-                                            let v = if self.notif_preview { "1" } else { "0" };
-                                            self.state.lock_safe().set_pref("notif_preview", v);
-                                        }
-                                    });
-                                    ui.end_row();
-
-                                    ui.label(egui::RichText::new(self.t(i18n::DEMARRAGE)).strong());
-                                    ui.horizontal_wrapped(|ui| {
-                                        let label = self.t(i18n::LANCER_ABCOM_A_L_OUVERTURE_DE);
-                                        let supported = crate::platform::autostart::is_supported();
-                                        let response = ui.add_enabled(
-                                            supported,
-                                            egui::Checkbox::new(&mut self.autostart_enabled, label),
-                                        );
-                                        let response = response.on_disabled_hover_text(
-                                            self.t(i18n::FLATPAK_AUTOSTART_UNAVAILABLE),
-                                        );
-                                        if response.changed() {
-                                            match crate::platform::autostart::set_enabled(
-                                                self.autostart_enabled,
-                                            ) {
-                                                Ok(()) => {
-                                                    let v = if self.autostart_enabled {
-                                                        "1"
-                                                    } else {
-                                                        "0"
-                                                    };
-                                                    self.state.lock_safe().set_pref("autostart", v);
-                                                }
-                                                Err(e) => {
-                                                    tracing::warn!("échec autostart : {e}");
-                                                    self.autostart_enabled =
-                                                        !self.autostart_enabled;
-                                                }
-                                            }
-                                        }
-                                    });
-                                    ui.end_row();
-
-                                    ui.label(egui::RichText::new(self.t(i18n::DONNEES)).strong());
-                                    ui.horizontal_wrapped(|ui| {
-                                        if ui
-                                            .button(self.t(i18n::EXPORTER_LA_CONVERSATION_2))
-                                            .clicked()
-                                        {
-                                            self.pending_export = true;
-                                        }
-                                        if ui.button(self.t(i18n::COMPACTER_LA_BASE)).clicked() {
-                                            self.state.lock_safe().compact_storage();
-                                            self.last_notification = Some(
-                                                self.t(i18n::COMPACTION_DE_LA_BASE_LANCEE)
-                                                    .to_string(),
-                                            );
-                                            self.notification_time = std::time::Instant::now();
-                                        }
-                                    });
-                                    ui.end_row();
-
-                                    // Diagnostic : compteurs de la session en cours
-                                    // (cf. `metrics`). « Jetés » non nul = file
-                                    // saturée ou pair injoignable.
-                                    ui.label(
-                                        egui::RichText::new(self.t(i18n::DIAGNOSTIC)).strong(),
-                                    );
-                                    ui.horizontal_wrapped(|ui| {
-                                        let m = crate::metrics::snapshot();
-                                        let line = format!(
-                                            "{} {} · {} {} · {} {} · {} {}",
-                                            self.t(i18n::ENVOYES),
-                                            m.packets_sent,
-                                            self.t(i18n::RECUS),
-                                            m.packets_received,
-                                            self.t(i18n::JETES),
-                                            m.packets_dropped,
-                                            self.t(i18n::PAIRS_VUS),
-                                            m.peers_seen,
-                                        );
-                                        ui.label(egui::RichText::new(line).small().weak());
-                                    });
-                                    ui.end_row();
-                                });
-                        }
+                        SettingsTab::General => self.render_general_tab(ui),
                         SettingsTab::Appearance => self.render_appearance_tab(ui),
                         SettingsTab::Storage => {
                             storage_tab(
@@ -314,6 +155,155 @@ impl AbcomApp {
             self.broadcast_my_avatar();
         }
         self.apply_storage_actions(storage_actions);
+    }
+
+    /// Onglet Profil : empreinte d'identité, avatar et ses deux actions.
+    fn render_profile_tab(
+        &mut self,
+        ui: &mut egui::Ui,
+        avatar_texture: Option<&egui::TextureHandle>,
+        my_name: &str,
+        has_avatar: bool,
+    ) -> AvatarAction {
+        let mut action = AvatarAction::default();
+        ui.label(egui::RichText::new(self.t(i18n::IMAGE_DE_PROFIL)).strong());
+        ui.add_space(8.0);
+        // Empreinte de la clé d'identité (Noise) : à comparer
+        // hors-bande avec un pair pour vérifier l'appairage.
+        ui.label(
+            egui::RichText::new(format!(
+                "{} : {}",
+                self.t(i18n::EMPREINTE_DE_VOTRE_CLE),
+                self.identity_fingerprint
+            ))
+            .small()
+            .weak(),
+        );
+        let psk_label = if self.psk_active {
+            self.t(i18n::PASSPHRASE_DE_SALON_ACTIVE)
+        } else {
+            self.t(i18n::PASSPHRASE_DE_SALON_DESACTIVEE_ABCOM_PASSPHRASE)
+        };
+        ui.label(egui::RichText::new(psk_label).small().weak());
+        ui.add_space(12.0);
+        ui.horizontal(|ui| {
+            show_avatar(ui, avatar_texture, my_name, PROFILE_AVATAR_SIZE);
+            ui.add_space(16.0);
+            ui.vertical(|ui| {
+                ui.add_space(4.0);
+                ui.label(egui::RichText::new(my_name).heading().strong());
+                ui.add_space(2.0);
+                ui.label(
+                    egui::RichText::new(self.t(i18n::VISIBLE_PAR_LES_AUTRES_PAIRS_DANS))
+                        .small()
+                        .weak(),
+                );
+                ui.add_space(10.0);
+                ui.horizontal_wrapped(|ui| {
+                    let button_label = if has_avatar {
+                        self.t(i18n::CHANGER_L_IMAGE)
+                    } else {
+                        self.t(i18n::CHOISIR_UNE_IMAGE)
+                    };
+                    if ui.button(button_label).clicked() {
+                        action.pick = true;
+                    }
+                    if has_avatar && ui.button(self.t(i18n::RETIRER)).clicked() {
+                        action.clear = true;
+                    }
+                });
+            });
+        });
+        action
+    }
+
+    /// Onglet Général : langue, notifications, démarrage, données et diagnostic.
+    fn render_general_tab(&mut self, ui: &mut egui::Ui) {
+        egui::Grid::new("settings_general")
+            .max_col_width((ui.available_width() - 16.0) / 2.0)
+            .num_columns(2)
+            .spacing([16.0, 12.0])
+            .show(ui, |ui| {
+                ui.label(egui::RichText::new(self.t(i18n::LANGUE)).strong());
+                ui.horizontal_wrapped(|ui| {
+                    ui.radio_value(&mut self.ui_language, UiLanguage::French, "Français");
+                    ui.radio_value(&mut self.ui_language, UiLanguage::English, "English");
+                });
+                ui.end_row();
+
+                ui.label(egui::RichText::new(self.t(i18n::NOTIFICATIONS)).strong());
+                ui.horizontal_wrapped(|ui| {
+                    let label = self.t(i18n::AFFICHER_UN_APERCU_DU_MESSAGE);
+                    if ui.checkbox(&mut self.notif_preview, label).changed() {
+                        let v = if self.notif_preview { "1" } else { "0" };
+                        self.state.lock_safe().set_pref("notif_preview", v);
+                    }
+                });
+                ui.end_row();
+
+                ui.label(egui::RichText::new(self.t(i18n::DEMARRAGE)).strong());
+                ui.horizontal_wrapped(|ui| {
+                    let label = self.t(i18n::LANCER_ABCOM_A_L_OUVERTURE_DE);
+                    let supported = crate::platform::autostart::is_supported();
+                    let response = ui.add_enabled(
+                        supported,
+                        egui::Checkbox::new(&mut self.autostart_enabled, label),
+                    );
+                    let response = response
+                        .on_disabled_hover_text(self.t(i18n::FLATPAK_AUTOSTART_UNAVAILABLE));
+                    if response.changed() {
+                        match crate::platform::autostart::set_enabled(self.autostart_enabled) {
+                            Ok(()) => {
+                                let v = if self.autostart_enabled { "1" } else { "0" };
+                                self.state.lock_safe().set_pref("autostart", v);
+                            }
+                            Err(e) => {
+                                tracing::warn!("échec autostart : {e}");
+                                self.autostart_enabled = !self.autostart_enabled;
+                            }
+                        }
+                    }
+                });
+                ui.end_row();
+
+                ui.label(egui::RichText::new(self.t(i18n::DONNEES)).strong());
+                ui.horizontal_wrapped(|ui| {
+                    if ui
+                        .button(self.t(i18n::EXPORTER_LA_CONVERSATION_2))
+                        .clicked()
+                    {
+                        self.pending_export = true;
+                    }
+                    if ui.button(self.t(i18n::COMPACTER_LA_BASE)).clicked() {
+                        self.state.lock_safe().compact_storage();
+                        self.last_notification =
+                            Some(self.t(i18n::COMPACTION_DE_LA_BASE_LANCEE).to_string());
+                        self.notification_time = std::time::Instant::now();
+                    }
+                });
+                ui.end_row();
+
+                // Diagnostic : compteurs de la session en cours
+                // (cf. `metrics`). « Jetés » non nul = file
+                // saturée ou pair injoignable.
+                ui.label(egui::RichText::new(self.t(i18n::DIAGNOSTIC)).strong());
+                ui.horizontal_wrapped(|ui| {
+                    let m = crate::metrics::snapshot();
+                    let line = format!(
+                        "{} {} · {} {} · {} {} · {} {}",
+                        self.t(i18n::ENVOYES),
+                        m.packets_sent,
+                        self.t(i18n::RECUS),
+                        m.packets_received,
+                        self.t(i18n::JETES),
+                        m.packets_dropped,
+                        self.t(i18n::PAIRS_VUS),
+                        m.peers_seen,
+                    );
+                    ui.label(egui::RichText::new(line).small().weak());
+                });
+                ui.end_row();
+            });
     }
 
     /// Applique les demandes de l'onglet Stockage. Hors de la closure de la
@@ -386,6 +376,13 @@ fn open_in_file_manager(dir: &std::path::Path) -> std::io::Result<()> {
 
 /// Formate une taille en unité lisible. Les octets bruts d'un cache de
 /// plusieurs gigaoctets ne disent rien à l'œil.
+/// Ce que l'onglet Profil demande, appliqué hors de la closure de la fenêtre.
+#[derive(Default)]
+struct AvatarAction {
+    pick: bool,
+    clear: bool,
+}
+
 /// Ce que l'onglet Stockage demande à l'application, appliqué hors de la
 /// closure de la fenêtre pour éviter tout emprunt concurrent de `self`.
 #[derive(Default)]
