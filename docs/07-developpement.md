@@ -56,6 +56,25 @@ mod tests;
 
 Un nouveau module reçoit son fichier de tests. Quelques modules historiques gardent des tests inline ; les scénarios de `tests/` utilisent l'API publique. `bash scripts/integration_test.sh` rejoue uniquement l'échange P2P authentifié sur TCP. La découverte entre processus et les intégrations natives restent au [cahier de tests](10-cahier-de-tests.md).
 
+## Tests e2e natifs
+
+`scripts/e2e/` lance l'application **réelle** sur l'hôte macOS et sur les machines virtuelles du laboratoire local : deux instances isolées (`ABCOM_INSTANCE=91` et `92`), puis vérification du démarrage, de la fenêtre (Windows), de la découverte mutuelle, du tray et de l'arrêt, avec captures et journaux.
+
+| Profil | Tray attendu |
+| --- | --- |
+| `host` (macOS), `windows`, `linux-kde`, `linux-xfce`, `linux-gnome-tray` | présent : chaque instance s'enregistre |
+| `linux-gnome` (GNOME standard) | absent : l'application annonce que la croix la quittera au lieu de la cacher |
+
+Rien n'est compilé dans les VM. Le job CI « Binaire e2e » publie pour chaque exécution `abcom-linux-aarch64`, `abcom-windows-x86_64.exe` et `abcom-macos-aarch64`, conservés sept jours :
+
+```bash
+gh run download <id-du-run> -p 'e2e-*' -D e2e-artifacts
+export ABCOM_LAB=/chemin/absolu/vers/Test-local/lab.py
+make e2e P=all A=e2e-artifacts        # ou P="host linux-kde"
+```
+
+Le laboratoire n'est jamais copié dans le dépôt : `run.py` appelle `lab.py` par son chemin absolu, démarre un profil à la fois, y dépose le binaire et le scénario, l'exécute dans la session de l'utilisateur de test, récupère les résultats puis restaure l'instantané propre. Les résultats arrivent dans `results/abcom-e2e-<date>/` du laboratoire (`summary.json`, un dossier par profil). L'échange de messages, de fichiers et d'événements de groupe s'ajoutera avec le pair scripté de l'issue #86.
+
 ## Contribution et workflow
 
 Les règles de code et de commit sont dans [CONTRIBUTING.md](../CONTRIBUTING.md) ; la [charte Abnd](https://github.com/abnd-corp/gouvernance/blob/main/CHARTE.md) fixe le fonctionnement de l'organisation. Ces fichiers de gouvernance ne sont pas dupliqués ni réécrits dans la documentation.

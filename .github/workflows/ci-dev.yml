@@ -159,6 +159,50 @@ jobs:
           cargo check --all-targets --no-default-features --locked
           cargo test --no-default-features --locked
 
+  e2e-binaries:
+    name: Binaire e2e ${{ matrix.name }}
+    # Binaires de release pour les tests e2e natifs du laboratoire local (scripts/e2e/run.py) : rien n'est
+    # compilé dans les VM. Linux en aarch64 pour les VM ARM64 ; Windows x64, exécuté en émulation sous ARM64.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04-arm
+            name: linux-aarch64
+            built: abcom
+            file: abcom-linux-aarch64
+          - os: windows-latest
+            name: windows-x86_64
+            built: abcom.exe
+            file: abcom-windows-x86_64.exe
+          - os: macos-latest
+            name: macos-aarch64
+            built: abcom
+            file: abcom-macos-aarch64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dépendances système (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release
+        shell: bash
+        run: |
+          cargo build --release --locked
+          mkdir -p e2e
+          cp "target/release/${{ matrix.built }}" "e2e/${{ matrix.file }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: e2e-${{ matrix.name }}
+          path: e2e/${{ matrix.file }}
+          retention-days: 7
+          if-no-files-found: error
+
   platform-check:
     name: Check ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
