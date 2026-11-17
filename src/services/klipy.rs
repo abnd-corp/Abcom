@@ -1,7 +1,7 @@
 //! Client de l'API Klipy — GIF, Mèmes statiques et Stickers.
 //!
 //! Le transport choisi est « URL uniquement » : on ne télécharge jamais les
-//! octets. Le sélecteur affiche les variantes **WebP sm/xs** (vignettes) et le
+//! octets. Le sélecteur privilégie **WebP sm**, avec repli **xs**, et le
 //! message transporte l'URL de la variante **WebP hd** (affichage dans le fil).
 //! Les requêtes JSON partent via [`ehttp::fetch`] (non bloquant, callback sur un
 //! thread dédié) ; le rendu animé est assuré par les loaders `egui_extras`.
@@ -83,7 +83,7 @@ struct FileMeta {
 
 impl KlipyGif {
     fn to_item(&self) -> Option<GifItem> {
-        let preview = variant(&self.file, &["xs", "sm", "md", "hd"])?;
+        let preview = variant(&self.file, &["sm", "xs", "md", "hd"])?;
         let full = variant(&self.file, &["hd", "md", "sm", "xs"])?;
         let id = value_to_string(&self.id).unwrap_or_else(|| full.url.clone());
         Some(GifItem {
