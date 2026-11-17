@@ -243,6 +243,8 @@ salon garde son nom. Ensuite, appliquer 4.9 (renommage) : tout doit tenir.
 | 12.30 | Stockage après calcul | Attendre le tableau rempli, tester en FR/EN à 100 / 160 %, réduire à 560 × 360 puis défiler jusqu'aux boutons | Catégories, tailles et nombres lisibles, aucune colonne hors fenêtre, actions de purge et d'ouverture accessibles | P1 |
 | 12.31 | Tableaux des paramètres | Parcourir Général et tous les Crédits, jusqu'aux palettes, à 100 / 160 % | Libellés lisibles, valeurs alignées, défilement sans zone imbriquée | P1 |
 | 12.32 | Lecture de la licence | À 100 puis 160 %, lire le début puis défiler jusqu'au dernier paragraphe | Texte agrandi et replié à la largeur disponible, sans indentation excessive ni coupure horizontale | P1 |
+| 12.33 | Coupes italiques | Tester chaque famille, `*italique*` et `***gras italique***`, accents et thèmes clair/sombre | Vraies variantes lorsqu'elles existent ; Lexend annonce son italique simulé | P1 |
+| 12.34 | Variantes personnelles | Importer une police, associer gras/italique/gras italique via Variantes, redémarrer, remplacer une coupe | Choix et variantes conservés ; autre famille, mauvais style ou fichier invalide refusés sans perdre les anciens | P1 |
 
 ---
 

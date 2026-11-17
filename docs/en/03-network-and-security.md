@@ -66,7 +66,7 @@ Local discovery, chat and file transfers do not require Internet access. These f
 | GIF search | Klipy API | Searches require `ABCOM_KLIPY_API_KEY` |
 | Displaying Klipy media | HTTPS Klipy CDN | Each receiving peer fetches the media URL |
 | Online fonts, disabled by default | `https://api.fontsource.org/v1/fonts` | Opt-in catalogue GET, refreshed at most once every seven days |
-| Choosing an online font | `https://cdn.jsdelivr.net/fontsource/fonts/…` | Up to four font-file GETs |
+| Choosing an online font | `https://cdn.jsdelivr.net/fontsource/fonts/…` | Up to eight font-file GETs, including italic styles when advertised |
 
 External services see the requesting IP address. Klipy search sends the search terms; online font requests send no application identity. Clicking an external link also opens the system browser.
 

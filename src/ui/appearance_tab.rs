@@ -9,7 +9,7 @@ use super::appearance::{
 };
 use super::colors::{contrast_ratio, MIN_TEXT_CONTRAST};
 use super::custom_themes::clean_name;
-use super::fonts::{FontChoice, FontError, ImportError, ImportOutcome, SuggestedFont};
+use super::fonts::{FontChoice, FontCut, FontError, ImportError, ImportOutcome, SuggestedFont};
 use super::i18n::{self, Entry};
 use super::theme::{self, Palette};
 use super::themes::BuiltinTheme;
@@ -874,6 +874,9 @@ impl AbcomApp {
             *zone.choice_mut(&mut self.appearance) = choice;
         }
 
+        if *zone.choice(&self.appearance) == FontChoice::Suggested(SuggestedFont::Lexend) {
+            ui.weak(self.t(i18n::ITALIQUE_SIMULE));
+        }
         ui.add_space(4.0);
         if ui.button(import_label).clicked() {
             self.import_font(zone);
@@ -896,6 +899,42 @@ impl AbcomApp {
                     remove = Some(font.id.clone());
                 }
             });
+            egui::CollapsingHeader::new(format!(
+                "{} — {}",
+                self.t(i18n::COUPES_DE_POLICE),
+                font.family
+            ))
+            .id_salt((&font.id, "cuts"))
+            .show(ui, |ui| {
+                ui.label(self.t(i18n::COUPES_DE_POLICE_AIDE));
+                for cut in FontCut::ALL {
+                    ui.horizontal_wrapped(|ui| {
+                        let title = self.t(cut.label());
+                        ui.label(title);
+                        ui.weak(self.t(if cut.files(font).is_empty() {
+                            i18n::COUPE_ABSENTE
+                        } else {
+                            i18n::COUPE_PRESENTE
+                        }));
+                        let label = format!(
+                            "{} — {} — {}",
+                            self.t(i18n::ASSOCIER_UNE_COUPE),
+                            font.family,
+                            title
+                        );
+                        let response = ui.button(self.t(i18n::ASSOCIER_UNE_COUPE));
+                        response.widget_info(|| {
+                            egui::WidgetInfo::labeled(egui::Role::Button, true, &label)
+                        });
+                        if response.clicked() {
+                            self.pick_font(FontPick::Cut {
+                                id: font.id.clone(),
+                                cut,
+                            });
+                        }
+                    });
+                }
+            });
         }
         if let Some(id) = remove {
             self.remove_font(&id);
@@ -905,13 +944,27 @@ impl AbcomApp {
     /// Demande un fichier de police : la feuille native s'ouvre à la frame suivante,
     /// sans bloquer le rendu (cf. `picker`).
     pub(crate) fn import_font(&mut self, zone: FontZone) {
+        self.pick_font(FontPick::Import(zone));
+    }
+
+    fn pick_font(&mut self, target: FontPick) {
         match self.font_picker.as_mut() {
             Some(pick) => {
                 if let Some(path) = pick() {
-                    self.import_font_file(zone, &path);
+                    self.apply_font_file(target, &path);
                 }
             }
-            None => self.pending_font_pick = Some(zone),
+            None => self.pending_font_pick = Some(target),
+        }
+    }
+
+    pub(crate) fn apply_font_file(&mut self, target: FontPick, path: &std::path::Path) {
+        match target {
+            FontPick::Import(zone) => self.import_font_file(zone, path),
+            FontPick::Cut { id, cut } => match self.fonts.attach_cut(&id, cut, path) {
+                Ok(()) => self.notify(self.t(i18n::COUPE_ASSOCIEE)),
+                Err(error) => self.font_import_error(error),
+            },
         }
     }
 
@@ -927,7 +980,13 @@ impl AbcomApp {
                 *zone.choice_mut(&mut self.appearance) = FontChoice::Imported(font.id);
                 self.notify(self.t(i18n::POLICE_DEJA_IMPORTEE));
             }
-            Err(ImportError::Font(error)) => {
+            Err(error) => self.font_import_error(error),
+        }
+    }
+
+    fn font_import_error(&mut self, error: ImportError) {
+        match error {
+            ImportError::Font(error) => {
                 let entry = match error {
                     FontError::Unreadable => i18n::POLICE_ILLISIBLE,
                     FontError::NoLatin => i18n::POLICE_SANS_LATIN,
@@ -936,10 +995,12 @@ impl AbcomApp {
                 };
                 self.notify(self.t(entry));
             }
-            Err(ImportError::Io(error)) => {
+            ImportError::Io(error) => {
                 tracing::warn!("import de police : {error}");
                 self.notify(self.t(i18n::POLICE_NON_ENREGISTREE));
             }
+            ImportError::FamilyMismatch => self.notify(self.t(i18n::COUPE_AUTRE_FAMILLE)),
+            ImportError::StyleMismatch => self.notify(self.t(i18n::COUPE_AUTRE_STYLE)),
         }
     }
 
@@ -1230,6 +1291,22 @@ fn theme_card(
         painter.rect_stroke(rect, round, stroke, egui::StrokeKind::Inside);
     }
     response.on_hover_cursor(egui::CursorIcon::PointingHand)
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum FontPick {
+    Import(FontZone),
+    Cut { id: String, cut: FontCut },
+}
+
+impl FontCut {
+    fn label(self) -> Entry {
+        match self {
+            Self::Bold => i18n::COUPE_GRASSE,
+            Self::Italic => i18n::COUPE_ITALIQUE,
+            Self::BoldItalic => i18n::COUPE_GRASSE_ITALIQUE,
+        }
+    }
 }
 
 #[cfg(test)]

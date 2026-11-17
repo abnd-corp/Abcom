@@ -45,6 +45,7 @@ pub(crate) enum MarkdownSpan {
     Text(String),
     Strong(String),
     Emphasis(String),
+    StrongEmphasis(String),
     Strikethrough(String),
     Code(String),
     Link { label: String, url: String },
@@ -398,6 +399,18 @@ fn parse_inline(input: &str) -> Vec<MarkdownSpan> {
             }
         }
 
+        if let Some((marker, text)) = rest
+            .strip_prefix("***")
+            .map(|s| ("***", s))
+            .or_else(|| rest.strip_prefix("___").map(|s| ("___", s)))
+        {
+            if let Some(end) = text.find(marker) {
+                spans.push(MarkdownSpan::StrongEmphasis(text[..end].to_owned()));
+                rest = &text[end + marker.len()..];
+                continue;
+            }
+        }
+
         if let Some((marker, strong)) = strong_text(rest) {
             if let Some(end) = strong.find(marker) {
                 spans.push(MarkdownSpan::Strong(strong[..end].to_string()));
@@ -684,15 +697,11 @@ enum SpanOverride {
     Strong,
 }
 
-/// Texte en gras : la coupe grasse de la police quand elle en a une, sinon la
-/// couleur vive d'egui, qui ne synthétise pas le gras.
+/// Utilise le vrai gras choisi ou son repli Inter.
 fn bold_text(ui: &egui::Ui, text: &str) -> egui::RichText {
-    let rich = super::theme::message_text(ui, text).strong();
-    if super::theme::text(ui).msg_real_bold {
-        rich.family(egui::FontFamily::Name(super::theme::MSG_BOLD_FAMILY.into()))
-    } else {
-        rich
-    }
+    super::theme::message_text(ui, text)
+        .strong()
+        .family(egui::FontFamily::Name(super::theme::MSG_BOLD_FAMILY.into()))
 }
 
 /// Texte en italique : la vraie coupe quand la police en a une, sinon l'italique
@@ -705,6 +714,17 @@ fn italic_text(ui: &egui::Ui, text: &str) -> egui::RichText {
         ))
     } else {
         rich.italics()
+    }
+}
+
+fn bold_italic_text(ui: &egui::Ui, text: &str) -> egui::RichText {
+    let metrics = super::theme::text(ui);
+    if metrics.msg_real_bold_italic {
+        super::theme::message_text(ui, text).family(egui::FontFamily::Name(
+            super::theme::MSG_BOLD_ITALIC_FAMILY.into(),
+        ))
+    } else {
+        bold_text(ui, text).italics()
     }
 }
 
@@ -750,9 +770,20 @@ fn render_spans_with_emoji_size(
                 ui.label(rich);
             }
             MarkdownSpan::Emphasis(text) => {
-                let mut rich = italic_text(ui, text);
+                let mut rich = if override_style.is_some() {
+                    bold_italic_text(ui, text)
+                } else {
+                    italic_text(ui, text)
+                };
                 if let Some(SpanOverride::Heading(size)) = override_style {
-                    rich = heading(rich.strong(), size);
+                    rich = heading(rich, size);
+                }
+                ui.label(rich);
+            }
+            MarkdownSpan::StrongEmphasis(text) => {
+                let mut rich = bold_italic_text(ui, text);
+                if let Some(SpanOverride::Heading(size)) = override_style {
+                    rich = heading(rich, size);
                 }
                 ui.label(rich);
             }

@@ -207,6 +207,8 @@ For 11.10, use a disposable copy of a real older database containing a group and
 | 12.30 | Loaded storage, FR/EN, 100/160%, small window, scroll to actions | Readable columns and reachable controls | P1 |
 | 12.31 | General and all credits through palettes at 100/160% | Readable aligned values; single scroll area | P1 |
 | 12.32 | License at 100/160%, scroll to end | Scaled text, natural wrapping, no horizontal clipping | P1 |
+| 12.33 | Every family, `*italic*` and `***bold italic***`, accents, light/dark themes | True styles where available; Lexend identifies its synthetic slant | P1 |
+| 12.34 | Import a font, associate bold/italic/bold italic via Font styles, restart and replace a style | Choices and styles persist; wrong family/style or invalid files leave existing styles intact | P1 |
 
 ## 13. Platform-specific checks
 

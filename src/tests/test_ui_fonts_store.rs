@@ -530,7 +530,7 @@ fn plans_report_their_real_cuts() {
     assert!(FontPlan::Theme(FontKind::Inter).real_bold());
     assert!(FontPlan::Theme(FontKind::Inter).real_italic());
     assert!(!FontPlan::Theme(FontKind::NotoSans).real_bold());
-    assert!(!FontPlan::Theme(FontKind::NotoSans).real_italic());
+    assert!(FontPlan::Theme(FontKind::NotoSans).real_italic());
     let suggested = resolve_choice(
         &FontChoice::Suggested(SuggestedFont::Lexend),
         FontKind::NotoSans,
@@ -541,7 +541,7 @@ fn plans_report_their_real_cuts() {
         suggested.real_bold(),
         "les polices proposées embarquent leur gras"
     );
-    assert!(!suggested.real_italic());
+    assert!(!suggested.real_italic(), "Lexend ne publie pas d’italique");
 }
 
 #[test]
@@ -584,4 +584,184 @@ fn theme_default_follows_the_theme_font() {
         resolve_choice(&FontChoice::Inter, FontKind::NotoSans, &store),
         Ok(FontPlan::Theme(FontKind::Inter))
     );
+}
+
+#[test]
+fn imported_style_files_survive_restart_and_are_removed_together() {
+    let dir = temp_dir("style-cuts");
+    let mut store = FontStore::load(&dir);
+    let ImportOutcome::Added(font) = store.import_bytes(&asset("Inter-Regular.ttf")).unwrap()
+    else {
+        unreachable!()
+    };
+    let regular = store.read(&font.id).unwrap();
+    for (cut, path) in [
+        (FontCut::Bold, PathBuf::from(ASSETS).join("Inter-Bold.ttf")),
+        (
+            FontCut::Italic,
+            PathBuf::from(ASSETS).join("Inter-Italic.ttf"),
+        ),
+        (
+            FontCut::BoldItalic,
+            PathBuf::from(ASSETS).join("styles/inter/latin-700-italic.woff2"),
+        ),
+    ] {
+        store.attach_cut(&font.id, cut, &path).unwrap();
+    }
+    let mut reloaded = FontStore::load(&dir);
+    let decoded = reloaded.read_font(&font.id).unwrap();
+    assert_eq!(decoded.regular[0], regular);
+    assert_eq!(decoded.bold.len(), 1);
+    assert_eq!(decoded.italic.len(), 1);
+    assert_eq!(decoded.bold_italic.len(), 1);
+    let plan = resolve_choice(
+        &FontChoice::Imported(font.id.clone()),
+        FontKind::NotoSans,
+        &reloaded,
+    )
+    .unwrap();
+    assert!(plan.real_italic() && plan.real_bold() && plan.real_bold_italic());
+    assert!(reloaded.remove(&font.id));
+    assert_eq!(
+        std::fs::read_dir(&dir).unwrap().count(),
+        1,
+        "seul l'index reste"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn an_associated_style_must_match_the_family_and_the_requested_cut() {
+    let dir = temp_dir("style-validation");
+    let mut store = FontStore::load(&dir);
+    let ImportOutcome::Added(font) = store.import_bytes(&asset("Inter-Regular.ttf")).unwrap()
+    else {
+        unreachable!()
+    };
+    assert_eq!(
+        store.attach_cut(
+            &font.id,
+            FontCut::Italic,
+            &PathBuf::from(ASSETS).join("NotoSans-Regular.ttf")
+        ),
+        Err(ImportError::FamilyMismatch)
+    );
+    assert_eq!(
+        store.attach_cut(
+            &font.id,
+            FontCut::Italic,
+            &PathBuf::from(ASSETS).join("Inter-Bold.ttf")
+        ),
+        Err(ImportError::StyleMismatch)
+    );
+    let junk = write(&dir, "bad.ttf", b"not a font");
+    assert!(matches!(
+        store.attach_cut(&font.id, FontCut::Italic, &junk),
+        Err(ImportError::Font(_))
+    ));
+    assert!(store.get(&font.id).unwrap().italic.is_empty());
+    assert_eq!(store.revision, 1);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn replacing_a_style_is_atomic_and_invalidates_the_font_plan() {
+    let dir = temp_dir("style-atomic");
+    let mut store = FontStore::load(&dir);
+    let ImportOutcome::Added(font) = store.import_bytes(&asset("Inter-Regular.ttf")).unwrap()
+    else {
+        unreachable!()
+    };
+    let choice = FontChoice::Imported(font.id.clone());
+    let key = resolve_choice(&choice, FontKind::Inter, &store)
+        .unwrap()
+        .key();
+    store
+        .attach_cut(
+            &font.id,
+            FontCut::Italic,
+            &PathBuf::from(ASSETS).join("Inter-Italic.ttf"),
+        )
+        .unwrap();
+    assert_ne!(
+        key,
+        resolve_choice(&choice, FontKind::Inter, &store)
+            .unwrap()
+            .key()
+    );
+    let old_file = store.get(&font.id).unwrap().italic[0].clone();
+    let mut replacement = asset("Inter-Italic.ttf");
+    replacement.push(0);
+    let path = write(&dir, "replacement.ttf", &replacement);
+    store.attach_cut(&font.id, FontCut::Italic, &path).unwrap();
+    std::fs::remove_file(path).unwrap();
+    assert!(!dir.join(old_file).exists());
+    assert_eq!(&*store.read_font(&font.id).unwrap().italic[0], &replacement);
+    let previous = store.get(&font.id).unwrap().clone();
+    std::fs::remove_file(dir.join("index.json")).unwrap();
+    std::fs::create_dir(dir.join("index.json")).unwrap();
+    assert!(matches!(
+        store.attach_cut(
+            &font.id,
+            FontCut::Bold,
+            &PathBuf::from(ASSETS).join("Inter-Bold.ttf")
+        ),
+        Err(ImportError::Io(_))
+    ));
+    assert_eq!(store.get(&font.id), Some(&previous));
+    assert_eq!(store.revision, 3);
+    assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 3);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn suggested_italic_cuts_are_real_and_have_readable_french_glyphs() {
+    for suggested in SuggestedFont::ALL {
+        let font = suggested.decoded().unwrap();
+        if suggested == SuggestedFont::Lexend {
+            assert!(font.italic.is_empty() && font.bold_italic.is_empty());
+            continue;
+        }
+        for cut in [&font.italic, &font.bold_italic] {
+            assert!(!cut.is_empty());
+            for bytes in cut {
+                let face = skrifa::FontRef::from_index(bytes, 0).unwrap();
+                assert_ne!(face.attributes().style, skrifa::attribute::Style::Normal);
+            }
+            assert!(
+                validate_font_set(&cut.iter().map(|b| (b.as_slice(), 0)).collect::<Vec<_>>())
+                    .is_ok()
+            );
+            for c in "Éàçœ".chars() {
+                assert!(
+                    cut.iter().any(|b| skrifa::FontRef::from_index(b, 0)
+                        .unwrap()
+                        .charmap()
+                        .map(c)
+                        .is_some()),
+                    "{} : {c}",
+                    suggested.name()
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn older_font_indexes_without_italic_fields_remain_usable() {
+    let dir = temp_dir("style-old-index");
+    let mut store = FontStore::load(&dir);
+    store.import_bytes(&asset("Inter-Regular.ttf")).unwrap();
+    let index = dir.join("index.json");
+    let mut entries: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&index).unwrap()).unwrap();
+    for entry in entries.as_array_mut().unwrap() {
+        entry.as_object_mut().unwrap().remove("italic");
+        entry.as_object_mut().unwrap().remove("bold_italic");
+    }
+    std::fs::write(index, serde_json::to_vec(&entries).unwrap()).unwrap();
+    let loaded = FontStore::load(&dir);
+    let decoded = loaded.read_font(&loaded.fonts()[0].id).unwrap();
+    assert!(decoded.italic.is_empty() && decoded.bold_italic.is_empty());
+    let _ = std::fs::remove_dir_all(dir);
 }

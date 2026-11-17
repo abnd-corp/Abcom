@@ -52,7 +52,7 @@ fn build(combo: &Combo) -> Run {
         state.selected_conversation = Some("alice".into());
         let texts = [
             "Bonjour de la matrice",
-            "Un message un peu plus long, avec **du gras**, de l'*italique*, un [lien](https://example.org) et du `code` en ligne.",
+            "Un message un peu plus long, avec **du gras**, de l'*italique*, du ***gras italique***, un [lien](https://example.org) et du `code` en ligne.",
             "# Un titre\n\n- premier point\n- second point\n\n> une citation",
             "```\nlet x = 42;\n```",
             "😀 😀",

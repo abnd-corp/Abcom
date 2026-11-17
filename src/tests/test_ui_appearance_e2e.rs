@@ -1239,7 +1239,7 @@ fn builtin_fonts_can_be_chosen_explicitly() {
         &font_row(FontZone::Conversations, "Noto Sans"),
     );
     assert_eq!(head_of(&session, MSG_FAMILY), "noto-sans");
-    assert!(!super::theme::current(&session.ctx()).text.msg_real_italic);
+    assert!(super::theme::current(&session.ctx()).text.msg_real_italic);
 }
 
 #[test]
@@ -1631,6 +1631,17 @@ impl FakeHttp {
             for subset in ["latin", "latin-ext"] {
                 for weight in [400, 700] {
                     routes.insert(fontsource::file_url(id, subset, weight), Ok(woff2.clone()));
+                    let file = if weight == 400 {
+                        std::path::PathBuf::from(ASSET_FONTS).join("Inter-Italic.ttf")
+                    } else {
+                        std::path::PathBuf::from(ASSET_FONTS)
+                            .join("styles/inter/latin-700-italic.woff2")
+                    };
+                    routes.insert(
+                        fontsource::file_url(id, subset, weight)
+                            .replace("-normal.woff2", "-italic.woff2"),
+                        Ok(std::fs::read(file).unwrap()),
+                    );
                 }
             }
         }
@@ -1814,13 +1825,14 @@ fn downloading_a_font_fetches_all_its_files_and_applies_it() {
     ] {
         assert!(requests.contains(&expected), "{expected} manquant");
     }
-    assert_eq!(requests.len(), 5, "la liste, puis quatre fichiers");
+    assert_eq!(requests.len(), 9, "la liste, puis huit fichiers");
 
     let app = session.app.borrow();
     assert_eq!(app.fonts.fonts().len(), 1);
     let font = &app.fonts.fonts()[0];
     assert_eq!(font.source, "fontsource:inter");
     assert_eq!((font.extra.len(), font.bold.len()), (1, 2));
+    assert_eq!((font.italic.len(), font.bold_italic.len()), (2, 2));
     assert_eq!(
         app.appearance.conv_font,
         FontChoice::Imported(font.id.clone())
@@ -2178,7 +2190,9 @@ fn the_import_button_asks_for_the_native_sheet_instead_of_blocking() {
     click(&mut session, import_label(FontZone::Conversations));
     assert_eq!(
         session.app.borrow().pending_font_pick,
-        Some(FontZone::Conversations)
+        Some(super::appearance_tab::FontPick::Import(
+            FontZone::Conversations
+        ))
     );
     assert!(
         session.app.borrow().fonts.fonts().is_empty(),
@@ -2223,4 +2237,94 @@ fn a_late_sheet_answer_with_no_zone_waiting_is_ignored() {
         .unwrap();
     app.apply_picker_outcomes();
     assert!(app.fonts.fonts().is_empty());
+}
+
+#[test]
+fn associating_personal_styles_by_click_applies_them_and_survives_restart() {
+    use super::fonts::FontCut;
+    for language in [UiLanguage::French, UiLanguage::English] {
+        let (mut session, dir) = session_in_temp_dir();
+        session.app.borrow_mut().ui_language = language;
+        session.app.borrow_mut().import_font_file(
+            FontZone::Conversations,
+            &std::path::PathBuf::from(ASSET_FONTS).join("Inter-Regular.ttf"),
+        );
+        session.settle();
+        // L'ouverture utilise les mêmes contrôles dans les deux langues.
+        {
+            let mut app = session.app.borrow_mut();
+            app.modals.settings_open = true;
+            app.modals.settings_tab = super::SettingsTab::Appearance;
+            app.appearance_ui.tab = AppearanceTab::Fonts;
+        }
+        session.settle();
+        click(
+            &mut session,
+            &format!("{} — Inter", i18n::COUPES_DE_POLICE.get(language)),
+        );
+        for (cut, title, file) in [
+            (FontCut::Bold, i18n::COUPE_GRASSE, "Inter-Bold.ttf"),
+            (FontCut::Italic, i18n::COUPE_ITALIQUE, "Inter-Italic.ttf"),
+            (
+                FontCut::BoldItalic,
+                i18n::COUPE_GRASSE_ITALIQUE,
+                "styles/inter/latin-700-italic.woff2",
+            ),
+        ] {
+            let path = std::path::PathBuf::from(ASSET_FONTS).join(file);
+            session.app.borrow_mut().font_picker = Some(Box::new(move || Some(path.clone())));
+            click(
+                &mut session,
+                &format!(
+                    "{} — Inter — {}",
+                    i18n::ASSOCIER_UNE_COUPE.get(language),
+                    title.get(language)
+                ),
+            );
+            let app = session.app.borrow();
+            assert!(!cut.files(&app.fonts.fonts()[0]).is_empty());
+        }
+        let before = session.app.borrow().fonts.fonts()[0].clone();
+        session.app.borrow_mut().font_picker = Some(Box::new(|| None));
+        click(
+            &mut session,
+            &format!(
+                "{} — Inter — {}",
+                i18n::ASSOCIER_UNE_COUPE.get(language),
+                i18n::COUPE_ITALIQUE.get(language)
+            ),
+        );
+        assert_eq!(
+            session.app.borrow().fonts.fonts()[0],
+            before,
+            "annuler conserve les variantes"
+        );
+        assert!(head_of(&session, super::theme::MSG_ITALIC_FAMILY).ends_with("-i0"));
+        assert!(head_of(&session, super::theme::MSG_BOLD_ITALIC_FAMILY).ends_with("-bi0"));
+        let pref = saved_pref(&session.app.borrow()).unwrap();
+        drop(session);
+        let mut restarted = Session::new(new_app_in(&dir, Some(&pref)), desktop());
+        restarted.settle();
+        assert!(head_of(&restarted, super::theme::MSG_ITALIC_FAMILY).ends_with("-i0"));
+        assert!(head_of(&restarted, super::theme::MSG_BOLD_ITALIC_FAMILY).ends_with("-bi0"));
+    }
+}
+
+#[test]
+fn a_missing_optional_italic_file_preserves_the_downloaded_font() {
+    let fake = FakeHttp::serving_catalog();
+    let url = fontsource::file_url("inter", "latin", 400).replace("-normal.woff2", "-italic.woff2");
+    fake.set(&url, Err("404".into()));
+    let (mut session, _) = online_session(&fake, true);
+    open_tab(&mut session, AppearanceTab::Fonts);
+    click(&mut session, &use_for(FontZone::Conversations, "Inter"));
+    let app = session.app.borrow();
+    assert_eq!(app.fonts.fonts().len(), 1);
+    let font = &app.fonts.fonts()[0];
+    assert!(
+        font.italic.is_empty(),
+        "l'extension seule ne remplace pas le latin absent"
+    );
+    assert_eq!(font.bold_italic.len(), 2);
+    assert!(matches!(app.appearance.conv_font, FontChoice::Imported(_)));
 }

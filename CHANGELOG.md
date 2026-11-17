@@ -19,6 +19,7 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 - README courts en anglais et français, sommaires et guides bilingues, dépannage/FAQ et contrôle local des liens et des traductions
 
 ### Ajouté
+- **Variantes de polices** : vrais italiques et gras italiques lorsqu’ils existent, association des coupes des polices personnelles avec validation de famille/style et persistance ; Lexend conserve un italique simulé explicite. Le catalogue télécharge les variantes disponibles après consentement
 - Linux : AppImage et bundle Flatpak construits sans catalogue public, avec icônes, licences, empreintes et tests de fenêtre sous Xvfb ; téléchargements GitHub documentés en EN/FR
 - Distribution sans catalogue public : cask Homebrew local, installateur Windows par utilisateur et manifeste WinGet, flake Nix verrouillé ; recettes et empreintes produites depuis les artefacts réels de release
 - **Logos natifs** : nouvelle icône embarquée, masque adaptatif du tray macOS avec badge monochrome, Dock Retina et bundle `.app`, ICO intégré au binaire Windows et aux raccourcis, logo de lanceur Linux
