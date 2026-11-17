@@ -56,6 +56,25 @@ mod tests;
 
 New modules get their own test file. A few historical modules retain inline tests. Scenarios in `tests/` use the public API. `bash scripts/integration_test.sh` runs only the authenticated TCP P2P exchange. Process-level discovery and native integrations remain in the [manual checklist](10-testing.md).
 
+## Native e2e tests
+
+`scripts/e2e/` runs the **real** application on the macOS host and on the local lab virtual machines: two isolated instances (`ABCOM_INSTANCE=91` and `92`), then checks start-up, the window (Windows), mutual discovery, the tray and shutdown, with screenshots and logs.
+
+| Profile | Expected tray |
+| --- | --- |
+| `host` (macOS), `windows`, `linux-kde`, `linux-xfce`, `linux-gnome-tray` | present: each instance registers |
+| `linux-gnome` (stock GNOME) | absent: the application reports that the close button will quit instead of hiding it |
+
+Nothing is compiled inside the VMs. The "Binaire e2e" CI job publishes `abcom-linux-aarch64`, `abcom-windows-x86_64.exe` and `abcom-macos-aarch64` for every run, kept for seven days:
+
+```bash
+gh run download <run-id> -p 'e2e-*' -D e2e-artifacts
+export ABCOM_LAB=/absolute/path/to/Test-local/lab.py
+make e2e P=all A=e2e-artifacts        # or P="host linux-kde"
+```
+
+The lab is never copied into the repository: `run.py` calls `lab.py` by its absolute path, starts one profile at a time, uploads the binary and the scenario, runs it in the test user's session, collects the results and restores the clean snapshot. Results land in the lab's `results/abcom-e2e-<date>/` (`summary.json`, one folder per profile). Message, file and group event exchanges will be added with the scripted peer from issue #86.
+
 ## Contribution and workflow
 
 [CONTRIBUTING.md](../../CONTRIBUTING.md) contains the repository's code and commit rules in French. The [Abnd charter](https://github.com/abnd-corp/gouvernance/blob/main/CHARTE.md), also in French, governs organization workflow. These authoritative files are not duplicated or rewritten in the guides.

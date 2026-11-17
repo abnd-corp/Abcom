@@ -1,4 +1,4 @@
-.PHONY: all build release install uninstall run run2 rung run-multi run-windows help clean check check-dbus test testv test-verbose test-module test-watch deploy-bin install-bin check-docs
+.PHONY: all build release install uninstall run run2 rung run-multi run-windows help clean check check-dbus test testv test-verbose test-module test-watch deploy-bin install-bin check-docs e2e
 
 export PATH := $(HOME)/.cargo/bin:$(PATH)
 CARGO := cargo
@@ -27,6 +27,10 @@ check: check-docs
 	$(CARGO) test --all-features --locked
 
 ## Vérifie les guides EN/FR et leurs liens locaux
+# Scénario e2e natif : P = profils (« all », « host », « linux-kde »…), A = binaires e2e de la CI.
+e2e:
+	python3 scripts/e2e/run.py $(or $(P),all) --artifacts $(or $(A),e2e-artifacts)
+
 check-docs:
 	python3 scripts/check_docs.py
 
@@ -81,6 +85,7 @@ help:
 	@printf "  make uninstall        - désinstalle le binaire et le service hérité\n"
 	@printf "  make clean            - supprime les artefacts de compilation\n"
 	@printf "  make check-docs       - vérifie les guides EN/FR et les liens locaux\n"
+	@printf "  make e2e P=all A=dir  - scénario e2e natif (hôte + VM du labo, ABCOM_LAB requis)\n"
 	@printf "  make test             - lance tous les tests\n"
 	@printf "  make test-verbose     - lance les tests avec --nocapture\n"
 	@printf "  make test-module M=.. - lance un module de test spécifique\n"
