@@ -654,6 +654,10 @@ impl AbcomApp {
 
                 // Offres de médias volumineux (au-delà du seuil d'accord) à accepter/refuser.
                 self.render_media_offers(ui);
+                if !rows.is_empty() {
+                    // Cette marge suit le dernier message dans le défilement.
+                    ui.add_space(8.0);
+                }
             });
 
             // Pagination façon Discord : arrivé près du haut, charger les 100
