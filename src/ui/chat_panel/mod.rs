@@ -1,7 +1,7 @@
 use crate::ui::i18n;
 use eframe::egui;
 
-use crate::util::MutexExt;
+use crate::util::{human_bytes, MutexExt};
 
 use super::{AbcomApp, ReplyTarget};
 
@@ -725,7 +725,7 @@ impl AbcomApp {
                         egui::RichText::new(format!(
                             "{} ({})",
                             offer.filename,
-                            format_bytes(offer.size_bytes)
+                            human_bytes(offer.size_bytes)
                         ))
                         .small(),
                     );
@@ -779,25 +779,6 @@ impl AbcomApp {
     }
 }
 
-/// Formate une taille en octets de façon lisible (o / Ko / Mo / Go).
-pub(crate) fn format_bytes(bytes: u64) -> String {
-    const KB: f64 = 1024.0;
-    const MB: f64 = KB * 1024.0;
-    const GB: f64 = MB * 1024.0;
-    let b = bytes as f64;
-    if b >= GB {
-        format!("{:.1} Go", b / GB)
-    } else if b >= MB {
-        format!("{:.1} Mo", b / MB)
-    } else if b >= KB {
-        format!("{:.1} Ko", b / KB)
-    } else {
-        format!("{} o", bytes)
-    }
-}
-
-/// Dessine une ou deux coches selon le statut de lecture du message.
-/// `read = false` → une coche grise (envoyé) ; `read = true` → deux coches bleues (lu).
 /// Affiche l'indicateur de statut d'un message :
 /// - ✓  gris  = envoyé, livraison en attente
 /// - ✓✓ gris  = livré (ACK reçu), pas encore lu

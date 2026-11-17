@@ -12,8 +12,8 @@ use crate::message::{
 };
 use crate::util::MutexExt;
 
-use super::chat_panel::format_bytes;
 use super::AbcomApp;
+use crate::util::human_bytes;
 
 /// Largeur maximale d'une vignette d'image dans le fil.
 const THUMB_MAX_WIDTH: f32 = 320.0;
@@ -157,7 +157,7 @@ pub(crate) fn render_media_progress(
                     .strong(),
                 );
                 ui.label(
-                    egui::RichText::new(format_bytes(progress.total))
+                    egui::RichText::new(human_bytes(progress.total))
                         .small()
                         .color(crate::ui::theme::palette(ui).text_muted),
                 );
@@ -174,8 +174,8 @@ pub(crate) fn render_media_progress(
             ui.label(
                 egui::RichText::new(format!(
                     "{percent} %  |  {} / {}",
-                    format_bytes(progress.done),
-                    format_bytes(progress.total)
+                    human_bytes(progress.done),
+                    human_bytes(progress.total)
                 ))
                 .small()
                 .color(crate::ui::theme::palette(ui).text_muted),
@@ -297,7 +297,7 @@ fn file_card(
                         }
                     });
                     ui.label(
-                        egui::RichText::new(format_bytes(media.size_bytes))
+                        egui::RichText::new(human_bytes(media.size_bytes))
                             .small()
                             .color(palette.text_muted),
                     );

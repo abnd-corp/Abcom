@@ -1,7 +1,7 @@
 use super::i18n;
 use eframe::egui;
 
-use crate::util::MutexExt;
+use crate::util::{human_bytes, MutexExt};
 
 use super::avatar::show_avatar;
 use super::{AbcomApp, SettingsTab, UiLanguage};
@@ -688,16 +688,6 @@ fn open_in_file_manager(dir: &std::path::Path) -> std::io::Result<()> {
 
 /// Formate une taille en unité lisible. Les octets bruts d'un cache de
 /// plusieurs gigaoctets ne disent rien à l'œil.
-pub(crate) fn human_bytes(bytes: u64) -> String {
-    const UNITS: [(&str, u64); 3] = [("Go", 1_000_000_000), ("Mo", 1_000_000), ("ko", 1_000)];
-    for (unit, scale) in UNITS {
-        if bytes >= scale {
-            return format!("{:.1} {unit}", bytes as f64 / scale as f64);
-        }
-    }
-    format!("{bytes} o")
-}
-
 /// Ce que l'onglet Stockage demande à l'application, appliqué hors de la
 /// closure de la fenêtre pour éviter tout emprunt concurrent de `self`.
 #[derive(Default)]

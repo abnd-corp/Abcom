@@ -295,7 +295,7 @@ impl AbcomApp {
                         self.last_notification = Some(format!(
                             "{} — {} ({})",
                             self.t(i18n::PURGE_TERMINEE),
-                            super::settings::human_bytes(report.freed_bytes),
+                            crate::util::human_bytes(report.freed_bytes),
                             report.freed_files
                         ));
                         self.notification_time = std::time::Instant::now();
