@@ -14,11 +14,23 @@ Abcom relie les ordinateurs d'un même réseau local pour discuter en privé, en
 - Notifications système, mode résident et réglage des thèmes, textes et polices.
 - La messagerie locale fonctionne hors ligne. Les GIF et le catalogue de polices en ligne, activable sur accord, utilisent Internet.
 
-## Installation de la bêta
+## Installation
 
-[Releases GitHub](https://github.com/abnd-corp/Abcom/releases) · [Homebrew, Nix, WinGet, AppImage et Flatpak](packaging/README.fr.md)
+Bêta **1.0.0-beta.2** depuis les [releases GitHub](https://github.com/abnd-corp/Abcom/releases) : paquets pour macOS Apple silicon, Windows x86-64 (ARM64 par émulation) et Linux x86-64. Les autres systèmes passent par Nix ou [les sources](#démarrage-rapide).
 
-Aucune inscription à un catalogue requise. Homebrew utilisera ce dépôt comme tap après la première release et la promotion de son cask sur `main` ; Nix peut déjà compiler la branche publiée. Les commandes et limites de chaque format sont dans le guide.
+> **Non signé, par choix :** ni Developer ID ni notarisation Apple, ni Authenticode, et aucune signature prévue ([ADR 0002](docs/adr/0002-no-code-signing.fr.md)). Vérifiez le fichier avec le `SHA256SUMS.txt` de la release, puis autorisez le premier lancement : sous macOS, Réglages Système → Confidentialité et sécurité → **Ouvrir quand même** ; sous Windows, SmartScreen → **Informations complémentaires** → **Exécuter quand même**. Ne désactivez jamais Gatekeeper ni SmartScreen globalement.
+
+| Système | Commande ou fichier de la release |
+| --- | --- |
+| macOS · Homebrew | `brew tap abnd-corp/abcom https://github.com/abnd-corp/Abcom` puis `brew install --cask abnd-corp/abcom/abcom` |
+| macOS · app | `abcom-macos-aarch64.tar.gz` : déplacer `Abcom.app` dans Applications |
+| Windows · WinGet | `winget install --manifest .\winget\Abnd.Abcom.yaml` depuis l’archive `abcom-package-recipes.tar.gz` de la release (manifestes locaux autorisés une fois par un administrateur) |
+| Windows · installateur | `abcom-windows-x86_64-setup.exe`, ou l’archive portable `abcom-windows-x86_64.zip` |
+| Linux · AppImage | `Abcom-1.0.0-beta.2-x86_64.AppImage` : `chmod +x`, puis le lancer |
+| Linux · Flatpak | `flatpak install --user ./Abcom-1.0.0-beta.2-x86_64.flatpak` |
+| Nix · Linux, macOS | `nix profile add github:abnd-corp/Abcom/v1.0.0-beta.2#abcom` (compilé depuis les sources) |
+
+Commandes de téléchargement, vérification des empreintes, mises à jour et désinstallation de chaque format : [recettes d’installation](packaging/README.fr.md).
 
 ## Démarrage rapide
 
