@@ -46,6 +46,16 @@ pub fn now_secs() -> u64 {
         .unwrap_or(0)
 }
 
+/// Instant Unix dans le fuseau du système, tel que l'interface l'affiche (`None` hors plage).
+pub fn local_time(epoch: u64) -> Option<jiff::ZonedDateTime> {
+    let seconds = i64::try_from(epoch).ok()?;
+    Some(
+        jiff::Timestamp::from_second(seconds)
+            .ok()?
+            .to_zoned_datetime(jiff::tz::TimeZone::system()),
+    )
+}
+
 /// Taille lisible en unités décimales (ko, Mo, Go), partout la même dans l'interface.
 pub fn human_bytes(bytes: u64) -> String {
     const UNITS: [(&str, u64); 3] = [("Go", 1_000_000_000), ("Mo", 1_000_000), ("ko", 1_000)];

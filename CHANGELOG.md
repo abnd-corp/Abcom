@@ -12,12 +12,14 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 - Tailles natives corrigées : tray macOS de 18 points avec cible de clic système, marges optiques du Dock, ICO Windows enrichi et tray adapté au DPI
 - Tray Linux migré vers KSNI sans GTK/AppIndicator, puis chaîne D-Bus migrée vers zbus 6 : plus aucune exception RustSec (issue #59 close), correctifs locaux documentés dans `vendor/`
 - Les tests unitaires tournent aussi sous Windows et macOS en CI, plus seulement `cargo check`
+- `chrono`, déclaré non maintenu (RUSTSEC-2026-0543), est remplacé par `jiff` : heure locale correcte sur les trois systèmes, formats et horodatages stockés inchangés
 - Tests e2e natifs (`scripts/e2e/`, `make e2e`) : l'application réelle sur l'hôte macOS et sur les VM du laboratoire local (Windows, GNOME avec et sans tray, KDE, XFCE), avec des binaires publiés par la CI
 - Mise à jour des dépendances directes et transitives, avec adaptation à egui 0.37 et ZIP 9 ; les vulnérabilités signalées sont corrigées
 
 ### Corrigé
 - `abcom --help` et `--version` répondent sans démarrer l'application ; auparavant, `--help` était pris pour un pseudo et annoncé sur le réseau local, et toute option inconnue est désormais refusée
 - Les tailles de fichier s'affichent identiquement dans la conversation et dans l'onglet Stockage (unités décimales : ko, Mo, Go)
+- L'export d'une conversation horodate les messages à l'heure locale, comme l'interface, et non plus en UTC
 
 ### Documentation
 - Cartes de partage GitHub EN/FR de 1280 × 640 px, sources SVG et PNG reproductibles avec la nouvelle identité ; procédure d’activation documentée

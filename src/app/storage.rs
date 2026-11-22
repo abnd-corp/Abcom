@@ -756,8 +756,8 @@ impl Storage {
         for message in self.conversation_messages(me, conv)? {
             let stamp = message
                 .timestamp_epoch
-                .and_then(|e| chrono::DateTime::from_timestamp(e as i64, 0))
-                .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
+                .and_then(crate::util::local_time)
+                .map(|zoned| zoned.strftime("%Y-%m-%d %H:%M").to_string())
                 .unwrap_or_else(|| message.timestamp.clone());
             out.push_str(&format!(
                 "[{stamp}] {} : {}\n",

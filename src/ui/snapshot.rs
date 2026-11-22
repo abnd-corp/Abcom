@@ -7,8 +7,8 @@ use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use chrono::{Local, NaiveDate};
 use eframe::egui;
+use jiff::civil::Date;
 
 use crate::app::{AppState, Peer, ReceiptDetail};
 use crate::message::{ChatMessage, Group, ReactionEntry};
@@ -124,7 +124,7 @@ pub(crate) struct ChatCache {
     generation: Option<u64>,
     conversation_key: Option<Option<String>>,
     language: Option<UiLanguage>,
-    today: Option<NaiveDate>,
+    today: Option<Date>,
     /// Thème du cache : les couleurs d'auteur en dépendent, il faut donc le
     /// reconstruire quand l'utilisateur bascule clair/sombre ou le modifie.
     dark_mode: Option<bool>,
@@ -174,7 +174,7 @@ impl ChatCache {
         dark_mode: bool,
         theme: &theme::ResolvedTheme,
     ) -> Option<bool> {
-        let today = Local::now().date_naive();
+        let today = jiff::ZonedDateTime::now().date();
         let conv_changed = self.conversation_key.as_ref() != Some(&s.selected_conversation);
         if !conv_changed
             && self.generation == Some(s.content_generation)
@@ -225,7 +225,7 @@ impl ChatCache {
         let mut rows: Vec<ChatRow> = Vec::with_capacity(messages.len());
         let mut last_from: Option<&str> = None;
         let mut last_epoch: Option<u64> = None;
-        let mut last_day: Option<NaiveDate> = None;
+        let mut last_day: Option<Date> = None;
 
         for (msg, &hash) in messages.iter().zip(&hashes) {
             let day = message_day(msg);
