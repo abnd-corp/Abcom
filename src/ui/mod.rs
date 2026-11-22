@@ -47,12 +47,11 @@ mod themes;
 /// façon Discord (le fil charge 100 messages de plus en remontant).
 pub(crate) const CHAT_WINDOW_STEP: usize = 100;
 
-/// Durée au-delà de laquelle le backend graphique de la session est réputé
-/// bon. Assez long pour couvrir l'initialisation GPU, qui est le moment où
-/// un pilote fautif plante ; assez court pour qu'un usage ordinaire la
-/// dépasse toujours.
 #[cfg(windows)]
-const GPU_HEALTHY_AFTER: Duration = Duration::from_secs(20);
+/// Durée après laquelle le backend graphique est jugé sain. Un pilote fautif plante à
+/// l'initialisation ou aux premières images : au-delà, un arrêt (fermeture de session
+/// Windows, gestionnaire des tâches) n'est plus pris pour un plantage du backend.
+const GPU_HEALTHY_AFTER: Duration = Duration::from_secs(5);
 
 /// Emojis de réaction par défaut proposés avant tout historique d'usage,
 /// façon Discord.
@@ -346,7 +345,13 @@ pub(crate) struct AbcomApp {
     /// Apparence choisie, appliquée au contexte à chaque changement.
     pub(crate) appearance: appearance::Appearance,
     /// Dernière apparence appliquée au contexte (`None` avant la première image).
-    applied_appearance: Option<(appearance::Appearance, u64, u64, bool)>,
+    applied_appearance: Option<(
+        appearance::Appearance,
+        u64,
+        u64,
+        bool,
+        Option<crate::platform::system_theme::SystemTheme>,
+    )>,
     /// Polices importées par l'utilisateur.
     pub(crate) fonts: fonts::FontStore,
     /// Remplace le sélecteur natif de fichier de police (tests) : `None` ouvre la feuille native.
@@ -729,6 +734,7 @@ impl AbcomApp {
             self.themes.revision,
             self.fonts.revision,
             previews,
+            crate::platform::system_theme::current(),
         );
         if self.applied_appearance.as_ref() != Some(&key) {
             let failed = appearance::apply_appearance(
@@ -1165,9 +1171,17 @@ impl eframe::App for AbcomApp {
         // rien à contourner au prochain lancement (cf.
         // `config::confirm_gpu_backend_healthy`).
         #[cfg(windows)]
-        if !self.gpu_backend_confirmed && self.started_at.elapsed() >= GPU_HEALTHY_AFTER {
-            self.gpu_backend_confirmed = true;
-            crate::config::confirm_gpu_backend_healthy();
+        if !self.gpu_backend_confirmed {
+            let elapsed = self.started_at.elapsed();
+            if elapsed >= GPU_HEALTHY_AFTER {
+                self.gpu_backend_confirmed = true;
+                crate::config::confirm_gpu_backend_healthy();
+            } else {
+                // Au repos ou replié dans le tray, egui ne redessine rien : sans ce réveil,
+                // la confirmation n'arrivait jamais et chaque arrêt de Windows passait pour
+                // un plantage, faisant basculer le lancement suivant vers Vulkan.
+                ctx.request_repaint_after(GPU_HEALTHY_AFTER - elapsed);
+            }
         }
     }
 
@@ -1646,6 +1660,8 @@ pub fn run(
     // Handlers tray/menu globaux : chaque événement réveille l'UI via le
     // contexte partagé (fonctionne même fenêtre cachée, sans rendu).
     tray::install_event_handlers(ui_ctx.clone());
+    // Wayland : l'icône de fenêtre vient de l'entrée de menu dont le nom est l'app_id.
+    crate::platform::desktop_entry::ensure();
 
     let mut viewport = egui::ViewportBuilder::default()
         .with_title("Abcom")

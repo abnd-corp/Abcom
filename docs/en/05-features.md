@@ -74,7 +74,7 @@ Settings → Profile shows the identity fingerprint and room-passphrase status. 
 
 Visible-window messages can produce an internal toast and sound. A hidden or minimized window uses native system notifications. Settings → General controls message previews and login startup. Conversations can be muted; unread badges appear in the sidebar and tray.
 
-With tray support, Close and Cmd/Ctrl+W hide the window. On macOS its Dock icon disappears too. Choose Open Abcom or Quit from the tray menu; on Windows, left-click opens the window. Without tray support, closing exits. Linux tray availability depends on the desktop environment.
+With tray support, Close and Cmd/Ctrl+W hide the window. On macOS its Dock icon disappears too. Choose Open Abcom or Quit from the tray menu; on Windows, left-click opens the window. Without tray support, closing exits. Linux tray availability depends on the desktop environment. On Linux, outside Flatpak and without a package providing it, the application installs its `abcom.desktop` menu entry and icon under `~/.local/share`: on Wayland, this is how GNOME and KDE show its logo in the title bar and window list.
 
 First release launch enables login startup if no setting exists; debug builds do not enable it by default. Integration uses a macOS Launch Agent, Windows Run registry key or Linux XDG autostart entry. The entry runs `abcom --minimized`: the application starts directly in the tray, with no window or Dock icon. Without a tray, the window is shown. Only the main instance manages this entry; a secondary instance (`ABCOM_INSTANCE`) never touches it.
 
@@ -84,7 +84,7 @@ Settings contains Profile, General, Appearance, Storage, Credits and License. Ea
 
 Appearance has four sections:
 
-- **Themes:** light, dark or system mode; ten built-ins (Classic, Lounge, Frost, Nocturne, Sand, Slate, Marshmallow, Ink, Forest and Readable) and personal themes. Mode persists across restarts.
+- **Themes:** light, dark or system mode (the default; on Linux, the desktop light/dark preference is read from the XDG portal, then KDE, XFCE or GTK settings, and followed live, title bar included); ten built-ins (Classic, Lounge, Frost, Nocturne, Sand, Slate, Marshmallow, Ink, Forest and Readable) and personal themes. Mode persists across restarts.
 - **Text:** global scale from 80–160%, separate interface/conversation scales, conversation line and letter spacing. Combined scale is bounded to 0.7–2. Emoji artwork does not scale with these settings.
 - **Colors:** background, surfaces, text and accent, plus advanced roles (21 total). Editing a built-in creates a personal copy. Enter `#RGB` or `#RRGGBB`; live text/background contrast warns below 4.5:1 without blocking the edit. The currently displayed light/dark variant is edited.
 - **Fonts:** separate interface and conversation choices, each previewed in its own font: Noto Sans, Inter, Atkinson Hyperlegible, Lexend, OpenDyslexic, Literata, Nunito and JetBrains Mono. Import `.ttf`, `.otf`, `.ttc`, `.woff` or `.woff2` up to 30 MB; decoded data is limited to 60 MB. Invalid, bitmap/color or unsupported fonts are rejected with a reason. Importing identical data selects the existing copy.

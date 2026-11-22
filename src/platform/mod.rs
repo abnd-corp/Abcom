@@ -2,8 +2,10 @@
 //! notifications natives et lancement au démarrage.
 
 pub mod autostart;
+pub(crate) mod desktop_entry;
 pub(crate) mod icons;
 pub mod notify;
+pub mod system_theme;
 pub mod tray;
 
 pub(crate) fn in_flatpak() -> bool {

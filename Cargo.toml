@@ -112,7 +112,7 @@ winresource = "0.1.34"
 [features]
 default = ["tray", "sound"]
 # Icône résidente ; KSNI sur Linux, intégrations natives sur macOS/Windows.
-tray = ["dep:tray-icon", "dep:zbus"]
+tray = ["dep:tray-icon"]
 # Son de notification. Tire ALSA (`libasound2-dev`) sur Linux, pour deux
 # tonalités synthétisées : la désactiver retire le bip, rien d'autre.
 sound = ["dep:rodio"]
@@ -121,9 +121,9 @@ sound = ["dep:rodio"]
 avatar-svg = ["dep:resvg"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
-# Détecte un hôte de tray (StatusNotifierWatcher) avant de replier la fenêtre ; déjà
-# présent dans l'arbre via KSNI, mêmes fonctionnalités, aucune nouvelle crate.
-zbus = { version = "6.2.1", default-features = false, features = ["proxy"], optional = true }
+# Thème clair/sombre du bureau (portail XDG) et hôte de tray (StatusNotifierWatcher) ;
+# déjà présent dans l'arbre via KSNI, mêmes fonctionnalités, aucune nouvelle crate.
+zbus = { version = "6.2.1", default-features = false, features = ["proxy"] }
 
 [target.'cfg(windows)'.dependencies]
 # Replier la fenêtre dans le tray sans la détruire : on la sort de l'écran et

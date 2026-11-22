@@ -35,6 +35,7 @@ macro_rules! catalog {
 catalog! {
     AFFICHER_LA_SUITE_MODELE => ("Afficher la suite ({lignes} lignes · {caracteres} caractères)", "Show more ({lignes} lines · {caracteres} characters)"),
     REDUIRE => ("Réduire", "Show less"),
+    ECRIRE_UN_MESSAGE => ("Écrire un message… Ctrl/Cmd + Entrée pour envoyer", "Write a message… Ctrl/Cmd + Enter to send"),
     AUJOURD_HUI => ("Aujourd'hui", "Today"),
     HIER => ("Hier", "Yesterday"),
     RECU_PAR => ("Reçu par", "Delivered to"),

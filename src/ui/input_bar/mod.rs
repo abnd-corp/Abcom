@@ -320,6 +320,7 @@ impl AbcomApp {
 
                             let available_w = ui.available_width();
 
+                            let placeholder = self.t(i18n::ECRIRE_UN_MESSAGE);
                             let (resp, mut pressed_enter, changed, overflow_paste) =
                                 composer::custom_composer_input(
                                     ui,
@@ -335,6 +336,7 @@ impl AbcomApp {
                                     self.emoji.shortcode_selected,
                                     available_w,
                                     &mut self.composer.selection_anchor,
+                                    placeholder,
                                 );
 
                             // Collage au-delà du plafond : le texte devient une
