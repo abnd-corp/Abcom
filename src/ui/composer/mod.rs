@@ -408,6 +408,7 @@ pub fn custom_composer_input(
     shortcode_selected: usize,
     width: f32,
     selection_anchor: &mut Option<usize>,
+    placeholder: &str,
 ) -> (egui::Response, bool, bool, Option<String>) {
     let line_height = super::theme::text(ui).composer_line_height;
     let base_content_width = (width.max(120.0) - 12.0).max(20.0);
@@ -858,7 +859,7 @@ pub fn custom_composer_input(
         ui.painter().text(
             content_rect.left_center(),
             egui::Align2::LEFT_CENTER,
-            "Send a message... Ctrl/Cmd + Enter ",
+            placeholder,
             egui::TextStyle::Body.resolve(ui.style()),
             crate::ui::theme::palette(ui).text_muted,
         );
