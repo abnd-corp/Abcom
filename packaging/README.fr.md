@@ -57,10 +57,10 @@ Exécuter les tests d’installation seulement sur un runner CI ou conteneur jet
 
 ## Homebrew sur macOS
 
-Le dépôt Abcom sert aussi de tap, sans dépôt supplémentaire ni soumission à Homebrew/cask. **Avant la première release publique et la promotion du cask généré dans `main`, ces commandes ne peuvent pas encore installer l’application.** Le tap prend en charge Apple silicon.
+Le dépôt Abcom sert aussi de tap, sans dépôt supplémentaire ni soumission à Homebrew/cask. **Le cask de `main` installe la dernière release promue.** Le tap prend en charge Apple silicon.
 
 ```sh
-# Une seule fois, après publication du premier cask :
+# Une seule fois :
 brew tap abnd-corp/abcom https://github.com/abnd-corp/Abcom
 brew install --cask abnd-corp/abcom/abcom
 # Pour les versions suivantes :
@@ -75,7 +75,7 @@ Homebrew récupère `Casks/abcom.rb` depuis la branche par défaut `main`, puis 
 
 Pour tester une release avant la promotion du cask sur `main`, extraire `abcom-package-recipes.tar.gz` puis lancer `bash homebrew/install-homebrew.sh homebrew/Casks/abcom.rb`. Ce mode crée le tap local `abnd-corp/abcom-local` ; relancer le script avec une nouvelle recette réinstalle cette version. La désinstallation retire le Launch Agent et conserve les données ; le démarrage automatique actif actualise son chemin au prochain lancement.
 
-**Signature :** le bundle possède une signature ad hoc vérifiée, sans certificat Developer ID ni notarisation Apple. Un téléchargement en quarantaine peut donc être bloqué, y compris avec une alerte « endommagé ». Une installation Homebrew réussie ne prouve pas que Gatekeeper accepte l’application. Une release téléchargée exige une autorisation macOS explicite lorsqu’elle est possible, ou une signature Developer ID et une notarisation pour un premier lancement normal. Ne pas désactiver Gatekeeper globalement. Voir [les explications Apple](https://support.apple.com/en-us/102445).
+**Signature :** le bundle possède une signature ad hoc vérifiée, sans certificat Developer ID ni notarisation Apple, et aucune n’est prévue ([ADR 0002](../docs/adr/0002-no-code-signing.fr.md)). Un téléchargement en quarantaine est donc bloqué au premier lancement, même quand Homebrew l’installe sans erreur. Autoriser Abcom une fois dans Réglages Système → Confidentialité et sécurité (« Ouvrir quand même ») après avoir vérifié son SHA-256. Ne pas désactiver Gatekeeper globalement. Voir [les explications Apple](https://support.apple.com/en-us/102445).
 
 Pour un **build compilé sur son propre Mac**, préparer et tester le cask depuis le dépôt :
 
@@ -93,7 +93,7 @@ open /Applications/Abcom.app
 
 ## WinGet sur Windows
 
-La recette vise un installateur Inno Setup par utilisateur, avec raccourci dans le menu Démarrer et désinstallateur. Il conserve les données de l’application. Depuis l’archive de recettes d’une release :
+La recette vise un installateur Inno Setup par utilisateur, avec raccourci dans le menu Démarrer et désinstallateur. Il conserve les données de l’application. L’installateur n’est pas signé Authenticode ([ADR 0002](../docs/adr/0002-no-code-signing.fr.md)) : SmartScreen demande une confirmation (« Informations complémentaires » → « Exécuter quand même »). Depuis l’archive de recettes d’une release :
 
 ```powershell
 winget validate --manifest .\winget\Abnd.Abcom.yaml

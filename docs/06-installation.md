@@ -61,7 +61,7 @@ Sans argument, le pseudo reprend la variable `USER`/`USERNAME`. Le binaire compi
 
 Avec le tray actif, quitter par son menu avant de tester un redémarrage : la croix masque normalement la fenêtre.
 
-Le [workflow de release](../.github/workflows/release.yml) vise Linux x86-64, macOS Apple silicon et Windows x86-64. Vérifier les [releases réellement publiées](https://github.com/abnd-corp/Abcom/releases) pour les téléchargements disponibles. La signature ad hoc macOS n’est pas une signature Developer ID ni une notarisation : vérifier l’origine et la somme SHA-256 publiée avant toute autorisation de Confidentialité et sécurité.
+Le [workflow de release](../.github/workflows/release.yml) vise Linux x86-64, macOS Apple silicon et Windows x86-64. Vérifier les [releases réellement publiées](https://github.com/abnd-corp/Abcom/releases) pour les téléchargements disponibles. Les binaires ne sont pas signés et ne le seront pas ([ADR 0002](adr/0002-no-code-signing.fr.md)) : la signature ad hoc macOS n’est ni un Developer ID ni une notarisation, et l’installateur Windows n’a pas de signature Authenticode. Vérifier l’origine et la somme SHA-256 publiée avant d’autoriser le premier lancement (Confidentialité et sécurité sous macOS, SmartScreen sous Windows).
 
 ### Variables d'environnement
 
@@ -135,7 +135,7 @@ python3 scripts/package_macos.py target/release/abcom dist/Abcom.app
 open dist/Abcom.app
 ```
 
-Le workflow de release archive ce bundle `.app` (`corp.abnd.abcom`). Le script le signe ad hoc et vérifie son intégrité ; il n’est ni signé avec un certificat Developer ID ni notarisé. Un téléchargement en quarantaine peut rester bloqué, même si Homebrew réussit l’installation : voir les [cas local et distribué](../packaging/README.fr.md#homebrew-sur-macos). Les notifications d’un binaire nu peuvent toujours être attribuées au terminal ; vérifier leur attribution en lançant le bundle sur la machine cible.
+Le workflow de release archive ce bundle `.app` (`corp.abnd.abcom`). Le script le signe ad hoc et vérifie son intégrité ; il n’est ni signé avec un certificat Developer ID ni notarisé, et ne le sera pas ([ADR 0002](adr/0002-no-code-signing.fr.md)). Un téléchargement en quarantaine peut rester bloqué, même si Homebrew réussit l’installation : voir les [cas local et distribué](../packaging/README.fr.md#homebrew-sur-macos). Les notifications d’un binaire nu peuvent toujours être attribuées au terminal ; vérifier leur attribution en lançant le bundle sur la machine cible.
 
 ## Windows
 

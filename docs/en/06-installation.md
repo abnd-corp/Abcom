@@ -10,7 +10,7 @@ For Homebrew, WinGet and Nix without a public catalogue, see the [installation r
 - A graphical desktop and compatible graphics driver.
 - Peers on the same LAN, with TCP 9000/9001 and UDP 9001 reachable between them.
 
-macOS, Windows and Linux have build checks in CI. Desktop integration still needs manual testing on each target OS. The [release workflow](../../.github/workflows/release.yml) targets Linux x86-64, macOS Apple silicon and Windows x86-64; other targets require a source build and validation. Consult [releases](https://github.com/abnd-corp/Abcom/releases) for actually published artifacts; a configured workflow does not mean a binary has been published.
+macOS, Windows and Linux have build checks in CI. Desktop integration still needs manual testing on each target OS. The [release workflow](../../.github/workflows/release.yml) targets Linux x86-64, macOS Apple silicon and Windows x86-64; other targets require a source build and validation. Consult [releases](https://github.com/abnd-corp/Abcom/releases) for actually published artifacts; a configured workflow does not mean a binary has been published. Binaries are not signed and will not be ([ADR 0002](../adr/0002-no-code-signing.md)): the macOS ad-hoc signature is neither a Developer ID nor a notarization, and the Windows installer has no Authenticode signature. Check the origin and the published SHA-256 before authorizing the first launch (Privacy & Security on macOS, SmartScreen on Windows).
 
 ## Linux build dependencies
 
@@ -111,7 +111,7 @@ python3 scripts/package_macos.py target/release/abcom dist/Abcom.app
 open dist/Abcom.app
 ```
 
-The release workflow archives this `.app` bundle (`corp.abnd.abcom`). The script signs it ad hoc and verifies its integrity; it is not Developer-ID signed or notarized. A quarantined download can still be blocked even when Homebrew installs successfully: see the [local and distributed cases](../../packaging/README.md#homebrew-on-macos). Notifications from a bare executable may still be attributed to the terminal; verify attribution when launching the bundle on the target system.
+The release workflow archives this `.app` bundle (`corp.abnd.abcom`). The script signs it ad hoc and verifies its integrity; it is not Developer-ID signed or notarized, and will not be ([ADR 0002](../adr/0002-no-code-signing.md)). A quarantined download can still be blocked even when Homebrew installs successfully: see the [local and distributed cases](../../packaging/README.md#homebrew-on-macos). Notifications from a bare executable may still be attributed to the terminal; verify attribution when launching the bundle on the target system.
 
 ## Windows
 
