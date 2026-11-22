@@ -17,6 +17,56 @@ use tray_icon::{Icon, TrayIcon, TrayIconBuilder, TrayIconEvent};
 #[cfg(feature = "tray")]
 use crate::util::MutexExt;
 
+/// Délai laissé à l'hôte de tray en démarrage réduit : à l'ouverture de session, il peut
+/// apparaître quelques secondes après le lancement des applications (extension GNOME).
+pub const LOGIN_HOST_WAIT: std::time::Duration = std::time::Duration::from_secs(20);
+
+/// Un hôte peut-il afficher notre icône ? Sous Linux, `tray-icon` lance KSNI avec
+/// `assume_sni_available(true)` : l'icône se crée même sans aucun hôte (GNOME standard)
+/// et la fenêtre repliée deviendrait injoignable. On exige donc un `StatusNotifierWatcher`
+/// avec un hôte enregistré, en l'attendant au plus `wait`. Ailleurs, le système en fournit un.
+pub async fn host_available(wait: std::time::Duration) -> bool {
+    #[cfg(all(feature = "tray", target_os = "linux"))]
+    {
+        let deadline = std::time::Instant::now() + wait;
+        loop {
+            if linux_sni_host_registered().await {
+                return true;
+            }
+            if std::time::Instant::now() >= deadline {
+                return false;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        }
+    }
+    #[cfg(not(all(feature = "tray", target_os = "linux")))]
+    {
+        let _ = wait;
+        true
+    }
+}
+
+#[cfg(all(feature = "tray", target_os = "linux"))]
+async fn linux_sni_host_registered() -> bool {
+    let Ok(connection) = zbus::Connection::session().await else {
+        return false;
+    };
+    let watcher = zbus::proxy::Builder::<zbus::Proxy>::new(&connection)
+        .destination("org.kde.StatusNotifierWatcher")
+        .path("/StatusNotifierWatcher")
+        .interface("org.kde.StatusNotifierWatcher")
+        .cache_properties(zbus::proxy::CacheProperties::No)
+        .build()
+        .await;
+    match watcher {
+        Ok(proxy) => proxy
+            .get_property::<bool>("IsStatusNotifierHostRegistered")
+            .await
+            .unwrap_or(false),
+        Err(_) => false,
+    }
+}
+
 /// Action utilisateur issue du tray, consommée par `AbcomApp::update`.
 ///
 /// Le type reste défini sans la feature `tray` — les appelants s'en servent

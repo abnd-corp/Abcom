@@ -305,6 +305,8 @@ pub(crate) struct AbcomApp {
     pub(crate) tray_init_failed: bool,
     /// Lancement à l'ouverture de session : se replier dans le tray dès qu'il existe.
     pub(crate) start_minimized: bool,
+    /// Un hôte peut afficher l'icône (cf. `tray::host_available`) ; sinon pas de tray.
+    pub(crate) tray_host: bool,
     /// Fenêtre repliée dans le tray : aucun rendu, aucun repaint programmé,
     /// les événements réseau mettent l'état à jour et notifient nativement.
     pub(crate) window_hidden: bool,
@@ -607,6 +609,7 @@ impl AbcomApp {
             tray: None,
             tray_init_failed: false,
             start_minimized: false,
+            tray_host: true,
             window_hidden: false,
             really_quit: false,
             notif_preview,
@@ -1093,7 +1096,11 @@ impl eframe::App for AbcomApp {
         // Icône résidente, créée paresseusement (macOS impose le thread
         // principal avec l'event loop démarrée — c'est le cas ici).
         if self.tray.is_none() && !self.tray_init_failed {
-            self.tray = tray::Tray::new(self.t(i18n::OUVRIR_ABCOM), self.t(i18n::QUITTER));
+            self.tray = if self.tray_host {
+                tray::Tray::new(self.t(i18n::OUVRIR_ABCOM), self.t(i18n::QUITTER))
+            } else {
+                None
+            };
             if self.tray.is_none() {
                 self.tray_init_failed = true;
                 tracing::warn!("icône résidente indisponible : la croix quittera l'application");
@@ -1634,6 +1641,7 @@ pub fn run(
     psk_active: bool,
     channels: UiRuntimeChannels,
     start_minimized: bool,
+    tray_host: bool,
 ) -> anyhow::Result<()> {
     // Handlers tray/menu globaux : chaque événement réveille l'UI via le
     // contexte partagé (fonctionne même fenêtre cachée, sans rendu).
@@ -1690,6 +1698,7 @@ pub fn run(
             set_dock_visible(true);
             let mut app = AbcomApp::new(state, identity_fingerprint, psk_active, channels);
             app.start_minimized = start_minimized;
+            app.tray_host = tray_host;
             Ok(Box::new(app))
         }),
     )

@@ -44,6 +44,7 @@ dependencies = [
  "windows-sys 0.61.2",
  "winresource",
  "wuff",
+ "zbus",
  "zip",
 ]
 
