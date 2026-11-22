@@ -14,7 +14,7 @@ pub fn is_supported() -> bool {
 
 /// L'entrée système est unique : seule l'instance principale la gère. Les instances
 /// secondaires (`ABCOM_INSTANCE`, tests, `make run2`) ne doivent pas détourner celle de l'utilisateur.
-fn owns_system_entry(instance: u32) -> bool {
+pub(crate) fn owns_system_entry(instance: u32) -> bool {
     instance == 0
 }
 
@@ -31,19 +31,24 @@ fn command_path(path: &str) -> String {
     }
 }
 
-fn launch_path(executable: PathBuf, appimage: Option<&Path>) -> PathBuf {
+pub(crate) fn launch_path(executable: PathBuf, appimage: Option<&Path>) -> PathBuf {
     appimage
         .filter(|path| path.is_absolute())
         .map_or(executable, Path::to_path_buf)
 }
 
-fn launcher() -> anyhow::Result<auto_launch::AutoLaunch> {
+/// Chemin à relancer : l'AppImage elle-même plutôt que son point de montage temporaire.
+pub(crate) fn current_launch_path() -> std::io::Result<PathBuf> {
     let appimage = if cfg!(target_os = "linux") {
         std::env::var_os("APPIMAGE").map(PathBuf::from)
     } else {
         None
     };
-    let exe = launch_path(std::env::current_exe()?, appimage.as_deref());
+    Ok(launch_path(std::env::current_exe()?, appimage.as_deref()))
+}
+
+fn launcher() -> anyhow::Result<auto_launch::AutoLaunch> {
+    let exe = current_launch_path()?;
     let exe = command_path(&exe.to_string_lossy());
     let mut builder = AutoLaunchBuilder::new();
     builder
@@ -52,6 +57,10 @@ fn launcher() -> anyhow::Result<auto_launch::AutoLaunch> {
         .set_args(&[START_MINIMIZED_FLAG]);
     #[cfg(target_os = "macos")]
     builder.set_macos_launch_mode(auto_launch::MacOSLaunchMode::LaunchAgent);
+    // Par défaut, auto-launch écrit dans HKLM dès que le compte est administrateur : une
+    // entrée pour toute la machine, qu'un utilisateur ne peut plus désactiver lui-même.
+    #[cfg(windows)]
+    builder.set_windows_enable_mode(auto_launch::WindowsEnableMode::CurrentUser);
     builder
         .build()
         .map_err(|e| anyhow::anyhow!("autostart : {e}"))

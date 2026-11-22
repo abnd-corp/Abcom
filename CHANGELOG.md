@@ -28,6 +28,9 @@ Première release publiée sur GitHub : installateur et archive Windows, app mac
 - Le démarrage automatique lance `abcom --minimized` : l'application s'ouvre directement dans le tray au lieu d'afficher sa fenêtre à chaque ouverture de session (fenêtre affichée s'il n'y a pas de tray). Le chemin est mis entre guillemets sous Windows et Linux pour supporter les espaces
 - Sous Linux, le tray n'est utilisé que si un hôte peut l'afficher (`StatusNotifierWatcher` avec un hôte enregistré, attendu jusqu'à 20 s en démarrage réduit) : sous GNOME standard, la fenêtre ne disparaît plus dans un tray invisible
 - L'archive Linux signale les bibliothèques d'exécution manquantes (`abcom-install.sh`), désormais listées dans la doc d'installation
+- Sous Linux, le mode « système » suit vraiment le clair/sombre du bureau (portail XDG, puis réglages KDE, XFCE ou GTK), en direct et barre de titre comprise : l'application restait sombre sur un bureau clair, winit ne remontant pas ce thème
+- Sous Wayland (GNOME, KDE), le logo d'Abcom remplace l'icône générique « W » : l'application installe son entrée de menu `abcom.desktop` et son icône quand aucun paquet ne les fournit, et le script d'installation écrit la même entrée, sans terminal
+- Sous Windows, le démarrage automatique s'inscrit pour l'utilisateur (HKCU) et non plus pour toute la machine lorsque le compte est administrateur
 
 ### Documentation
 - Cartes de partage GitHub EN/FR de 1280 × 640 px, sources SVG et PNG reproductibles avec la nouvelle identité ; procédure d’activation documentée

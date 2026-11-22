@@ -83,21 +83,22 @@ echo "  ✓ Dossier de données → $DATA_DIR"
 # deux instances qui se disputaient les mêmes ports.
 
 # ── Raccourci Menu (Desktop file) ─────────────────────────────────────────────
+# Même entrée que celle que l'application génère : son nom (abcom.desktop) est l'app_id de
+# la fenêtre, ce qui permet à GNOME et KDE sous Wayland d'afficher le logo d'Abcom. La
+# marque X-Abcom-Generated laisse l'application la mettre à jour si le binaire est déplacé.
 mkdir -p "$APPS_DIR"
-# `%h` est un spécificateur systemd : dans un fichier .desktop il n'est pas
-# développé et le raccourci ne lance rien. On écrit le chemin absolu (heredoc
-# non quoté), en échappant `$username` qui doit rester pour le shell appelé.
 cat > "$APPS_DIR/abcom.desktop" << EOF
 [Desktop Entry]
 Type=Application
 Name=Abcom
-Comment=Chat LAN P2P et découverte automatique des pairs
-Exec=bash -c 'read -p "Ton pseudonyme: " username; "$BINARY_DIR/abcom" "\$username"'
+Comment=Encrypted LAN messenger
+Comment[fr]=Messagerie chiffrée pour le réseau local
+Exec="$BINARY_DIR/abcom" %U
 Icon=$ICON_NAME
-Terminal=true
-Categories=Network;Chat;
+Terminal=false
+Categories=Network;Chat;InstantMessaging;
 StartupWMClass=abcom
-Keywords=chat;lan;p2p;distributed;
+X-Abcom-Generated=true
 EOF
 echo "  ✓ Raccourci menu créé"
 
@@ -119,7 +120,8 @@ echo ""
 echo "🚀 Pour lancer Abcom:"
 echo ""
 echo "   Méthode 1 (Terminal):"
-echo "     $ abcom Alice"
+echo "     $ abcom            (pseudo = nom de l'utilisateur)"
+echo "     $ abcom Alice      (pseudo choisi)"
 echo ""
 echo "   Méthode 2 (Menu/Raccourci):"
 echo "     → Applications → Abcom"

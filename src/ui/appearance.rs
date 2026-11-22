@@ -102,6 +102,32 @@ pub(crate) enum Mode {
 }
 
 impl Mode {
+    /// Sous Linux, winit ne connaît pas le thème du bureau : la détection propre
+    /// (`platform::system_theme`) remplace alors « suivre le système ».
+    pub(crate) fn effective_preference(
+        self,
+        detected: Option<crate::platform::system_theme::SystemTheme>,
+    ) -> egui::ThemePreference {
+        use crate::platform::system_theme::SystemTheme;
+        match (self, detected) {
+            (Self::System, Some(SystemTheme::Light)) => egui::ThemePreference::Light,
+            (Self::System, Some(SystemTheme::Dark)) => egui::ThemePreference::Dark,
+            _ => self.preference(),
+        }
+    }
+
+    /// Clair/sombre demandé aux décorations de fenêtre.
+    pub(crate) fn window_theme(
+        self,
+        detected: Option<crate::platform::system_theme::SystemTheme>,
+    ) -> egui::SystemTheme {
+        match self.effective_preference(detected) {
+            egui::ThemePreference::Light => egui::SystemTheme::Light,
+            egui::ThemePreference::Dark => egui::SystemTheme::Dark,
+            egui::ThemePreference::System => egui::SystemTheme::SystemDefault,
+        }
+    }
+
     pub(crate) fn preference(self) -> egui::ThemePreference {
         match self {
             Self::Light => egui::ThemePreference::Light,
@@ -219,7 +245,17 @@ pub(crate) fn apply_appearance(
     fonts: &FontStore,
     previews: bool,
 ) -> usize {
-    ctx.set_theme(appearance.mode.preference());
+    ctx.set_theme(
+        appearance
+            .mode
+            .effective_preference(crate::platform::system_theme::current()),
+    );
+    // Décorations dessinées par le client (GNOME sous Wayland) : même clair/sombre que le contenu.
+    ctx.send_viewport_cmd(egui::ViewportCommand::SetTheme(
+        appearance
+            .mode
+            .window_theme(crate::platform::system_theme::current()),
+    ));
     let text = appearance.text.sanitized();
     let mut resolved = match appearance.custom_id().and_then(|id| store.get(id)) {
         Some(custom) => custom.resolve(&text),

@@ -346,7 +346,13 @@ pub(crate) struct AbcomApp {
     /// Apparence choisie, appliquée au contexte à chaque changement.
     pub(crate) appearance: appearance::Appearance,
     /// Dernière apparence appliquée au contexte (`None` avant la première image).
-    applied_appearance: Option<(appearance::Appearance, u64, u64, bool)>,
+    applied_appearance: Option<(
+        appearance::Appearance,
+        u64,
+        u64,
+        bool,
+        Option<crate::platform::system_theme::SystemTheme>,
+    )>,
     /// Polices importées par l'utilisateur.
     pub(crate) fonts: fonts::FontStore,
     /// Remplace le sélecteur natif de fichier de police (tests) : `None` ouvre la feuille native.
@@ -729,6 +735,7 @@ impl AbcomApp {
             self.themes.revision,
             self.fonts.revision,
             previews,
+            crate::platform::system_theme::current(),
         );
         if self.applied_appearance.as_ref() != Some(&key) {
             let failed = appearance::apply_appearance(
@@ -1646,6 +1653,8 @@ pub fn run(
     // Handlers tray/menu globaux : chaque événement réveille l'UI via le
     // contexte partagé (fonctionne même fenêtre cachée, sans rendu).
     tray::install_event_handlers(ui_ctx.clone());
+    // Wayland : l'icône de fenêtre vient de l'entrée de menu dont le nom est l'app_id.
+    crate::platform::icons::ensure_desktop_entry();
 
     let mut viewport = egui::ViewportBuilder::default()
         .with_title("Abcom")

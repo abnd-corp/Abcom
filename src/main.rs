@@ -199,6 +199,13 @@ fn main() -> anyhow::Result<()> {
 
     // Canaux vers l'UI : chaque événement relayé réveille egui.
     let (event_tx, event_rx) = notify::ui_channel::<message::AppEvent>(256, ui_ctx.clone(), &rt);
+    // Thème du bureau Linux suivi en direct : chaque changement réveille l'interface.
+    let theme_ctx = ui_ctx.clone();
+    rt.spawn(abcom::platform::system_theme::watch(move || {
+        if let Some(ctx) = theme_ctx.get() {
+            ctx.request_repaint();
+        }
+    }));
     let (media_offer_tx, media_offer_rx) =
         notify::ui_channel::<message::MediaStreamOffer>(16, ui_ctx.clone(), &rt);
 
