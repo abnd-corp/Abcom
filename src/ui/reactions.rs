@@ -54,7 +54,7 @@ impl AbcomApp {
         let mut picked: Option<String> = None;
         let picker_rect = super::emoji_picker::show_emoji_popup(
             ctx,
-            egui::Id::new("reaction_emoji_picker"),
+            egui::Id::unique("reaction_emoji_picker"),
             anchor,
             &mut self.emoji.category,
             &self.emoji.textures,

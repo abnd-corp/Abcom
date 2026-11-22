@@ -1,4 +1,4 @@
-.PHONY: all build release install uninstall run run2 rung run-multi run-windows help clean check test testv test-verbose test-module test-watch deploy-bin install-bin
+.PHONY: all build release install uninstall run run2 rung run-multi run-windows help clean check check-dbus test testv test-verbose test-module test-watch deploy-bin install-bin check-docs e2e
 
 export PATH := $(HOME)/.cargo/bin:$(PATH)
 CARGO := cargo
@@ -20,10 +20,23 @@ endif
 all: build
 
 ## Vérifie le formatage, Clippy et tous les tests
-check:
+check: check-docs
+	python3 -m unittest discover -s src/tests -p 'test*packaging.py'
 	$(CARGO) fmt --all --check
 	$(CARGO) clippy --all-targets --all-features --locked -- -D warnings
 	$(CARGO) test --all-features --locked
+
+## Vérifie les guides EN/FR et leurs liens locaux
+# Scénario e2e natif : P = profils (« all », « host », « linux-kde »…), A = binaires e2e de la CI.
+e2e:
+	python3 scripts/e2e/run.py $(or $(P),all) --artifacts $(or $(A),e2e-artifacts)
+
+check-docs:
+	python3 scripts/check_docs.py
+
+## Vérifie les adaptateurs d'accessibilité Linux portés vers zbus 6
+check-dbus:
+	python3 scripts/test_dbus_adapters.py
 
 ## Compile en mode développement
 build:
@@ -55,7 +68,7 @@ run-windows:
 	@mkdir -p /mnt/c/Users/$(USER)/AppData/Local/abcom
 	@mkdir -p /mnt/c/Users/$(USER)/AppData/Local/abcom/assets
 	@cp -f target/x86_64-pc-windows-gnu/release/abcom.exe /mnt/c/Users/$(USER)/AppData/Local/abcom/abcom_new.exe 2>/dev/null || true
-	@cp -f assets/app_icon.jpg /mnt/c/Users/$(USER)/AppData/Local/abcom/assets/ 2>/dev/null || true
+	@cp -f assets/app_icon.ico /mnt/c/Users/$(USER)/AppData/Local/abcom/assets/ 2>/dev/null || true
 	@cd /mnt/c/Users/$(USER)/AppData/Local/abcom && /mnt/c/Windows/System32/cmd.exe /c start "" "C:\Users\$(USER)\AppData\Local\abcom\abcom_new.exe" $(USER)
 
 ## Affiche l'aide des cibles du Makefile
@@ -68,9 +81,11 @@ help:
 	@printf "  make rung             - lance 3 fenêtres pour tester les groupes\n"
 	@printf "  make run-multi N=4    - lance N fenêtres locales\n"
 	@printf "  make run-windows      - compile pour Windows depuis WSL et lance l'appli\n"
-	@printf "  make install          - installe binaire + raccourci + service systemd\n"
-	@printf "  make uninstall        - désinstalle le binaire et le service\n"
+	@printf "  make install          - installe le binaire et le raccourci Linux\n"
+	@printf "  make uninstall        - désinstalle le binaire et le service hérité\n"
 	@printf "  make clean            - supprime les artefacts de compilation\n"
+	@printf "  make check-docs       - vérifie les guides EN/FR et les liens locaux\n"
+	@printf "  make e2e P=all A=dir  - scénario e2e natif (hôte + VM du labo, ABCOM_LAB requis)\n"
 	@printf "  make test             - lance tous les tests\n"
 	@printf "  make test-verbose     - lance les tests avec --nocapture\n"
 	@printf "  make test-module M=.. - lance un module de test spécifique\n"
@@ -83,6 +98,8 @@ install: release
 	chmod +x $(INSTALL_DIR)/$(BINARY_NAME)
 	@mkdir -p $(HOME)/.local/share/applications
 	cp scripts/abcom.desktop $(HOME)/.local/share/applications/abcom.desktop
+	@mkdir -p $(HOME)/.local/share/icons/hicolor/512x512/apps
+	cp assets/app_icon.png $(HOME)/.local/share/icons/hicolor/512x512/apps/abcom.png
 	@mkdir -p $(HOME)/.local/share/$(BINARY_NAME)
 	@# Reste d'une installation antérieure : un service systemd doublait le
 	@# démarrage XDG de l'application et lançait une seconde instance.
@@ -97,6 +114,7 @@ install: release
 deploy-bin: release
 	@cp target/release/$(BINARY_NAME) /tmp/$(BINARY_NAME)
 	@cp scripts/abcom-install.sh /tmp/abcom-install.sh
+	@cp assets/app_icon.png /tmp/abcom-icon.png
 	@chmod +x /tmp/abcom-install.sh
 	@echo ""
 	@echo "📦 Binaire prêt pour distribution:"
@@ -104,7 +122,7 @@ deploy-bin: release
 	@echo "   Script:  /tmp/abcom-install.sh"
 	@echo ""
 	@echo "💾 Pour partager:"
-	@echo "   zip /tmp/abcom-deploy.zip /tmp/abcom /tmp/abcom-install.sh"
+	@echo "   zip /tmp/abcom-deploy.zip /tmp/abcom /tmp/abcom-install.sh /tmp/abcom-icon.png"
 	@echo "   # Puis envoie le ZIP à tes copains !"
 
 ## Installe depuis un binaire pré-compilé (sans compiler)
@@ -125,6 +143,7 @@ uninstall:
 	fi
 	rm -f $(SERVICE_DIR)/$(SERVICE_NAME)
 	rm -f $(INSTALL_DIR)/$(BINARY_NAME)
+	rm -f $(HOME)/.local/share/icons/hicolor/512x512/apps/abcom.png
 	@echo "✓ $(BINARY_NAME) désinstallé"
 
 ## Supprime les artefacts de compilation

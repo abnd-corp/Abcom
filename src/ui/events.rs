@@ -22,208 +22,16 @@ impl AbcomApp {
     pub(crate) fn process_events(&mut self) {
         let mut outbound: Vec<NetworkSendRequest> = Vec::new();
         let mut outbox_flush: Vec<(u64, SendRequest)> = Vec::new();
-        let mut s = self.state.lock_safe();
+        // Clone du `Arc` : le verrou n'emprunte plus `self`, les gestionnaires peuvent le muter.
+        let state = self.state.clone();
+        let mut s = state.lock_safe();
         while let Ok(evt) = self.net.event_rx.try_recv() {
             match evt {
                 AppEvent::MessageReceived(msg) => {
-                    // Message de salon : `to_user` porte la clé `#nom`. Un salon
-                    // inconnu ou quitté est ignoré (l'émetteur ne devrait plus
-                    // nous cibler ; protège aussi d'un pair non membre).
-                    let group_conv: Option<String> = msg
-                        .to_user
-                        .as_deref()
-                        .filter(|t| t.starts_with('#'))
-                        .map(str::to_string);
-                    if let Some(conv) = &group_conv {
-                        let known = conv
-                            .strip_prefix('#')
-                            .and_then(|name| s.get_group(name))
-                            .is_some_and(|group| {
-                                group.members.contains(&s.my_username)
-                                    && group.members.contains(&msg.from)
-                            });
-                        if !known {
-                            continue;
-                        }
-                    }
-
-                    // ACK automatique (livraison) pour tout message reçu d'un
-                    // autre pair — privé, salon (#…) ou diffusion (« Tous »).
-                    // En salon/« Tous », l'accusé est diffusé à tous les membres
-                    // (pas seulement l'expéditeur) pour que chacun puisse
-                    // consulter le détail « … » reçu/lu. Le ReadReceipt (lecture)
-                    // n'est envoyé que si la conversation est déjà ouverte et la
-                    // fenêtre active — sinon différé à l'ouverture.
-                    if msg.from != s.my_username {
-                        let recipients = s.receipt_recipients(&msg);
-                        if !recipients.is_empty() {
-                            let msg_hash = AppState::message_hash(&msg);
-                            let now = chrono::Local::now().format("%H:%M").to_string();
-
-                            // Conversation source côté destinataire : « Tous »
-                            // (None), le salon (#…) ou le pair émetteur.
-                            let source_conv: Option<String> = match &msg.to_user {
-                                None => None,
-                                Some(t) if t.starts_with('#') => Some(t.clone()),
-                                Some(_) => Some(msg.from.clone()),
-                            };
-                            let already_reading =
-                                self.window_focused && s.selected_conversation == source_conv;
-
-                            let mut ack_reqs = Vec::with_capacity(recipients.len());
-                            let mut receipt_reqs = Vec::new();
-                            for (recipient, addr) in recipients {
-                                ack_reqs.push(MessageAckRequest {
-                                    to_peer: recipient.clone(),
-                                    to_addr: addr,
-                                    ack: MessageAck {
-                                        from: s.my_username.clone(),
-                                        to: recipient.clone(),
-                                        message_hash: msg_hash,
-                                        timestamp: now.clone(),
-                                    },
-                                });
-                                if already_reading {
-                                    receipt_reqs.push(ReadReceiptRequest {
-                                        to_peer: recipient.clone(),
-                                        to_addr: addr,
-                                        receipt: ReadReceipt {
-                                            from: s.my_username.clone(),
-                                            to: recipient,
-                                            message_hash: msg_hash,
-                                            timestamp: now.clone(),
-                                        },
-                                    });
-                                }
-                            }
-
-                            // Déjà en base (réémission) : rien n'attend, on
-                            // acquitte tout de suite. Sinon l'accusé patiente
-                            // jusqu'au commit — le dire « reçu » avant serait
-                            // un mensonge qu'un arrêt brutal démentirait.
-                            if s.has_message(msg_hash) || !s.has_storage() {
-                                outbound.extend(ack_reqs.into_iter().map(Into::into));
-                                // Mémorisé comme envoyé : sinon le rattrapage
-                                // au retour du focus réémettrait tout le fil.
-                                for req in &receipt_reqs {
-                                    self.read_receipts_sent
-                                        .entry(req.to_peer.clone())
-                                        .or_default()
-                                        .insert(msg_hash);
-                                }
-                                outbound.extend(receipt_reqs.into_iter().map(Into::into));
-                            } else if self.pending_acks.len() < MAX_PENDING_ACKS {
-                                let waiting: Vec<NetworkSendRequest> = ack_reqs
-                                    .into_iter()
-                                    .map(Into::into)
-                                    .chain(receipt_reqs.into_iter().map(Into::into))
-                                    .collect();
-                                self.pending_acks
-                                    .entry(msg_hash)
-                                    .or_default()
-                                    .extend(waiting);
-                            } else {
-                                // Persistance durablement en panne : on cesse
-                                // d'accumuler plutôt que d'enfler sans fin.
-                                tracing::warn!("accusés en attente saturés, message non acquitté");
-                            }
-                        }
-                    }
-
-                    // Doublon d'une réémission : l'ACK vient d'être traité
-                    // ci-dessus, il ne reste qu'à ne pas dupliquer le message.
-                    if s.has_message(AppState::message_hash(&msg)) {
-                        tracing::debug!("message déjà reçu ignoré (réémission)");
-                        continue;
-                    }
-
-                    s.add_message(msg.clone());
-                    if msg.from != s.my_username {
-                        self.last_notification = Some(match &group_conv {
-                            Some(conv) => format!("{} · {}: {}", conv, msg.from, msg.content),
-                            None => format!("{}: {}", msg.from, msg.content),
-                        });
-                        self.notification_time = std::time::Instant::now();
-                        self.has_unread = true;
-                        // Sourdine et « déjà ouverte » : la conversation source
-                        // est le salon pour un message de groupe, le pair sinon.
-                        let source_conv: Option<String> = if msg.to_user.is_none() {
-                            None
-                        } else if let Some(conv) = &group_conv {
-                            Some(conv.clone())
-                        } else {
-                            Some(msg.from.clone())
-                        };
-                        let already_in_conv = s.selected_conversation == source_conv;
-                        let conv_muted = self.muted_conversations.contains(&source_conv);
-                        if self.window_hidden {
-                            // Fenêtre repliée : notification système native
-                            // (aperçu selon la préférence), pas de bip interne.
-                            if !conv_muted {
-                                Self::notify_native(
-                                    msg.from.clone(),
-                                    self.native_body_for(&msg.content),
-                                );
-                            }
-                        } else if self.enable_sound_notifications && !already_in_conv && !conv_muted
-                        {
-                            play_notification_sound();
-                        }
-                    }
+                    self.on_message_received(&mut s, msg, &mut outbound)
                 }
                 AppEvent::PeerDiscovered { username, addr } => {
-                    s.add_peer(username.clone(), addr);
-                    // Re-synchronise auprès du pair (ré)apparu les groupes dont
-                    // nous sommes propriétaire et dont il est membre : il reçoit
-                    // l'état complet (création manquée hors-ligne, ajout, etc.).
-                    let sync_events: Vec<GroupEvent> = s
-                        .groups
-                        .iter()
-                        .filter(|g| g.owner == s.my_username && g.members.contains(&username))
-                        .map(|g| GroupEvent {
-                            action: GroupAction::Create { group: g.clone() },
-                        })
-                        .collect();
-                    for event in sync_events {
-                        self.net.try_send(SendGroupRequest {
-                            to_peer: username.clone(),
-                            to_addr: addr,
-                            event,
-                        });
-                    }
-                    // Messages écrits pendant son absence : réémis maintenant.
-                    let queued = s.outbox_for(&username);
-                    if !queued.is_empty() {
-                        let requests: Vec<_> = queued
-                            .into_iter()
-                            .map(|(hash, message)| {
-                                (
-                                    hash,
-                                    SendRequest {
-                                        to_peer: username.clone(),
-                                        to_addr: addr,
-                                        message,
-                                    },
-                                )
-                            })
-                            .collect();
-                        outbox_flush.extend(requests);
-                    }
-
-                    // Première découverte (depuis le dernier envoi) : on partage
-                    // notre avatar pour qu'il s'affiche chez ce pair.
-                    if !self.avatar_sent_to.contains(&username) {
-                        if let Some(announce) = s.avatar_announce() {
-                            let request = AvatarRequest {
-                                to_peer: username.clone(),
-                                to_addr: addr,
-                                announce,
-                            };
-                            if self.net.try_send(request) {
-                                self.avatar_sent_to.insert(username);
-                            }
-                        }
-                    }
+                    self.on_peer_discovered(&mut s, username, addr, &mut outbox_flush)
                 }
                 AppEvent::PeerDisconnected { username } => {
                     s.mark_peer_offline(&username);
@@ -295,7 +103,7 @@ impl AbcomApp {
                         self.last_notification = Some(format!(
                             "{} — {} ({})",
                             self.t(i18n::PURGE_TERMINEE),
-                            super::settings::human_bytes(report.freed_bytes),
+                            crate::util::human_bytes(report.freed_bytes),
                             report.freed_files
                         ));
                         self.notification_time = std::time::Instant::now();
@@ -350,35 +158,7 @@ impl AbcomApp {
                     // Forcer le rechargement de la texture mise en cache.
                     self.avatar_textures.remove(&from);
                 }
-                AppEvent::MediaIncoming(header) => {
-                    // Début de réception d'un média : on crée le message (carte
-                    // + progression) ; les octets arrivent dans media/<id>.
-                    let from = header.from.clone();
-                    let msg = ChatMessage {
-                        from: header.from,
-                        content: String::new(),
-                        timestamp: header.timestamp,
-                        timestamp_epoch: header.timestamp_epoch,
-                        to_user: header.to_user,
-                        media: Some(header.media),
-                        reply_to: None,
-                        // Pas de nonce : le hash doit coïncider avec celui de
-                        // la copie locale de l'émetteur (cf. ChatMessage::nonce).
-                        nonce: None,
-                    };
-                    s.add_message(msg.clone());
-                    if from != s.my_username {
-                        let label = self.t(i18n::VOUS_ENVOIE_UN_FICHIER);
-                        self.last_notification = Some(format!("{} {}", from, label));
-                        self.notification_time = std::time::Instant::now();
-                        self.has_unread = true;
-                        if self.window_hidden {
-                            Self::notify_native(from.clone(), label.to_string());
-                        } else if self.enable_sound_notifications {
-                            play_notification_sound();
-                        }
-                    }
-                }
+                AppEvent::MediaIncoming(header) => self.on_media_incoming(&mut s, header),
                 AppEvent::MediaProgressed(progress) => {
                     let id = progress.id.clone();
                     if progress.failed {
@@ -438,6 +218,246 @@ impl AbcomApp {
             // quoi un arrêt au mauvais moment le laisserait en mémoire seule.
             if self.net.try_send(request.clone()) {
                 self.state.lock_safe().mark_message_sent(hash, request);
+            }
+        }
+    }
+
+    /// Message reçu : accuse la livraison, l'ajoute au fil et notifie.
+    fn on_message_received(
+        &mut self,
+        s: &mut AppState,
+        msg: ChatMessage,
+        outbound: &mut Vec<NetworkSendRequest>,
+    ) {
+        // Message de salon : `to_user` porte la clé `#nom`. Un salon
+        // inconnu ou quitté est ignoré (l'émetteur ne devrait plus
+        // nous cibler ; protège aussi d'un pair non membre).
+        let group_conv: Option<String> = msg
+            .to_user
+            .as_deref()
+            .filter(|t| t.starts_with('#'))
+            .map(str::to_string);
+        if let Some(conv) = &group_conv {
+            let known = conv
+                .strip_prefix('#')
+                .and_then(|name| s.get_group(name))
+                .is_some_and(|group| {
+                    group.members.contains(&s.my_username) && group.members.contains(&msg.from)
+                });
+            if !known {
+                return;
+            }
+        }
+
+        // ACK automatique (livraison) pour tout message reçu d'un
+        // autre pair — privé, salon (#…) ou diffusion (« Tous »).
+        // En salon/« Tous », l'accusé est diffusé à tous les membres
+        // (pas seulement l'expéditeur) pour que chacun puisse
+        // consulter le détail « … » reçu/lu. Le ReadReceipt (lecture)
+        // n'est envoyé que si la conversation est déjà ouverte et la
+        // fenêtre active — sinon différé à l'ouverture.
+        if msg.from != s.my_username {
+            let recipients = s.receipt_recipients(&msg);
+            if !recipients.is_empty() {
+                let msg_hash = AppState::message_hash(&msg);
+                let now = jiff::ZonedDateTime::now().strftime("%H:%M").to_string();
+
+                // Conversation source côté destinataire : « Tous »
+                // (None), le salon (#…) ou le pair émetteur.
+                let source_conv: Option<String> = match &msg.to_user {
+                    None => None,
+                    Some(t) if t.starts_with('#') => Some(t.clone()),
+                    Some(_) => Some(msg.from.clone()),
+                };
+                let already_reading = self.window_focused && s.selected_conversation == source_conv;
+
+                let mut ack_reqs = Vec::with_capacity(recipients.len());
+                let mut receipt_reqs = Vec::new();
+                for (recipient, addr) in recipients {
+                    ack_reqs.push(MessageAckRequest {
+                        to_peer: recipient.clone(),
+                        to_addr: addr,
+                        ack: MessageAck {
+                            from: s.my_username.clone(),
+                            to: recipient.clone(),
+                            message_hash: msg_hash,
+                            timestamp: now.clone(),
+                        },
+                    });
+                    if already_reading {
+                        receipt_reqs.push(ReadReceiptRequest {
+                            to_peer: recipient.clone(),
+                            to_addr: addr,
+                            receipt: ReadReceipt {
+                                from: s.my_username.clone(),
+                                to: recipient,
+                                message_hash: msg_hash,
+                                timestamp: now.clone(),
+                            },
+                        });
+                    }
+                }
+
+                // Déjà en base (réémission) : rien n'attend, on
+                // acquitte tout de suite. Sinon l'accusé patiente
+                // jusqu'au commit — le dire « reçu » avant serait
+                // un mensonge qu'un arrêt brutal démentirait.
+                if s.has_message(msg_hash) || !s.has_storage() {
+                    outbound.extend(ack_reqs.into_iter().map(Into::into));
+                    // Mémorisé comme envoyé : sinon le rattrapage
+                    // au retour du focus réémettrait tout le fil.
+                    for req in &receipt_reqs {
+                        self.read_receipts_sent
+                            .entry(req.to_peer.clone())
+                            .or_default()
+                            .insert(msg_hash);
+                    }
+                    outbound.extend(receipt_reqs.into_iter().map(Into::into));
+                } else if self.pending_acks.len() < MAX_PENDING_ACKS {
+                    let waiting: Vec<NetworkSendRequest> = ack_reqs
+                        .into_iter()
+                        .map(Into::into)
+                        .chain(receipt_reqs.into_iter().map(Into::into))
+                        .collect();
+                    self.pending_acks
+                        .entry(msg_hash)
+                        .or_default()
+                        .extend(waiting);
+                } else {
+                    // Persistance durablement en panne : on cesse
+                    // d'accumuler plutôt que d'enfler sans fin.
+                    tracing::warn!("accusés en attente saturés, message non acquitté");
+                }
+            }
+        }
+
+        // Doublon d'une réémission : l'ACK vient d'être traité
+        // ci-dessus, il ne reste qu'à ne pas dupliquer le message.
+        if s.has_message(AppState::message_hash(&msg)) {
+            tracing::debug!("message déjà reçu ignoré (réémission)");
+            return;
+        }
+
+        s.add_message(msg.clone());
+        if msg.from != s.my_username {
+            self.last_notification = Some(match &group_conv {
+                Some(conv) => format!("{} · {}: {}", conv, msg.from, msg.content),
+                None => format!("{}: {}", msg.from, msg.content),
+            });
+            self.notification_time = std::time::Instant::now();
+            self.has_unread = true;
+            // Sourdine et « déjà ouverte » : la conversation source
+            // est le salon pour un message de groupe, le pair sinon.
+            let source_conv: Option<String> = if msg.to_user.is_none() {
+                None
+            } else if let Some(conv) = &group_conv {
+                Some(conv.clone())
+            } else {
+                Some(msg.from.clone())
+            };
+            let already_in_conv = s.selected_conversation == source_conv;
+            let conv_muted = self.muted_conversations.contains(&source_conv);
+            if self.window_hidden {
+                // Fenêtre repliée : notification système native
+                // (aperçu selon la préférence), pas de bip interne.
+                if !conv_muted {
+                    Self::notify_native(msg.from.clone(), self.native_body_for(&msg.content));
+                }
+            } else if self.enable_sound_notifications && !already_in_conv && !conv_muted {
+                play_notification_sound();
+            }
+        }
+    }
+
+    /// Pair découvert : l'enregistre et lui envoie ce qu'il lui manque (avatar, file hors ligne).
+    fn on_peer_discovered(
+        &mut self,
+        s: &mut AppState,
+        username: String,
+        addr: std::net::SocketAddr,
+        outbox_flush: &mut Vec<(u64, SendRequest)>,
+    ) {
+        s.add_peer(username.clone(), addr);
+        // Re-synchronise auprès du pair (ré)apparu les groupes dont
+        // nous sommes propriétaire et dont il est membre : il reçoit
+        // l'état complet (création manquée hors-ligne, ajout, etc.).
+        let sync_events: Vec<GroupEvent> = s
+            .groups
+            .iter()
+            .filter(|g| g.owner == s.my_username && g.members.contains(&username))
+            .map(|g| GroupEvent {
+                action: GroupAction::Create { group: g.clone() },
+            })
+            .collect();
+        for event in sync_events {
+            self.net.try_send(SendGroupRequest {
+                to_peer: username.clone(),
+                to_addr: addr,
+                event,
+            });
+        }
+        // Messages écrits pendant son absence : réémis maintenant.
+        let queued = s.outbox_for(&username);
+        if !queued.is_empty() {
+            let requests: Vec<_> = queued
+                .into_iter()
+                .map(|(hash, message)| {
+                    (
+                        hash,
+                        SendRequest {
+                            to_peer: username.clone(),
+                            to_addr: addr,
+                            message,
+                        },
+                    )
+                })
+                .collect();
+            outbox_flush.extend(requests);
+        }
+
+        // Première découverte (depuis le dernier envoi) : on partage
+        // notre avatar pour qu'il s'affiche chez ce pair.
+        if !self.avatar_sent_to.contains(&username) {
+            if let Some(announce) = s.avatar_announce() {
+                let request = AvatarRequest {
+                    to_peer: username.clone(),
+                    to_addr: addr,
+                    announce,
+                };
+                if self.net.try_send(request) {
+                    self.avatar_sent_to.insert(username);
+                }
+            }
+        }
+    }
+
+    /// Offre de média entrante : accepte automatiquement ou la met en attente.
+    fn on_media_incoming(&mut self, s: &mut AppState, header: crate::message::MediaStreamHeader) {
+        // Début de réception d'un média : on crée le message (carte
+        // + progression) ; les octets arrivent dans media/<id>.
+        let from = header.from.clone();
+        let msg = ChatMessage {
+            from: header.from,
+            content: String::new(),
+            timestamp: header.timestamp,
+            timestamp_epoch: header.timestamp_epoch,
+            to_user: header.to_user,
+            media: Some(header.media),
+            reply_to: None,
+            // Pas de nonce : le hash doit coïncider avec celui de
+            // la copie locale de l'émetteur (cf. ChatMessage::nonce).
+            nonce: None,
+        };
+        s.add_message(msg.clone());
+        if from != s.my_username {
+            let label = self.t(i18n::VOUS_ENVOIE_UN_FICHIER);
+            self.last_notification = Some(format!("{} {}", from, label));
+            self.notification_time = std::time::Instant::now();
+            self.has_unread = true;
+            if self.window_hidden {
+                Self::notify_native(from.clone(), label.to_string());
+            } else if self.enable_sound_notifications {
+                play_notification_sound();
             }
         }
     }
@@ -527,7 +547,7 @@ fn delivery_acks(state: &AppState, media_id: &str) -> Vec<NetworkSendRequest> {
         return Vec::new();
     }
     let hash = AppState::message_hash(msg);
-    let now = chrono::Local::now().format("%H:%M").to_string();
+    let now = jiff::ZonedDateTime::now().strftime("%H:%M").to_string();
     state
         .receipt_recipients(msg)
         .into_iter()

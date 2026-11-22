@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Abcom
+Comment=Encrypted peer-to-peer LAN messenger
+Comment[fr]=Messagerie LAN chiffrée en pair-à-pair
+Exec=abcom
+Icon=corp.abnd.abcom
+Terminal=false
+Categories=Network;InstantMessaging;
+StartupWMClass=abcom
+StartupNotify=false
+X-GNOME-UsesNotifications=true

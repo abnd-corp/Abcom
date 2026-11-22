@@ -31,7 +31,7 @@ fn search_url_encodes_query() {
 }
 
 #[test]
-fn parse_extracts_xs_and_hd_webp() {
+fn parse_prefers_sm_preview_and_keeps_hd_for_messages() {
     let body = br#"{
             "result": true,
             "data": {
@@ -40,6 +40,7 @@ fn parse_extracts_xs_and_hd_webp() {
                         "id": 123,
                         "file": {
                             "xs": {"webp": {"url": "https://x/xs.webp", "width": 90, "height": 60}},
+                            "sm": {"webp": {"url": "https://x/sm.webp", "width": 180, "height": 120}},
                             "hd": {"webp": {"url": "https://x/hd.webp", "width": 480, "height": 320}}
                         }
                     }
@@ -53,7 +54,7 @@ fn parse_extracts_xs_and_hd_webp() {
     assert!(has_next);
     assert_eq!(items.len(), 1);
     assert_eq!(items[0].id, "123");
-    assert_eq!(items[0].preview_url, "https://x/xs.webp");
+    assert_eq!(items[0].preview_url, "https://x/sm.webp");
     assert_eq!(items[0].full_url, "https://x/hd.webp");
     assert_eq!(items[0].width, Some(480));
     assert_eq!(items[0].height, Some(320));

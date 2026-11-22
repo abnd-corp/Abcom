@@ -97,6 +97,71 @@ fn test_clear_conversation_history_private() {
 }
 
 #[test]
+fn test_delete_private_conversation_removes_only_that_peer() {
+    let mut s = state("alice");
+    s.messages.push(msg("bob", Some("alice"), "hi"));
+    s.messages.push(msg("alice", Some("bob"), "ok"));
+    s.messages.push(msg("charlie", Some("alice"), "hey"));
+    s.messages.push(msg("bob", None, "pour tous"));
+    s.read_marks.insert("bob".to_string(), 42);
+    s.read_marks.insert("charlie".to_string(), 7);
+    s.delete_private_conversation("bob");
+    assert_eq!(s.messages.len(), 2);
+    assert!(s.messages.iter().any(|m| m.from == "charlie"));
+    assert!(s.messages.iter().any(|m| m.to_user.is_none()));
+    assert!(!s.read_marks.contains_key("bob"));
+    assert!(s.read_marks.contains_key("charlie"));
+}
+
+#[test]
+fn test_delete_private_conversation_closes_it_when_selected() {
+    let mut s = state("alice");
+    s.messages.push(msg("bob", Some("alice"), "hi"));
+    s.selected_conversation = Some("bob".to_string());
+    s.delete_private_conversation("bob");
+    assert!(s.selected_conversation.is_none());
+}
+
+#[test]
+fn test_delete_private_conversation_keeps_other_selection() {
+    let mut s = state("alice");
+    s.messages.push(msg("bob", Some("alice"), "hi"));
+    s.selected_conversation = Some("charlie".to_string());
+    s.delete_private_conversation("bob");
+    assert_eq!(s.selected_conversation.as_deref(), Some("charlie"));
+}
+
+fn peer(name: &str, online: bool) -> crate::app::Peer {
+    crate::app::Peer {
+        username: name.to_string(),
+        addr: "0.0.0.0:0".parse().unwrap(),
+        last_seen: 0,
+        online,
+    }
+}
+
+#[test]
+fn test_delete_private_conversation_removes_offline_contact() {
+    let mut s = state("alice");
+    s.messages.push(msg("bob", Some("alice"), "hi"));
+    s.peers.push(peer("bob", false));
+    s.peers.push(peer("charlie", false));
+    s.delete_private_conversation("bob");
+    assert!(s.peers.iter().all(|p| p.username != "bob"));
+    assert!(s.peers.iter().any(|p| p.username == "charlie"));
+}
+
+#[test]
+fn test_delete_private_conversation_keeps_online_contact() {
+    let mut s = state("alice");
+    s.messages.push(msg("bob", Some("alice"), "hi"));
+    s.peers.push(peer("bob", true));
+    s.delete_private_conversation("bob");
+    assert!(s.peers.iter().any(|p| p.username == "bob"));
+    assert!(s.messages.is_empty());
+}
+
+#[test]
 fn test_clear_conversation_history_broadcast() {
     let mut s = state("alice");
     s.messages.push(msg("bob", None, "global"));

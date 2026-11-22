@@ -1,0 +1,15 @@
+# Send only build inputs; local secrets, data and build directories stay on the host.
+**
+!Cargo.toml
+!Cargo.lock
+!build.rs
+!LICENSE
+!src
+!src/**
+!assets
+!assets/**
+!examples
+!examples/**
+assets/branding/*.zip
+**/.DS_Store
+**/* [0-9].*

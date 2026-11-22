@@ -1,0 +1,187 @@
+{
+  "package_version": "5.3.0",
+  "license": "OFL-1.1",
+  "files": [
+    {
+      "path": "assets/fonts/suggestions/atkinson-hyperlegible/latin-400-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/atkinson-hyperlegible@5.3.0/files/atkinson-hyperlegible-latin-400-italic.woff2",
+      "sha256": "bc8825fd435d4aa8e31449937826d583a7daaae15a83832c91b38375131ebf08",
+      "bytes": 18292
+    },
+    {
+      "path": "assets/fonts/suggestions/atkinson-hyperlegible/latin-700-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/atkinson-hyperlegible@5.3.0/files/atkinson-hyperlegible-latin-700-italic.woff2",
+      "sha256": "73e0c9e1e284128dda599558f7c15bd5f3c056442c31dfae950528a16b3835cf",
+      "bytes": 18484
+    },
+    {
+      "path": "assets/fonts/suggestions/atkinson-hyperlegible/latin-ext-400-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/atkinson-hyperlegible@5.3.0/files/atkinson-hyperlegible-latin-ext-400-italic.woff2",
+      "sha256": "90d887d541fe6e912d15f826aae6ca1190efcf172b65401704472475ed771049",
+      "bytes": 9796
+    },
+    {
+      "path": "assets/fonts/suggestions/atkinson-hyperlegible/latin-ext-700-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/atkinson-hyperlegible@5.3.0/files/atkinson-hyperlegible-latin-ext-700-italic.woff2",
+      "sha256": "43471ea6265ba9619c8c12d3f9f53c9e1741fa3af69f6b658100a841b09398c8",
+      "bytes": 9920
+    },
+    {
+      "path": "assets/fonts/suggestions/opendyslexic/latin-400-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/opendyslexic@5.3.0/files/opendyslexic-latin-400-italic.woff2",
+      "sha256": "eb6a1bacf7e7c87a08116af4cd00a82064fbe61647b9a0d4d70a339890268f88",
+      "bytes": 112360
+    },
+    {
+      "path": "assets/fonts/suggestions/opendyslexic/latin-700-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/opendyslexic@5.3.0/files/opendyslexic-latin-700-italic.woff2",
+      "sha256": "a20d82c2a1a0a6ab74796529aca31bfbae93e3e58f5a7360cba854dd98a15214",
+      "bytes": 115992
+    },
+    {
+      "path": "assets/fonts/suggestions/literata/latin-400-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/literata@5.3.0/files/literata-latin-400-italic.woff2",
+      "sha256": "1e98bfbbb4eb8177b9c21b3fd526e1118c4835d21ff870c0d1c25b1ef4409fba",
+      "bytes": 21148
+    },
+    {
+      "path": "assets/fonts/suggestions/literata/latin-700-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/literata@5.3.0/files/literata-latin-700-italic.woff2",
+      "sha256": "8a42dbed45f1855e2dcad9709173019013991c32aa71356e80a1e0ee9bb76763",
+      "bytes": 22900
+    },
+    {
+      "path": "assets/fonts/suggestions/literata/latin-ext-400-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/literata@5.3.0/files/literata-latin-ext-400-italic.woff2",
+      "sha256": "3c5b9d0314198a54521c8ad5e418f608d6b1ed20d576f93bcbb7a498889b0083",
+      "bytes": 17576
+    },
+    {
+      "path": "assets/fonts/suggestions/literata/latin-ext-700-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/literata@5.3.0/files/literata-latin-ext-700-italic.woff2",
+      "sha256": "07ed1258c20de131a05459468f60d9aaf1a513cac0aaa0ef4fde5d09d9474176",
+      "bytes": 19184
+    },
+    {
+      "path": "assets/fonts/suggestions/nunito/latin-400-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/nunito@5.3.0/files/nunito-latin-400-italic.woff2",
+      "sha256": "983e9c4b4a8f3bb81190009facbccbe5ecf9f55a758ae95c4759a00f715312d1",
+      "bytes": 17140
+    },
+    {
+      "path": "assets/fonts/suggestions/nunito/latin-700-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/nunito@5.3.0/files/nunito-latin-700-italic.woff2",
+      "sha256": "e666bd4b48ad20e5385e1f1ec1607d68b85380cfe04064fbb5a2bfdc8200deaf",
+      "bytes": 17148
+    },
+    {
+      "path": "assets/fonts/suggestions/nunito/latin-ext-400-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/nunito@5.3.0/files/nunito-latin-ext-400-italic.woff2",
+      "sha256": "dc974662eb582e44aef9f36fcb97513555127d11e25ade94cff6ffdba7d15941",
+      "bytes": 16864
+    },
+    {
+      "path": "assets/fonts/suggestions/nunito/latin-ext-700-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/nunito@5.3.0/files/nunito-latin-ext-700-italic.woff2",
+      "sha256": "5bb01a58beb2f2a6d4cb6cd6983bcc9ac43c2c7dcf851384635e7603dde60102",
+      "bytes": 16736
+    },
+    {
+      "path": "assets/fonts/suggestions/jetbrains-mono/latin-400-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.3.0/files/jetbrains-mono-latin-400-italic.woff2",
+      "sha256": "87ddac4a62229787528cf4ac3fa58137b62a9aec364c44fc0f40470bcda9efba",
+      "bytes": 22228
+    },
+    {
+      "path": "assets/fonts/suggestions/jetbrains-mono/latin-700-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.3.0/files/jetbrains-mono-latin-700-italic.woff2",
+      "sha256": "2cd42fe8f872ef7e06156fe04338b23fc4ec532e66450c8e931db43473c0306c",
+      "bytes": 23116
+    },
+    {
+      "path": "assets/fonts/suggestions/jetbrains-mono/latin-ext-400-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.3.0/files/jetbrains-mono-latin-ext-400-italic.woff2",
+      "sha256": "a53b6b29b1621cdf51140761869e160521fc566a4a9f312d9b92e7178d433bc7",
+      "bytes": 7972
+    },
+    {
+      "path": "assets/fonts/suggestions/jetbrains-mono/latin-ext-700-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.3.0/files/jetbrains-mono-latin-ext-700-italic.woff2",
+      "sha256": "ebfe512fe16186a55f5576fec93d877718e25f90be5ad12223ea624498c33b1e",
+      "bytes": 8148
+    },
+    {
+      "path": "assets/fonts/styles/noto-sans/latin-400-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/noto-sans@5.3.0/files/noto-sans-latin-400-italic.woff2",
+      "sha256": "c302cbfdd98d628d60b6ef8de3c8459c70449df3a5ff2baacfa7481d95e79f4c",
+      "bytes": 13888
+    },
+    {
+      "path": "assets/fonts/styles/noto-sans/latin-700-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/noto-sans@5.3.0/files/noto-sans-latin-700-italic.woff2",
+      "sha256": "445b663e3234ac661a1b501afbbdd7fc01380e0dd59951af10ff7568f6ee7ddd",
+      "bytes": 13912
+    },
+    {
+      "path": "assets/fonts/styles/noto-sans/latin-ext-400-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/noto-sans@5.3.0/files/noto-sans-latin-ext-400-italic.woff2",
+      "sha256": "8931874d4c940ef6eed0e231e74e3048fdd36eb5333246235aeb2b0113a8b361",
+      "bytes": 57224
+    },
+    {
+      "path": "assets/fonts/styles/noto-sans/latin-ext-700-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/noto-sans@5.3.0/files/noto-sans-latin-ext-700-italic.woff2",
+      "sha256": "5fd2ac79eb23ebbfe615f2841df6611e900dd64afc654bc097c7615425469351",
+      "bytes": 59548
+    },
+    {
+      "path": "assets/fonts/styles/inter/latin-700-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/inter@5.3.0/files/inter-latin-700-italic.woff2",
+      "sha256": "facd8f930c88e4bf79be48afe46671c9dd72f82cf5f4311acc84a48e616ea169",
+      "bytes": 25868
+    },
+    {
+      "path": "assets/fonts/styles/inter/latin-ext-700-italic.woff2",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/inter@5.3.0/files/inter-latin-ext-700-italic.woff2",
+      "sha256": "d071e4fc8d35e023eb25adc8a3de43c6167cb718d118e413a7bce97d6ab38e26",
+      "bytes": 39068
+    }
+  ],
+  "licenses": [
+    {
+      "path": "assets/fonts/styles/licenses/atkinson-hyperlegible-OFL.txt",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/atkinson-hyperlegible@5.3.0/LICENSE",
+      "sha256": "e137caeef2ff7c04fbf87078ad09cf3dcba8a3a58a4aa4e2f399d42c50bc4b18"
+    },
+    {
+      "path": "assets/fonts/suggestions/opendyslexic/OFL.txt",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/opendyslexic@5.3.0/LICENSE",
+      "sha256": "797cb441b593b3326a69fcf83d84264301d89e8871a75b38bae1d101e922e10c"
+    },
+    {
+      "path": "assets/fonts/styles/licenses/literata-OFL.txt",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/literata@5.3.0/LICENSE",
+      "sha256": "9895ebc015226accf416b758ac1ca02a2fb4f83a89d316791ef697c3dc0852aa"
+    },
+    {
+      "path": "assets/fonts/styles/licenses/nunito-OFL.txt",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/nunito@5.3.0/LICENSE",
+      "sha256": "40991bfa02ac620aae16dc527f3c47765a25e43f270d4c301ee6ab663a8d9015"
+    },
+    {
+      "path": "assets/fonts/styles/licenses/jetbrains-mono-OFL.txt",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.3.0/LICENSE",
+      "sha256": "403581b69dac5cff4079205e01c6b467e56af449ecbd7247693ddb1baafa005b"
+    },
+    {
+      "path": "assets/fonts/styles/licenses/noto-sans-OFL.txt",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/noto-sans@5.3.0/LICENSE",
+      "sha256": "54ec7b5a35310ad66f9f3091426f7028484cbf9ae1ab5da30122ee412a3009e1"
+    },
+    {
+      "path": "assets/fonts/styles/licenses/inter-OFL.txt",
+      "url": "https://cdn.jsdelivr.net/npm/@fontsource/inter@5.3.0/LICENSE",
+      "sha256": "3b0a5fca3d17942cde889069889dedbbbd075e9b599968c82a95f4d944e9b345"
+    }
+  ]
+}

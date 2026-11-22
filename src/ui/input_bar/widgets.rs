@@ -11,6 +11,8 @@ pub(super) enum AttachmentMenuAction {
     AddFolder,
 }
 
+pub(super) const COMPOSER_BORDER_WIDTH: f32 = crate::ui::theme::BORDER_WIDTH;
+
 pub(super) const ACTION_BUTTON_SIZE: [f32; 2] = [28.0, 28.0];
 
 pub(super) fn should_send_message(
@@ -84,9 +86,15 @@ pub(super) fn action_button_chrome(ui: &egui::Ui, selected: bool) -> (egui::Colo
         crate::ui::theme::palette(ui).surface_strong
     };
     let stroke = if selected {
-        egui::Stroke::new(1.0, crate::ui::theme::palette(ui).accent_soft)
+        egui::Stroke::new(
+            COMPOSER_BORDER_WIDTH,
+            crate::ui::theme::palette(ui).accent_soft,
+        )
     } else {
-        egui::Stroke::new(1.0, crate::ui::theme::palette(ui).separator)
+        egui::Stroke::new(
+            COMPOSER_BORDER_WIDTH,
+            crate::ui::theme::palette(ui).separator,
+        )
     };
     (fill, stroke)
 }
@@ -97,15 +105,15 @@ pub(super) fn action_button(
     tooltip: &str,
     selected: bool,
 ) -> egui::Response {
-    let (fill, stroke) = action_button_chrome(ui, selected);
-    ui.add_sized(
-        ACTION_BUTTON_SIZE,
-        egui::Button::new(label)
-            .fill(fill)
-            .stroke(stroke)
-            .corner_radius(egui::CornerRadius::same(10)),
-    )
-    .on_hover_text(tooltip)
+    let galley = egui::WidgetText::from(label).into_galley(
+        ui,
+        Some(egui::TextWrapMode::Extend),
+        f32::INFINITY,
+        egui::TextStyle::Button,
+    );
+    icon_button(ui, tooltip, selected, |painter, rect, color| {
+        painter.galley(rect.center() - galley.size() / 2.0, galley, color);
+    })
 }
 
 pub(super) fn icon_button(
@@ -116,16 +124,31 @@ pub(super) fn icon_button(
 ) -> egui::Response {
     let (fill, stroke) = action_button_chrome(ui, selected);
     let response = ui
-        .add_sized(
-            ACTION_BUTTON_SIZE,
-            egui::Button::new(egui::RichText::new(""))
-                .fill(fill)
-                .stroke(stroke)
-                .corner_radius(egui::CornerRadius::same(10)),
-        )
-        .on_hover_text(tooltip);
+        .scope(|ui| {
+            // Keep native hover expansion from changing the toolbar silhouette.
+            let widgets = &mut ui.style_mut().visuals.widgets;
+            for visuals in [
+                &mut widgets.noninteractive,
+                &mut widgets.inactive,
+                &mut widgets.hovered,
+                &mut widgets.active,
+                &mut widgets.open,
+            ] {
+                visuals.expansion = 0.0;
+                visuals.bg_stroke = stroke;
+            }
+            ui.add_sized(
+                ACTION_BUTTON_SIZE,
+                egui::Button::new(egui::RichText::new(""))
+                    .fill(fill)
+                    .stroke(stroke)
+                    .corner_radius(egui::CornerRadius::same(10)),
+            )
+            .on_hover_text(tooltip)
+        })
+        .inner;
     // Bouton sans texte : l'infobulle sert de libellé accessible.
-    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tooltip));
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, tooltip));
     paint(
         ui.painter(),
         response.rect.shrink2(egui::vec2(7.0, 7.0)),
@@ -154,9 +177,7 @@ pub(super) fn chip_remove_button(ui: &mut egui::Ui) -> bool {
     }
     // Sans ceci, un bouton entièrement peint est invisible pour un lecteur
     // d'écran — et introuvable pour les tests pilotés par AccessKit.
-    resp.widget_info(|| {
-        egui::WidgetInfo::labeled(egui::WidgetType::Button, true, accessible_label)
-    });
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, accessible_label));
     resp.on_hover_cursor(egui::CursorIcon::PointingHand)
         .clicked()
 }
@@ -207,7 +228,7 @@ pub(super) fn attachment_menu_popup(
 ) -> (Option<AttachmentMenuAction>, egui::Rect) {
     // Use the size remembered from the previous frame (or a safe default) so that
     // the popup's bottom-left is anchored just above the + button.
-    let popup_id = egui::Id::new("attachment_menu_popup");
+    let popup_id = egui::Id::unique("attachment_menu_popup");
     let popup_h = ctx
         .memory(|m| m.area_rect(popup_id))
         .map(|r| r.height())

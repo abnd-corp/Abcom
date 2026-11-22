@@ -22,7 +22,7 @@ fn painted_buttons_expose_an_accessible_label() {
         ui.painter()
             .rect_filled(rect, 2.0, egui::Color32::from_gray(80));
         response.widget_info(|| {
-            egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Retirer la pièce jointe")
+            egui::WidgetInfo::labeled(egui::Role::Button, true, "Retirer la pièce jointe")
         });
         if response.clicked() {
             *clicked.borrow_mut() = true;
@@ -75,8 +75,7 @@ fn typing_then_command_enter_sends_the_message() {
     let mut harness = Harness::new_ui(|ui| {
         let mut buffer = text.borrow_mut();
         let response = ui.add(egui::TextEdit::singleline(&mut *buffer).hint_text("Message"));
-        response
-            .widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, "Message"));
+        response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::TextInput, true, "Message"));
         if ui.ctx().input_mut(|i| {
             i.consume_shortcut(&egui::KeyboardShortcut::new(
                 egui::Modifiers::COMMAND,
@@ -118,8 +117,7 @@ fn clicking_a_search_result_selects_its_message() {
     let mut harness = Harness::new_ui(|ui| {
         for (hash, extrait) in results {
             let response = ui.add(egui::Label::new(extrait).sense(egui::Sense::click()));
-            response
-                .widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, extrait));
+            response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, extrait));
             if response.clicked() {
                 *selected.borrow_mut() = Some(hash);
             }

@@ -35,12 +35,12 @@ fn send_gif(app: &mut AbcomApp, gif: &GifItem) -> bool {
         width: gif.width,
         height: gif.height,
     };
-    let now = chrono::Local::now();
+    let now = jiff::ZonedDateTime::now();
     let msg = ChatMessage {
         from: my_name,
         content: String::new(),
-        timestamp: now.format("%H:%M").to_string(),
-        timestamp_epoch: Some(now.timestamp() as u64),
+        timestamp: now.strftime("%H:%M").to_string(),
+        timestamp_epoch: Some(now.timestamp().as_second() as u64),
         to_user: selected_peer_name.clone(),
         media: Some(media),
         reply_to: None,

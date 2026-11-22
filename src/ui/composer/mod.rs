@@ -107,7 +107,7 @@ fn composer_caret_positions(
     emoji_size: f32,
     max_width: f32,
 ) -> Vec<egui::Pos2> {
-    let cache_id = egui::Id::new("composer_caret_cache");
+    let cache_id = egui::Id::unique("composer_caret_cache");
     let signature = caret_signature(text, emoji_size, max_width, ui.ctx().pixels_per_point());
     if let Some(hit) = ui.data(|d| {
         d.get_temp::<CaretCache>(cache_id).and_then(|cache| {
@@ -143,7 +143,7 @@ fn compute_caret_positions(
 ) -> Vec<egui::Pos2> {
     let chars: Vec<char> = text.chars().collect();
     let mut i = 0;
-    let line_height = super::theme::LINE_HEIGHT;
+    let line_height = super::theme::text(ui).composer_line_height;
     let mut x = 0.0;
     let mut y = 0.0;
     let mut points = Vec::with_capacity(chars.len() + 1);
@@ -408,8 +408,9 @@ pub fn custom_composer_input(
     shortcode_selected: usize,
     width: f32,
     selection_anchor: &mut Option<usize>,
+    placeholder: &str,
 ) -> (egui::Response, bool, bool, Option<String>) {
-    let line_height = super::theme::LINE_HEIGHT;
+    let line_height = super::theme::text(ui).composer_line_height;
     let base_content_width = (width.max(120.0) - 12.0).max(20.0);
     let initial_caret_points =
         composer_caret_positions(ui, input, emoji_map, 18.0, base_content_width);
@@ -858,7 +859,7 @@ pub fn custom_composer_input(
         ui.painter().text(
             content_rect.left_center(),
             egui::Align2::LEFT_CENTER,
-            "Send a message... Ctrl/Cmd + Enter ",
+            placeholder,
             egui::TextStyle::Body.resolve(ui.style()),
             crate::ui::theme::palette(ui).text_muted,
         );

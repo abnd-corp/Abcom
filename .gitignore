@@ -1,6 +1,8 @@
 # Build
 /target
 /dist
+/result
+/result-*
 *.zip
 
 # Secrets et exécution locale
@@ -43,3 +45,4 @@ __pycache__/
 .idea/
 *.swp
 *~
+/e2e-artifacts

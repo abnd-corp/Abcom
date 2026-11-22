@@ -135,12 +135,12 @@ pub(super) fn prepare_and_stream(
         width,
         height,
     };
-    let now = chrono::Local::now();
+    let now = jiff::ZonedDateTime::now();
     let header = MediaStreamHeader {
         from: my_name.to_string(),
         to_user: to_user.clone(),
-        timestamp: now.format("%H:%M").to_string(),
-        timestamp_epoch: Some(now.timestamp() as u64),
+        timestamp: now.strftime("%H:%M").to_string(),
+        timestamp_epoch: Some(now.timestamp().as_second() as u64),
         media: media.clone(),
         requires_ack: media_requires_ack(size_bytes),
     };
@@ -234,12 +234,12 @@ pub(super) fn send_current_message(app: &mut AbcomApp) -> bool {
         }
 
         let content = app.composer.text.trim().to_string();
-        let now = chrono::Local::now();
+        let now = jiff::ZonedDateTime::now();
         let msg = ChatMessage {
             from: my_name.clone(),
             content,
-            timestamp: now.format("%H:%M").to_string(),
-            timestamp_epoch: Some(now.timestamp() as u64),
+            timestamp: now.strftime("%H:%M").to_string(),
+            timestamp_epoch: Some(now.timestamp().as_second() as u64),
             to_user: selected_peer_name.clone(),
             media: None,
             reply_to: app.replying_to.as_ref().map(|r| r.message_hash),

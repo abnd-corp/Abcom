@@ -1,14 +1,16 @@
 # 01 — Présentation du projet
 
+[English](en/01-overview.md) · **Français** · [Documentation](README.fr.md)
+
 ## Ce qu'est Abcom
 
 Abcom est un client de messagerie instantanée conçu pour un réseau local : un bureau, un domicile, un événement, un hotspot de téléphone. Chaque machine exécute le même binaire ; il n'y a ni serveur, ni compte, ni inscription. Dès que deux instances tournent sur le même réseau, elles se voient et peuvent discuter.
 
 Trois principes guident le projet :
 
-1. **Autonomie totale** — aucune dépendance à Internet ni à une infrastructure. La seule fonctionnalité en ligne est le sélecteur de GIF (API Klipy), et elle est optionnelle.
-2. **Application résidente** — Abcom est fait pour rester ouvert en permanence, comme un client mail. L'empreinte au repos (CPU, GPU, RAM, disque) a fait l'objet d'un travail d'optimisation dédié : environ 0,2 % de CPU et 155 Mo de RAM au repos, fenêtre repliée dans la zone système.
-3. **Confidentialité par défaut** — tout le trafic (messages, fichiers, réactions, accusés) est chiffré de bout en bout, chaque machine possède une identité cryptographique, et les clés des pairs sont épinglées à la première rencontre.
+1. **Autonomie totale** — aucune dépendance à Internet ni à une infrastructure. Les GIF Klipy et le catalogue de polices en ligne sont optionnels ; le catalogue exige un accord préalable. La messagerie locale n'en dépend pas.
+2. **Application résidente** — Abcom est fait pour rester ouvert en permanence, comme un client mail. L'empreinte au repos (CPU, GPU, RAM, disque) a fait l'objet d'un travail d'optimisation dédié : les mesures macOS de juillet 2026 indiquaient environ 0,2 % de CPU et 155 Mo de RAM. Ce sont des mesures historiques, pas des garanties pour chaque matériel ou version.
+3. **Confidentialité par défaut** — les connexions de messages, fichiers, réactions et accusés sont chiffrées ; les annonces de découverte restent visibles sur le LAN, chaque machine possède une identité cryptographique, et les clés des pairs sont épinglées à la première rencontre.
 
 ## Comment ça marche, en bref
 
@@ -24,7 +26,7 @@ Chaque machine conserve son propre historique dans une base SQLite locale. Il n'
 
 **Confirmer** — en conversation privée, l'expéditeur voit si son message est parti (✓), livré (✓✓ gris) ou lu (✓✓ bleu). Les messages non livrés sont retransmis automatiquement avec un délai croissant.
 
-**Partager** — fichiers et dossiers de toute taille (les dossiers sont zippés à l'envoi), avec acceptation explicite du destinataire et barre de progression. Les images s'affichent en vignette dans le fil et s'ouvrent dans une visionneuse. Un sélecteur Klipy propose GIF animés, mèmes et stickers.
+**Partager** — fichiers et dossiers jusqu'à 2 Gio par transfert (les dossiers sont zippés à l'envoi), avec acceptation explicite du destinataire et barre de progression. Les images s'affichent en vignette dans le fil et s'ouvrent dans une visionneuse. Un sélecteur Klipy propose GIF animés, mèmes et stickers.
 
 **Rester joignable** — fermer la fenêtre ne quitte pas l'application : elle se replie dans la barre de menus (macOS), la zone de notification (Windows) ou le tray (Linux). Les messages reçus fenêtre cachée déclenchent une notification système et un badge sur l'icône. Le lancement à l'ouverture de session est activé par défaut sur les builds release.
 
@@ -32,7 +34,7 @@ Chaque machine conserve son propre historique dans une base SQLite locale. Il n'
 
 Ces choix structurent le projet ; les remettre en cause revient à le refondre.
 
-**Rust, avec tokio et egui.** Le besoin : un binaire natif léger, sûr en mémoire, capable de gérer la concurrence réseau et une interface graphique fluide. Electron a été écarté (trop lourd pour un chat LAN), Python/Node aussi (distribution d'un binaire statique difficile), Qt/GTK également (complexité disproportionnée). Le binaire release fait environ 11 Mo.
+**Rust, avec tokio et egui.** Le besoin : un binaire natif léger, sûr en mémoire, capable de gérer la concurrence réseau et une interface graphique fluide. Electron a été écarté (trop lourd pour un chat LAN), Python/Node aussi (distribution d'un binaire statique difficile), Qt/GTK également (complexité disproportionnée). La taille du binaire dépend des fonctionnalités compilées et des versions ; les anciennes mesures figurent dans le journal des audits.
 
 **Pair-à-pair sur LAN, sans serveur.** Un serveur central de découverte n'apporterait rien sur un réseau local et créerait un point de défaillance. La découverte se fait par UDP broadcast (complété par un groupe multicast pour que plusieurs instances d'une même machine se voient), les échanges par TCP direct.
 

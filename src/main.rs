@@ -99,7 +99,7 @@ fn install_panic_hook() {
         let report = format!(
             "abcom {} — {}\n{info}\n",
             env!("CARGO_PKG_VERSION"),
-            chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
+            jiff::ZonedDateTime::now().strftime("%Y-%m-%d %H:%M:%S")
         );
         if std::fs::create_dir_all(&dir).is_ok() {
             let _ = std::fs::write(dir.join("last-panic.txt"), &report);
@@ -109,82 +109,66 @@ fn install_panic_hook() {
     }));
 }
 
-/// Écarte les réglages GTK hérités d'un terminal confiné par snap.
-///
-/// Lancée depuis le terminal intégré de VS Code (distribué en snap), l'appli
-/// hérite de `GTK_PATH`, `GDK_PIXBUF_MODULE_FILE`… pointant dans `/snap/…`.
-/// À l'initialisation de GTK (thread du tray), ces modules tirent la glibc du
-/// snap et le processus meurt sur `undefined symbol: __libc_pthread_init`.
-/// On ne touche à rien si c'est bien nous qui tournons en snap.
-#[cfg(target_os = "linux")]
-fn drop_foreign_snap_gtk_env() {
-    const LEAKED: [&str; 6] = [
-        "GTK_PATH",
-        "GTK_EXE_PREFIX",
-        "GTK_IM_MODULE_FILE",
-        "GDK_PIXBUF_MODULE_FILE",
-        "GSETTINGS_SCHEMA_DIR",
-        "GIO_MODULE_DIR",
-    ];
-    let own_snap = std::env::var_os("SNAP_NAME").is_some_and(|n| n == *"abcom");
-    if own_snap {
-        return;
-    }
-    for key in LEAKED {
-        let leaks = std::env::var(key).is_ok_and(|v| v.starts_with("/snap/"));
-        if leaks {
-            // SAFETY : appelé avant tout spawn, aucun autre fil ne lit l'environnement.
-            std::env::remove_var(key);
-            tracing::debug!("variable GTK héritée d'un snap tiers ignorée : {key}");
+/// Ce que demande la ligne de commande avant tout démarrage de l'application.
+#[derive(Debug, PartialEq, Eq)]
+enum CliRequest {
+    Help,
+    Version,
+    Run {
+        name: Option<String>,
+        minimized: bool,
+    },
+}
+
+/// Un argument en `-` est une option, jamais un pseudo : refus explicite plutôt qu'un lancement.
+fn parse_cli(args: &[String]) -> anyhow::Result<CliRequest> {
+    let mut name = None;
+    let mut minimized = false;
+    for arg in args {
+        match arg.as_str() {
+            "-h" | "--help" => return Ok(CliRequest::Help),
+            "-V" | "--version" => return Ok(CliRequest::Version),
+            flag if flag == autostart::START_MINIMIZED_FLAG => minimized = true,
+            option if option.starts_with('-') => {
+                anyhow::bail!("option inconnue : {option} (voir --help)")
+            }
+            value if name.is_none() => name = Some(value.to_string()),
+            extra => anyhow::bail!("argument en trop : {extra} (voir --help)"),
         }
     }
+    Ok(CliRequest::Run { name, minimized })
 }
 
-/// Sous Wayland, la boucle d'événements de winit tourne à vide et sature un
-/// cœur : un minuteur de calloop dont l'échéance est dépassée sans être
-/// consommé force un timeout nul à chaque tour (`calloop-0.13.0/src/sys.rs`,
-/// `if next_timeout <= now { timeout = Some(Duration::ZERO) }`). `epoll_wait`
-/// rend alors la main aussitôt, la fenêtre cesse d'être repeinte et le
-/// processus brûle 100 % d'un cœur — mesuré à 0,1 % sur le même binaire via
-/// XWayland. Le défaut est en amont (winit 0.30.13, épinglé par eframe 0.36) :
-/// à retirer dès que la montée d'eframe l'aura corrigé.
-///
-/// Rien n'est forcé si le lanceur a déjà choisi son backend : poser
-/// `WINIT_UNIX_BACKEND=wayland` retrouve le rendu natif, bug compris.
-#[cfg(target_os = "linux")]
-fn prefer_x11_backend() {
-    if std::env::var_os("WINIT_UNIX_BACKEND").is_some() {
-        return;
-    }
-    // Session X11 pure : winit choisirait X11 de toute façon.
-    if std::env::var_os("WAYLAND_DISPLAY").is_none() {
-        return;
-    }
-    // Sans serveur X accessible, XWayland est absent : mieux vaut une fenêtre
-    // Wayland qui sature qu'aucune fenêtre du tout.
-    if std::env::var_os("DISPLAY").is_none() {
-        tracing::warn!("session Wayland sans DISPLAY : backend natif conservé");
-        return;
-    }
-    // SAFETY : appelé avant tout spawn, aucun autre fil ne lit l'environnement.
-    std::env::set_var("WINIT_UNIX_BACKEND", "x11");
-    tracing::info!("session Wayland : bascule sur X11 (contournement winit 0.30)");
-}
+const USAGE: &str = concat!(
+    "abcom ",
+    env!("CARGO_PKG_VERSION"),
+    "\nChat P2P local avec découverte automatique des pairs.\n\n",
+    "Usage : abcom [PSEUDO] [--minimized]\n\n",
+    "Options :\n  -h, --help     affiche cette aide\n  -V, --version  affiche la version\n",
+    "  --minimized    démarre directement dans le tray (lancement à l'ouverture de session)\n\n",
+    "Sans PSEUDO, le nom de l'utilisateur du système est utilisé."
+);
 
 fn main() -> anyhow::Result<()> {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let (requested_name, start_minimized) = match parse_cli(&args)? {
+        CliRequest::Help => {
+            println!("{USAGE}");
+            return Ok(());
+        }
+        CliRequest::Version => {
+            println!("abcom {}", env!("CARGO_PKG_VERSION"));
+            return Ok(());
+        }
+        CliRequest::Run { name, minimized } => (name, minimized),
+    };
     load_dotenv(".env");
-    #[cfg(target_os = "linux")]
-    drop_foreign_snap_gtk_env();
     // Le garde doit vivre aussi longtemps que le processus, sinon les
     // dernières lignes ne sont jamais écrites sur disque.
     let _log_guard = init_logging();
-    // Après l'initialisation du journal, sinon la trace du choix de backend
-    // n'irait nulle part. Reste bien avant la création de la fenêtre.
-    #[cfg(target_os = "linux")]
-    prefer_x11_backend();
     install_panic_hook();
 
-    let username = std::env::args().nth(1).unwrap_or_else(|| {
+    let username = requested_name.unwrap_or_else(|| {
         std::env::var("USER")
             .or_else(|_| std::env::var("USERNAME"))
             .unwrap_or_else(|_| "anonymous".to_string())
@@ -215,6 +199,13 @@ fn main() -> anyhow::Result<()> {
 
     // Canaux vers l'UI : chaque événement relayé réveille egui.
     let (event_tx, event_rx) = notify::ui_channel::<message::AppEvent>(256, ui_ctx.clone(), &rt);
+    // Thème du bureau Linux suivi en direct : chaque changement réveille l'interface.
+    let theme_ctx = ui_ctx.clone();
+    rt.spawn(abcom::platform::system_theme::watch(move || {
+        if let Some(ctx) = theme_ctx.get() {
+            ctx.request_repaint();
+        }
+    }));
     let (media_offer_tx, media_offer_rx) =
         notify::ui_channel::<message::MediaStreamOffer>(16, ui_ctx.clone(), &rt);
 
@@ -300,6 +291,15 @@ fn main() -> anyhow::Result<()> {
         media_dir,
     ));
 
+    // À l'ouverture de session, l'hôte du tray peut arriver après nous : en démarrage réduit,
+    // on l'attend un peu plutôt que de conclure trop tôt à son absence.
+    let host_wait = if start_minimized {
+        abcom::platform::tray::LOGIN_HOST_WAIT
+    } else {
+        std::time::Duration::ZERO
+    };
+    let tray_host = rt.block_on(abcom::platform::tray::host_available(host_wait));
+
     ui::run(
         state,
         ui_ctx,
@@ -313,6 +313,8 @@ fn main() -> anyhow::Result<()> {
             media_offer_rx,
             trust,
         },
+        start_minimized,
+        tray_host,
     )?;
 
     // Le flush SQLite est fait ; on laisse les tâches réseau finir leurs trames en cours.
@@ -329,7 +331,54 @@ fn main() -> anyhow::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_dotenv;
+    use super::{parse_cli, parse_dotenv, CliRequest};
+
+    #[test]
+    fn cli_options_never_become_usernames() {
+        let args = |list: &[&str]| list.iter().map(|a| a.to_string()).collect::<Vec<_>>();
+        assert_eq!(parse_cli(&args(&["--help"])).unwrap(), CliRequest::Help);
+        assert_eq!(parse_cli(&args(&["-h"])).unwrap(), CliRequest::Help);
+        assert_eq!(
+            parse_cli(&args(&["--version"])).unwrap(),
+            CliRequest::Version
+        );
+        assert!(parse_cli(&args(&["--inconnue"])).is_err());
+        assert!(parse_cli(&args(&["-x"])).is_err());
+        assert!(parse_cli(&args(&["alice", "bob"])).is_err());
+        assert_eq!(
+            parse_cli(&args(&["alice"])).unwrap(),
+            CliRequest::Run {
+                name: Some("alice".into()),
+                minimized: false
+            }
+        );
+        assert_eq!(
+            parse_cli(&args(&[])).unwrap(),
+            CliRequest::Run {
+                name: None,
+                minimized: false
+            }
+        );
+    }
+
+    #[test]
+    fn the_login_entry_flag_starts_minimized_in_any_position() {
+        let args = |list: &[&str]| list.iter().map(|a| a.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            parse_cli(&args(&["--minimized"])).unwrap(),
+            CliRequest::Run {
+                name: None,
+                minimized: true
+            }
+        );
+        assert_eq!(
+            parse_cli(&args(&["alice", "--minimized"])).unwrap(),
+            CliRequest::Run {
+                name: Some("alice".into()),
+                minimized: true
+            }
+        );
+    }
 
     #[test]
     fn parses_quotes_comments_and_ignores_unknown_keys() {
