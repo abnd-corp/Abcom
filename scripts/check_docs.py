@@ -49,6 +49,7 @@ def check(root=ROOT):
              (root / "docs/README.fr.md", root / "docs/README.md"),
              (root / "docs/stack.fr.md", root / "docs/stack.md"),
              (root / "docs/adr/0001-dbus-maintained.fr.md", root / "docs/adr/0001-dbus-maintained.md"),
+             (root / "docs/adr/0002-no-code-signing.fr.md", root / "docs/adr/0002-no-code-signing.md"),
              (root / "vendor/README.fr.md", root / "vendor/README.md"),
              (root / "packaging/README.fr.md", root / "packaging/README.md")]
     pairs += [(root / "docs" / fr, root / "docs/en" / en) for fr, en in PAGES]

@@ -34,8 +34,8 @@ Chat and media use separate TCP listeners. Multiplexing would require a delibera
 | Limitation | Current behavior |
 |---|---|
 | Static musl | A fully static GUI binary is unsupported; dynamic musl is the documented Alpine route |
-| macOS packaging | No signed/notarized `.app` bundle; notifications can be attributed to the terminal |
-| Windows packaging | PowerShell installer and ZIP workflow; no complete MSI installer |
+| macOS packaging | No signed/notarized `.app` bundle, by decision ([ADR 0002](../adr/0002-no-code-signing.md)); notifications can be attributed to the terminal |
+| Windows packaging | Per-user Inno Setup installer and portable ZIP in each release, unsigned ([ADR 0002](../adr/0002-no-code-signing.md)); no MSI installer |
 | Linux tray | Requires a D-Bus session and StatusNotifierItem desktop support; the icon can await a watcher; closing exits if creation fails |
 | Native cross-platform validation | Tray, notifications, pickers and accessibility need real-machine testing; compilation alone is insufficient |
 
@@ -54,7 +54,7 @@ They are not available yet. The issues describe their scope and expected validat
 
 The native file pickers now use an asynchronous path rather than a blocking nested event loop.
 
-Notification action buttons remain deferred, particularly until reliable signed macOS packaging. The timeline uses custom variable-height windowing because uniform row APIs do not match Markdown/media messages. SQLite tables are not `STRICT`; changing that needs an explicit schema migration.
+Notification action buttons stay out of scope: reliable macOS buttons need a signed bundle, which is not planned ([ADR 0002](../adr/0002-no-code-signing.md)). The timeline uses custom variable-height windowing because uniform row APIs do not match Markdown/media messages. SQLite tables are not `STRICT`; changing that needs an explicit schema migration.
 
 ## Measurements and manual checks still needed
 

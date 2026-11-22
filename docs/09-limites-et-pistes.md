@@ -36,7 +36,7 @@ Inventaire honnête de ce que l'application ne fait pas (ou fait imparfaitement)
 |---|---|---|
 | Pas de binaire musl statique pris en charge | La pile graphique et les pilotes utilisent des bibliothèques dynamiques ; Alpine suit la voie musl dynamique | Valider les bibliothèques et pilotes de la cible |
 | Pas de bundle macOS | Binaire nu : les notifications sont attribuées au terminal | Bundle `.app` (`com.abend.abcom`) via cargo-bundle/cargo-packager, à la première release |
-| Pas d'installateur Windows complet | Le script PowerShell installe et crée les raccourcis, sans MSI | Package MSI ou ZIP signé |
+| Pas d'installateur MSI | L'installateur Inno Setup par utilisateur et le ZIP portable sont publiés à chaque release, non signés ([ADR 0002](adr/0002-no-code-signing.fr.md)) | Package MSI si un besoin de déploiement en parc apparaît |
 | Tray Linux dépendant du shell | Nécessite D-Bus et StatusNotifierItem (GNOME peut demander une extension) ; une icône peut attendre le watcher ; si la création échoue, fermer quitte | — |
 | Tray Windows/Linux non testés en réel | Implémentés mais l'environnement de dev est macOS | Passe manuelle §13 du [cahier de tests](10-cahier-de-tests.md) sur machines cibles |
 
@@ -46,7 +46,7 @@ Décisions de maintenance conservées après réexamen de l'implémentation actu
 
 | Constat | Détail | Pourquoi pas appliqué |
 |---|---|---|
-| Pas d'actions dans les notifications | `notify-rust` sait poser des boutons (« Répondre ») | Sur macOS, `show()` bloque en attendant la réponse, et les boutons n'apparaissent de façon fiable que depuis un bundle `.app` signé — que nous n'avons pas encore. À reprendre avec la signature macOS |
+| Pas d'actions dans les notifications | `notify-rust` sait poser des boutons (« Répondre ») | Sur macOS, `show()` bloque en attendant la réponse, et les boutons n'apparaissent de façon fiable que depuis un bundle `.app` signé — que nous n'aurons pas : la signature n'est pas prévue ([ADR 0002](adr/0002-no-code-signing.fr.md)). Hors périmètre |
 | Fenêtrage du fil fait à la main | `ScrollArea::show_rows` suppose des lignes de hauteur uniforme, ce que nos messages n'ont pas (markdown, médias, citations, réactions) ; `show_viewport` exige des offsets connus d'avance | Reviendrait à reconstruire notre fenêtrage sous une autre forme, sans gain |
 | Schéma SQLite non `STRICT` | Les colonnes n'ont pas de typage strict | Différé à une prochaine migration de schéma, pour ne pas cumuler deux réécritures de tables |
 
