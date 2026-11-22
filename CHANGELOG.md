@@ -7,6 +7,10 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 
 ## [Non publié]
 
+## [1.0.0-beta.2] — 2026-11-22
+
+Première release publiée sur GitHub : installateur et archive Windows, app macOS et cask Homebrew, AppImage, Flatpak et archive Linux, manifeste WinGet, flake Nix. Binaires non signés, par décision ([ADR 0002](docs/adr/0002-no-code-signing.fr.md)).
+
 ### Maintenance
 - Dock macOS : empêche eframe de remplacer l’ICNS du bundle par le PNG de fenêtre ; contrôle natif de l’icône après trois frames, avec contre-épreuve de l’ancien défaut
 - Tailles natives corrigées : tray macOS de 18 points avec cible de clic système, marges optiques du Dock, ICO Windows enrichi et tray adapté au DPI
