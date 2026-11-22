@@ -31,6 +31,7 @@ Première release publiée sur GitHub : installateur et archive Windows, app mac
 - Sous Linux, le mode « système » suit vraiment le clair/sombre du bureau (portail XDG, puis réglages KDE, XFCE ou GTK), en direct et barre de titre comprise : l'application restait sombre sur un bureau clair, winit ne remontant pas ce thème
 - Sous Wayland (GNOME, KDE), le logo d'Abcom remplace l'icône générique « W » : l'application installe son entrée de menu `abcom.desktop` et son icône quand aucun paquet ne les fournit, et le script d'installation écrit la même entrée, sans terminal
 - Sous Windows, le démarrage automatique s'inscrit pour l'utilisateur (HKCU) et non plus pour toute la machine lorsque le compte est administrateur
+- Sous Windows, un arrêt du système avec Abcom ouvert n'est plus pris pour un plantage du pilote graphique : la session est jugée saine après 5 s, avec un réveil programmé même au repos ou dans le tray. Auparavant, la session suivante basculait vers Vulkan et ne démarrait pas sur un PC sans pilote Vulkan
 - Le texte d'aide du champ de saisie suit la langue de l'interface (il restait en anglais)
 
 ### Documentation

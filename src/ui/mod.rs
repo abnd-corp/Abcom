@@ -47,12 +47,11 @@ mod themes;
 /// façon Discord (le fil charge 100 messages de plus en remontant).
 pub(crate) const CHAT_WINDOW_STEP: usize = 100;
 
-/// Durée au-delà de laquelle le backend graphique de la session est réputé
-/// bon. Assez long pour couvrir l'initialisation GPU, qui est le moment où
-/// un pilote fautif plante ; assez court pour qu'un usage ordinaire la
-/// dépasse toujours.
 #[cfg(windows)]
-const GPU_HEALTHY_AFTER: Duration = Duration::from_secs(20);
+/// Durée après laquelle le backend graphique est jugé sain. Un pilote fautif plante à
+/// l'initialisation ou aux premières images : au-delà, un arrêt (fermeture de session
+/// Windows, gestionnaire des tâches) n'est plus pris pour un plantage du backend.
+const GPU_HEALTHY_AFTER: Duration = Duration::from_secs(5);
 
 /// Emojis de réaction par défaut proposés avant tout historique d'usage,
 /// façon Discord.
@@ -1172,9 +1171,17 @@ impl eframe::App for AbcomApp {
         // rien à contourner au prochain lancement (cf.
         // `config::confirm_gpu_backend_healthy`).
         #[cfg(windows)]
-        if !self.gpu_backend_confirmed && self.started_at.elapsed() >= GPU_HEALTHY_AFTER {
-            self.gpu_backend_confirmed = true;
-            crate::config::confirm_gpu_backend_healthy();
+        if !self.gpu_backend_confirmed {
+            let elapsed = self.started_at.elapsed();
+            if elapsed >= GPU_HEALTHY_AFTER {
+                self.gpu_backend_confirmed = true;
+                crate::config::confirm_gpu_backend_healthy();
+            } else {
+                // Au repos ou replié dans le tray, egui ne redessine rien : sans ce réveil,
+                // la confirmation n'arrivait jamais et chaque arrêt de Windows passait pour
+                // un plantage, faisant basculer le lancement suivant vers Vulkan.
+                ctx.request_repaint_after(GPU_HEALTHY_AFTER - elapsed);
+            }
         }
     }
 
