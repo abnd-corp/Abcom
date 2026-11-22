@@ -19,6 +19,9 @@ HERE = Path(__file__).resolve().parent
 ALL_PROFILES = ['host', 'linux-gnome', 'linux-gnome-tray', 'linux-kde', 'linux-xfce', 'windows']
 BINARIES = {'host': 'abcom-macos-aarch64', 'linux': 'abcom-linux-aarch64', 'windows': 'abcom-windows-x86_64.exe'}
 LINUX_DIR = '/tmp/abcom-e2e'
+# Bibliothèques d'exécution du binaire nu, telles que documentées (docs/06, Debian 13).
+LINUX_RUNTIME = ('libxkbcommon0 libxkbcommon-x11-0 libwayland-client0 libwayland-cursor0 libwayland-egl1 '
+                 'libx11-6 libxcursor1 libxi6 libxrandr2 libxcb1 libvulkan1 libasound2t64')
 WINDOWS_DIR = r'C:\ProgramData\abcom-e2e'
 
 
@@ -46,6 +49,9 @@ def run_host(artifacts, out):
 
 def run_linux(lab_py, profile, artifacts, out):
     binary = find_binary(artifacts, BINARIES['linux'])
+    # Comme un utilisateur qui suit la doc : sans elles, le binaire nu ne démarre pas (XFCE minimal).
+    lab(lab_py, 'exec', profile, '--', '/bin/bash', '-c',
+        f'DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends {LINUX_RUNTIME} >/dev/null')
     lab(lab_py, 'exec', profile, '--', '/bin/bash', '-c', f'rm -rf {LINUX_DIR} && mkdir -p {LINUX_DIR} && chmod 777 {LINUX_DIR}')
     lab(lab_py, 'push', profile, str(binary), f'{LINUX_DIR}/abcom')
     lab(lab_py, 'push', profile, str(HERE / 'scenario_unix.sh'), f'{LINUX_DIR}/scenario.sh')
