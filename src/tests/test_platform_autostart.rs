@@ -1,4 +1,4 @@
-use super::init_preference;
+use super::{init_preference, owns_system_entry};
 
 #[test]
 #[cfg(unix)]
@@ -55,4 +55,12 @@ fn a_failed_refresh_preserves_an_explicit_preference() {
 #[test]
 fn a_first_release_launch_enables_autostart() {
     assert!(init_preference(None, true, || Ok(())));
+}
+
+#[test]
+fn only_the_main_instance_manages_the_shared_system_entry() {
+    assert!(owns_system_entry(0));
+    for secondary in [1, 2, 91, 92] {
+        assert!(!owns_system_entry(secondary), "instance {secondary}");
+    }
 }

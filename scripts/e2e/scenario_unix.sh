@@ -58,10 +58,11 @@ else
     echo "INFO tray non vérifié automatiquement sur cette plateforme"
 fi
 
-# Capture au mieux : l'outil disponible dépend du bureau.
+# Capture au mieux dans les VM : l'outil disponible dépend du bureau.
 shot="$OUT/screen.png"
 if [ "$(uname)" = Darwin ]; then
-    screencapture -x "$shot" 2>/dev/null
+    # Sur l'hôte, l'écran montre les fenêtres personnelles de l'utilisateur : jamais de capture.
+    :
 elif command -v spectacle >/dev/null 2>&1; then
     spectacle -b -n -f -o "$shot" >/dev/null 2>&1
 elif command -v xfce4-screenshooter >/dev/null 2>&1; then
@@ -69,7 +70,13 @@ elif command -v xfce4-screenshooter >/dev/null 2>&1; then
 elif command -v gnome-screenshot >/dev/null 2>&1; then
     gnome-screenshot -f "$shot" >/dev/null 2>&1
 fi
-[ -s "$shot" ] && echo "INFO capture : screen.png" || echo "INFO capture indisponible sur ce bureau"
+if [ -s "$shot" ]; then
+    echo "INFO capture : screen.png"
+elif [ "$(uname)" = Darwin ]; then
+    echo "INFO pas de capture sur l'hôte"
+else
+    echo "INFO capture indisponible sur ce bureau"
+fi
 
 kill -TERM "$a" "$b" 2>/dev/null
 for _ in $(seq 1 20); do
