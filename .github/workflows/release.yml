@@ -3,10 +3,9 @@ name: Release
 # Publication d'une GitHub Release sur tag `vX.Y.Z` (y compris les préversions
 # `v1.0.0-beta.1`), avec un binaire par plateforme cible.
 #
-# Limite connue et assumée : signature macOS ad hoc, sans Developer ID ni notarisation
-# (aucun certificat Developer ID dans les secrets du dépôt). Gatekeeper le
-# bloquera sur une autre machine que celle de build — cf. docs/06-installation.md.
-# Ajouter la signature = fournir les secrets et une étape `codesign`/`notarytool`.
+# Binaires non signés, par décision (docs/adr/0002-no-code-signing.md) : signature
+# macOS ad hoc seulement, sans Developer ID ni notarisation, et pas d'Authenticode.
+# Gatekeeper et SmartScreen demandent une autorisation au premier lancement.
 
 on:
   push:
@@ -139,9 +138,13 @@ jobs:
           body: |
             Voir [CHANGELOG.md](https://github.com/abnd-corp/Abcom/blob/main/CHANGELOG.md).
 
-            ⚠️ Signature macOS ad hoc, sans Developer ID ni notarisation :
-            un téléchargement peut être bloqué par Gatekeeper.
-            Voir les recettes d’installation et les limites dans packaging/README.fr.md.
+            Installation (WinGet, Homebrew, Nix, AppImage, Flatpak, installateur Windows) :
+            voir le [README](https://github.com/abnd-corp/Abcom#installation).
+
+            ⚠️ Binaires non signés, par choix ([ADR 0002](https://github.com/abnd-corp/Abcom/blob/main/docs/adr/0002-no-code-signing.md)) :
+            ni Developer ID ni notarisation Apple, ni Authenticode. Vérifier le fichier avec
+            `SHA256SUMS.txt`, puis autoriser le premier lancement (Confidentialité et sécurité
+            sous macOS, SmartScreen sous Windows).
           files: artifacts/*
 
   update-tap:
