@@ -1661,7 +1661,7 @@ pub fn run(
     // contexte partagé (fonctionne même fenêtre cachée, sans rendu).
     tray::install_event_handlers(ui_ctx.clone());
     // Wayland : l'icône de fenêtre vient de l'entrée de menu dont le nom est l'app_id.
-    crate::platform::icons::ensure_desktop_entry();
+    crate::platform::desktop_entry::ensure();
 
     let mut viewport = egui::ViewportBuilder::default()
         .with_title("Abcom")
