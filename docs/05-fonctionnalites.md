@@ -117,7 +117,7 @@ Chaque utilisateur peut choisir un avatar (PNG/JPEG ; l'import SVG existe derri�
 
 - La croix et Cmd/Ctrl-W **cachent** la fenêtre au lieu de quitter ; sur macOS l'icône disparaît aussi du Dock (politique Accessory). On quitte par le menu du tray.
 - Menu du tray : « Ouvrir Abcom », « Quitter ». Sous Windows le clic gauche ouvre directement la fenêtre.
-- **Autostart** à l'ouverture de session : activé par défaut au premier lancement d'un build release (jamais en debug), interrupteur dans Paramètres → Général. Implémentation par plateforme : Launch Agent (macOS), clé de registre Run (Windows), `.desktop` (Linux).
+- **Autostart** à l'ouverture de session : activé par défaut au premier lancement d'un build release (jamais en debug), interrupteur dans Paramètres → Général. Implémentation par plateforme : Launch Agent (macOS), clé de registre Run (Windows), `.desktop` (Linux). L'entrée lance `abcom --minimized` : l'application démarre directement dans le tray, sans fenêtre ni icône dans le Dock. Sans tray, la fenêtre s'affiche. Seule l'instance principale gère cette entrée ; une instance secondaire (`ABCOM_INSTANCE`) n'y touche jamais.
 - Sous Linux sans tray disponible, la croix quitte normalement.
 
 ## Paramètres

@@ -111,36 +111,47 @@ fn install_panic_hook() {
 
 /// Ce que demande la ligne de commande avant tout démarrage de l'application.
 #[derive(Debug, PartialEq, Eq)]
-enum CliRequest<'a> {
+enum CliRequest {
     Help,
     Version,
-    Run(Option<&'a str>),
+    Run {
+        name: Option<String>,
+        minimized: bool,
+    },
 }
 
-/// Un premier argument en `-` est une option, jamais un pseudo : refus explicite plutôt qu'un lancement.
-fn parse_cli(arg: Option<&str>) -> anyhow::Result<CliRequest<'_>> {
-    match arg {
-        Some("-h" | "--help") => Ok(CliRequest::Help),
-        Some("-V" | "--version") => Ok(CliRequest::Version),
-        Some(option) if option.starts_with('-') => {
-            anyhow::bail!("option inconnue : {option} (voir --help)")
+/// Un argument en `-` est une option, jamais un pseudo : refus explicite plutôt qu'un lancement.
+fn parse_cli(args: &[String]) -> anyhow::Result<CliRequest> {
+    let mut name = None;
+    let mut minimized = false;
+    for arg in args {
+        match arg.as_str() {
+            "-h" | "--help" => return Ok(CliRequest::Help),
+            "-V" | "--version" => return Ok(CliRequest::Version),
+            flag if flag == autostart::START_MINIMIZED_FLAG => minimized = true,
+            option if option.starts_with('-') => {
+                anyhow::bail!("option inconnue : {option} (voir --help)")
+            }
+            value if name.is_none() => name = Some(value.to_string()),
+            extra => anyhow::bail!("argument en trop : {extra} (voir --help)"),
         }
-        other => Ok(CliRequest::Run(other)),
     }
+    Ok(CliRequest::Run { name, minimized })
 }
 
 const USAGE: &str = concat!(
     "abcom ",
     env!("CARGO_PKG_VERSION"),
     "\nChat P2P local avec découverte automatique des pairs.\n\n",
-    "Usage : abcom [PSEUDO]\n\n",
-    "Options :\n  -h, --help     affiche cette aide\n  -V, --version  affiche la version\n\n",
+    "Usage : abcom [PSEUDO] [--minimized]\n\n",
+    "Options :\n  -h, --help     affiche cette aide\n  -V, --version  affiche la version\n",
+    "  --minimized    démarre directement dans le tray (lancement à l'ouverture de session)\n\n",
     "Sans PSEUDO, le nom de l'utilisateur du système est utilisé."
 );
 
 fn main() -> anyhow::Result<()> {
-    let first_arg = std::env::args().nth(1);
-    let requested_name = match parse_cli(first_arg.as_deref())? {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let (requested_name, start_minimized) = match parse_cli(&args)? {
         CliRequest::Help => {
             println!("{USAGE}");
             return Ok(());
@@ -149,7 +160,7 @@ fn main() -> anyhow::Result<()> {
             println!("abcom {}", env!("CARGO_PKG_VERSION"));
             return Ok(());
         }
-        CliRequest::Run(name) => name.map(str::to_string),
+        CliRequest::Run { name, minimized } => (name, minimized),
     };
     load_dotenv(".env");
     // Le garde doit vivre aussi longtemps que le processus, sinon les
@@ -286,6 +297,7 @@ fn main() -> anyhow::Result<()> {
             media_offer_rx,
             trust,
         },
+        start_minimized,
     )?;
 
     // Le flush SQLite est fait ; on laisse les tâches réseau finir leurs trames en cours.
@@ -306,16 +318,49 @@ mod tests {
 
     #[test]
     fn cli_options_never_become_usernames() {
-        assert_eq!(parse_cli(Some("--help")).unwrap(), CliRequest::Help);
-        assert_eq!(parse_cli(Some("-h")).unwrap(), CliRequest::Help);
-        assert_eq!(parse_cli(Some("--version")).unwrap(), CliRequest::Version);
-        assert!(parse_cli(Some("--inconnue")).is_err());
-        assert!(parse_cli(Some("-x")).is_err());
+        let args = |list: &[&str]| list.iter().map(|a| a.to_string()).collect::<Vec<_>>();
+        assert_eq!(parse_cli(&args(&["--help"])).unwrap(), CliRequest::Help);
+        assert_eq!(parse_cli(&args(&["-h"])).unwrap(), CliRequest::Help);
         assert_eq!(
-            parse_cli(Some("alice")).unwrap(),
-            CliRequest::Run(Some("alice"))
+            parse_cli(&args(&["--version"])).unwrap(),
+            CliRequest::Version
         );
-        assert_eq!(parse_cli(None).unwrap(), CliRequest::Run(None));
+        assert!(parse_cli(&args(&["--inconnue"])).is_err());
+        assert!(parse_cli(&args(&["-x"])).is_err());
+        assert!(parse_cli(&args(&["alice", "bob"])).is_err());
+        assert_eq!(
+            parse_cli(&args(&["alice"])).unwrap(),
+            CliRequest::Run {
+                name: Some("alice".into()),
+                minimized: false
+            }
+        );
+        assert_eq!(
+            parse_cli(&args(&[])).unwrap(),
+            CliRequest::Run {
+                name: None,
+                minimized: false
+            }
+        );
+    }
+
+    #[test]
+    fn the_login_entry_flag_starts_minimized_in_any_position() {
+        let args = |list: &[&str]| list.iter().map(|a| a.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            parse_cli(&args(&["--minimized"])).unwrap(),
+            CliRequest::Run {
+                name: None,
+                minimized: true
+            }
+        );
+        assert_eq!(
+            parse_cli(&args(&["alice", "--minimized"])).unwrap(),
+            CliRequest::Run {
+                name: Some("alice".into()),
+                minimized: true
+            }
+        );
     }
 
     #[test]

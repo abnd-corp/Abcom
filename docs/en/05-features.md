@@ -76,7 +76,7 @@ Visible-window messages can produce an internal toast and sound. A hidden or min
 
 With tray support, Close and Cmd/Ctrl+W hide the window. On macOS its Dock icon disappears too. Choose Open Abcom or Quit from the tray menu; on Windows, left-click opens the window. Without tray support, closing exits. Linux tray availability depends on the desktop environment.
 
-First release launch enables login startup if no setting exists; debug builds do not enable it by default. Integration uses a macOS Launch Agent, Windows Run registry key or Linux XDG autostart entry.
+First release launch enables login startup if no setting exists; debug builds do not enable it by default. Integration uses a macOS Launch Agent, Windows Run registry key or Linux XDG autostart entry. The entry runs `abcom --minimized`: the application starts directly in the tray, with no window or Dock icon. Without a tray, the window is shown. Only the main instance manages this entry; a secondary instance (`ABCOM_INSTANCE`) never touches it.
 
 ## Settings and appearance
 
