@@ -24,6 +24,7 @@ Première release publiée sur GitHub : installateur et archive Windows, app mac
 - `abcom --help` et `--version` répondent sans démarrer l'application ; auparavant, `--help` était pris pour un pseudo et annoncé sur le réseau local, et toute option inconnue est désormais refusée
 - Les tailles de fichier s'affichent identiquement dans la conversation et dans l'onglet Stockage (unités décimales : ko, Mo, Go)
 - L'export d'une conversation horodate les messages à l'heure locale, comme l'interface, et non plus en UTC
+- Une instance secondaire (`ABCOM_INSTANCE`, `make run2`, tests) ne réécrit plus le démarrage automatique de l'instance principale : l'entrée système est unique
 
 ### Documentation
 - Cartes de partage GitHub EN/FR de 1280 × 640 px, sources SVG et PNG reproductibles avec la nouvelle identité ; procédure d’activation documentée

@@ -12,6 +12,12 @@ pub fn is_supported() -> bool {
     !super::in_flatpak()
 }
 
+/// L'entrée système est unique : seule l'instance principale la gère. Les instances
+/// secondaires (`ABCOM_INSTANCE`, tests, `make run2`) ne doivent pas détourner celle de l'utilisateur.
+fn owns_system_entry(instance: u32) -> bool {
+    instance == 0
+}
+
 fn launch_path(executable: PathBuf, appimage: Option<&Path>) -> PathBuf {
     appimage
         .filter(|path| path.is_absolute())
@@ -41,6 +47,10 @@ pub fn set_enabled(enabled: bool) -> anyhow::Result<()> {
         is_supported(),
         "autostart unavailable in this Flatpak build"
     );
+    anyhow::ensure!(
+        owns_system_entry(crate::config::instance_id()),
+        "autostart is managed by the main instance only (ABCOM_INSTANCE=0)"
+    );
     let auto = launcher()?;
     if enabled {
         auto.enable().map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -52,13 +62,14 @@ pub fn set_enabled(enabled: bool) -> anyhow::Result<()> {
 
 /// Applique la politique de premier lancement : en release, si aucune
 /// préférence n'existe encore, active l'autostart et renvoie la valeur
-/// effective à persister. En debug, ne touche jamais au système.
+/// effective à persister. En debug ou depuis une instance secondaire, ne touche jamais au système.
 /// Une préférence active réécrit le lanceur pour suivre les déplacements et mises à jour.
 pub fn init_default(existing_pref: Option<bool>) -> bool {
     if !is_supported() {
         return false;
     }
-    init_preference(existing_pref, !cfg!(debug_assertions), || set_enabled(true))
+    let manages_entry = !cfg!(debug_assertions) && owns_system_entry(crate::config::instance_id());
+    init_preference(existing_pref, manages_entry, || set_enabled(true))
 }
 
 fn init_preference(
