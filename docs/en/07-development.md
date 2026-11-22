@@ -58,7 +58,7 @@ New modules get their own test file. A few historical modules retain inline test
 
 ## Native e2e tests
 
-`scripts/e2e/` runs the **real** application on the macOS host and on the local lab virtual machines: two isolated instances (`ABCOM_INSTANCE=91` and `92`), then checks start-up, the window (Windows), mutual discovery, the tray and shutdown, with screenshots and logs.
+`scripts/e2e/` runs the **real** application on the macOS host and on the local lab virtual machines: two isolated instances (`ABCOM_INSTANCE=91` and `92`), then checks start-up, the window (Windows), mutual discovery, the tray and shutdown, with logs, and screenshots in the VMs only: the host shows the user's personal windows.
 
 | Profile | Expected tray |
 | --- | --- |

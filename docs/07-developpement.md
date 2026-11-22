@@ -58,7 +58,7 @@ Un nouveau module reçoit son fichier de tests. Quelques modules historiques gar
 
 ## Tests e2e natifs
 
-`scripts/e2e/` lance l'application **réelle** sur l'hôte macOS et sur les machines virtuelles du laboratoire local : deux instances isolées (`ABCOM_INSTANCE=91` et `92`), puis vérification du démarrage, de la fenêtre (Windows), de la découverte mutuelle, du tray et de l'arrêt, avec captures et journaux.
+`scripts/e2e/` lance l'application **réelle** sur l'hôte macOS et sur les machines virtuelles du laboratoire local : deux instances isolées (`ABCOM_INSTANCE=91` et `92`), puis vérification du démarrage, de la fenêtre (Windows), de la découverte mutuelle, du tray et de l'arrêt, avec journaux, et captures d'écran dans les VM seulement : l'hôte montre les fenêtres personnelles de l'utilisateur.
 
 | Profil | Tray attendu |
 | --- | --- |
