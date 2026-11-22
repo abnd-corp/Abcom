@@ -284,6 +284,15 @@ fn main() -> anyhow::Result<()> {
         media_dir,
     ));
 
+    // À l'ouverture de session, l'hôte du tray peut arriver après nous : en démarrage réduit,
+    // on l'attend un peu plutôt que de conclure trop tôt à son absence.
+    let host_wait = if start_minimized {
+        abcom::platform::tray::LOGIN_HOST_WAIT
+    } else {
+        std::time::Duration::ZERO
+    };
+    let tray_host = rt.block_on(abcom::platform::tray::host_available(host_wait));
+
     ui::run(
         state,
         ui_ctx,
@@ -298,6 +307,7 @@ fn main() -> anyhow::Result<()> {
             trust,
         },
         start_minimized,
+        tray_host,
     )?;
 
     // Le flush SQLite est fait ; on laisse les tâches réseau finir leurs trames en cours.

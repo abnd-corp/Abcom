@@ -20,6 +20,13 @@ elles, `cargo build` échoue avant même d'atteindre notre code.
 | Clavier, fenêtrage | `libxkbcommon-dev` | `libxkbcommon-devel` | `libxkbcommon` | `libxkbcommon-dev` |
 | Son des notifications | `libasound2-dev` | `alsa-lib-devel` | `alsa-lib` | `alsa-lib-dev` |
 
+Le **binaire nu** (`abcom-linux-x86_64.tar.gz`, compilation locale) charge aussi au lancement des bibliothèques que `ldd` ne montre pas ; leur absence fait échouer le démarrage. `abcom-install.sh` les vérifie. L’AppImage et le Flatpak les embarquent, Nix les fournit.
+
+| Exécution | Debian / Ubuntu | Fedora | Arch |
+|---|---|---|---|
+| Clavier, fenêtrage X11 et Wayland | `libxkbcommon0 libxkbcommon-x11-0 libwayland-client0 libwayland-cursor0 libwayland-egl1 libx11-6 libxcursor1 libxi6 libxrandr2 libxcb1` | `libxkbcommon libxkbcommon-x11 libwayland-client libwayland-cursor libwayland-egl libX11 libXcursor libXi libXrandr libxcb` | `libxkbcommon libxkbcommon-x11 wayland libx11 libxcursor libxi libxrandr libxcb` |
+| Rendu et son | `libvulkan1 libasound2t64` (`libasound2` avant Debian 13 / Ubuntu 24.04) | `vulkan-loader alsa-lib` | `vulkan-icd-loader alsa-lib` |
+
 Le tray utilise KSNI/StatusNotifierItem sur D-Bus : ni GTK ni AppIndicator ne sont requis. Il faut un bus de session et un bureau compatible pour afficher l'icône. Les sélecteurs natifs passent par le portail du bureau. La dépendance de son est optionnelle : voir les features ci-dessous.
 
 ### Compiler léger : `tray` et `sound`

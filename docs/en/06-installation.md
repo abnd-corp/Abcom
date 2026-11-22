@@ -21,6 +21,13 @@ Install the compiler/toolchain prerequisites for your distribution, plus the rel
 | Keyboard/windowing | `libxkbcommon-dev` | `libxkbcommon-devel` | `libxkbcommon` | `libxkbcommon-dev` |
 | Sound | `libasound2-dev` | `alsa-lib-devel` | `alsa-lib` | `alsa-lib-dev` |
 
+The **bare binary** (`abcom-linux-x86_64.tar.gz`, local builds) also loads libraries at launch that `ldd` does not show; if they are missing, start-up fails. `abcom-install.sh` checks them. AppImage and Flatpak bundle them, and Nix provides them.
+
+| Runtime | Debian / Ubuntu | Fedora | Arch |
+|---|---|---|---|
+| Keyboard, X11 and Wayland windowing | `libxkbcommon0 libxkbcommon-x11-0 libwayland-client0 libwayland-cursor0 libwayland-egl1 libx11-6 libxcursor1 libxi6 libxrandr2 libxcb1` | `libxkbcommon libxkbcommon-x11 libwayland-client libwayland-cursor libwayland-egl libX11 libXcursor libXi libXrandr libxcb` | `libxkbcommon libxkbcommon-x11 wayland libx11 libxcursor libxi libxrandr libxcb` |
+| Rendering and sound | `libvulkan1 libasound2t64` (`libasound2` before Debian 13 / Ubuntu 24.04) | `vulkan-loader alsa-lib` | `vulkan-icd-loader alsa-lib` |
+
 Package names depend on distribution versions. The tray uses the KSNI/StatusNotifierItem D-Bus backend: GTK and AppIndicator are not required. A session bus and a desktop implementing StatusNotifierItem are needed to display the icon. Native file pickers use the desktop portal. Sound dependencies can be removed by disabling the sound feature.
 
 ## Build and run

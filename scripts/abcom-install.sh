@@ -33,6 +33,26 @@ fi
 echo "✓ Binaire trouvé: $BINARY_FILE"
 echo ""
 
+# ── Bibliothèques chargées au lancement ───────────────────────────────────────
+# winit les ouvre dynamiquement : `ldd` ne les voit pas, et leur absence fait échouer
+# le lancement (par exemple libxkbcommon-x11 sur un XFCE minimal).
+if command -v ldconfig >/dev/null 2>&1; then
+  missing=""
+  for lib in libxkbcommon.so.0 libxkbcommon-x11.so.0 libwayland-client.so.0 libwayland-cursor.so.0 \
+             libwayland-egl.so.1 libX11.so.6 libXcursor.so.1 libXi.so.6 libXrandr.so.2 libxcb.so.1 \
+             libvulkan.so.1 libasound.so.2; do
+    ldconfig -p 2>/dev/null | grep -q "$lib" || missing="$missing $lib"
+  done
+  if [ -n "$missing" ]; then
+    echo "⚠️  Bibliothèques système manquantes :$missing"
+    echo "   Debian/Ubuntu : sudo apt install libxkbcommon0 libxkbcommon-x11-0 libwayland-client0 libwayland-cursor0 libwayland-egl1 libx11-6 libxcursor1 libxi6 libxrandr2 libxcb1 libvulkan1 libasound2t64"
+    echo "   Fedora : sudo dnf install libxkbcommon libxkbcommon-x11 libwayland-client libwayland-cursor libwayland-egl libX11 libXcursor libXi libXrandr libxcb vulkan-loader alsa-lib"
+    echo "   Arch : sudo pacman -S libxkbcommon libxkbcommon-x11 wayland libx11 libxcursor libxi libxrandr libxcb vulkan-icd-loader alsa-lib"
+    echo "   (l'AppImage et le Flatpak embarquent déjà ces bibliothèques)"
+    echo ""
+  fi
+fi
+
 # ── Installation ──────────────────────────────────────────────────────────────
 echo "→ Installation..."
 
