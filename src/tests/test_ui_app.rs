@@ -152,6 +152,20 @@ fn survives_a_hide_and_restore_cycle() {
 }
 
 #[test]
+fn a_minimized_start_without_tray_keeps_the_window_visible() {
+    let mut app = test_app();
+    let ctx = egui::Context::default();
+    app.tray = None;
+    app.start_minimized = true;
+    app.apply_start_minimized(&ctx);
+    assert!(
+        !app.window_hidden,
+        "sans tray, la fenêtre ne doit jamais disparaître"
+    );
+    assert!(!app.start_minimized, "la demande ne s'applique qu'une fois");
+}
+
+#[test]
 fn renders_every_modal_and_picker_open() {
     let mut app = test_app();
     app.modals.settings_open = true;

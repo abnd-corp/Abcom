@@ -1,4 +1,4 @@
-use super::{init_preference, owns_system_entry};
+use super::{command_path, init_preference, owns_system_entry, START_MINIMIZED_FLAG};
 
 #[test]
 #[cfg(unix)]
@@ -62,5 +62,17 @@ fn only_the_main_instance_manages_the_shared_system_entry() {
     assert!(owns_system_entry(0));
     for secondary in [1, 2, 91, 92] {
         assert!(!owns_system_entry(secondary), "instance {secondary}");
+    }
+}
+
+#[test]
+fn the_login_entry_starts_minimized_with_a_path_that_survives_spaces() {
+    assert_eq!(START_MINIMIZED_FLAG, "--minimized");
+    let path = command_path("/home/Jean Dupont/Abcom.AppImage");
+    if cfg!(target_os = "macos") {
+        // ProgramArguments est une liste : des guillemets feraient partie du chemin.
+        assert_eq!(path, "/home/Jean Dupont/Abcom.AppImage");
+    } else {
+        assert_eq!(path, "\"/home/Jean Dupont/Abcom.AppImage\"");
     }
 }

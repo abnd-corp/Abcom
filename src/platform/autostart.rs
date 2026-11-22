@@ -18,6 +18,19 @@ fn owns_system_entry(instance: u32) -> bool {
     instance == 0
 }
 
+/// Argument passé par l'entrée de démarrage : l'application s'ouvre directement dans le tray.
+pub const START_MINIMIZED_FLAG: &str = "--minimized";
+
+/// `auto-launch` écrit « chemin args » sur une seule ligne sous Windows (clé `Run`) et Linux
+/// (`Exec=`) : sans guillemets, un chemin avec espaces casse la commande. macOS reçoit une liste.
+fn command_path(path: &str) -> String {
+    if cfg!(target_os = "macos") {
+        path.to_string()
+    } else {
+        format!("\"{path}\"")
+    }
+}
+
 fn launch_path(executable: PathBuf, appimage: Option<&Path>) -> PathBuf {
     appimage
         .filter(|path| path.is_absolute())
@@ -31,9 +44,12 @@ fn launcher() -> anyhow::Result<auto_launch::AutoLaunch> {
         None
     };
     let exe = launch_path(std::env::current_exe()?, appimage.as_deref());
-    let exe = exe.to_string_lossy().to_string();
+    let exe = command_path(&exe.to_string_lossy());
     let mut builder = AutoLaunchBuilder::new();
-    builder.set_app_name("Abcom").set_app_path(&exe);
+    builder
+        .set_app_name("Abcom")
+        .set_app_path(&exe)
+        .set_args(&[START_MINIMIZED_FLAG]);
     #[cfg(target_os = "macos")]
     builder.set_macos_launch_mode(auto_launch::MacOSLaunchMode::LaunchAgent);
     builder

@@ -303,6 +303,8 @@ pub(crate) struct AbcomApp {
     pub(crate) tray: Option<tray::Tray>,
     /// La création du tray a échoué : ne pas réessayer à chaque frame.
     pub(crate) tray_init_failed: bool,
+    /// Lancement à l'ouverture de session : se replier dans le tray dès qu'il existe.
+    pub(crate) start_minimized: bool,
     /// Fenêtre repliée dans le tray : aucun rendu, aucun repaint programmé,
     /// les événements réseau mettent l'état à jour et notifient nativement.
     pub(crate) window_hidden: bool,
@@ -604,6 +606,7 @@ impl AbcomApp {
             typing_active: false,
             tray: None,
             tray_init_failed: false,
+            start_minimized: false,
             window_hidden: false,
             really_quit: false,
             notif_preview,
@@ -965,6 +968,20 @@ impl AbcomApp {
         release_memory_to_os();
     }
 
+    /// Une seule fois, après la tentative de création du tray : sans tray, la fenêtre
+    /// reste affichée pour que l'application ne soit jamais invisible et injoignable.
+    pub(crate) fn apply_start_minimized(&mut self, ctx: &egui::Context) {
+        if !std::mem::take(&mut self.start_minimized) {
+            return;
+        }
+        if self.tray.is_some() {
+            tracing::info!("démarrage réduit dans le tray");
+            self.hide_to_tray(ctx);
+        } else {
+            tracing::info!("démarrage réduit impossible sans tray : fenêtre affichée");
+        }
+    }
+
     /// Restaure la fenêtre depuis le tray et resynchronise l'affichage
     /// (l'état est déjà à jour : seuls les caches de rendu se reconstruisent).
     pub(crate) fn show_from_tray(&mut self, ctx: &egui::Context) {
@@ -1082,6 +1099,8 @@ impl eframe::App for AbcomApp {
                 tracing::warn!("icône résidente indisponible : la croix quittera l'application");
             }
         }
+
+        self.apply_start_minimized(ctx);
 
         // Actions tray (les callbacks ont déjà réveillé l'UI).
         if let Some(t) = &self.tray {
@@ -1614,6 +1633,7 @@ pub fn run(
     identity_fingerprint: String,
     psk_active: bool,
     channels: UiRuntimeChannels,
+    start_minimized: bool,
 ) -> anyhow::Result<()> {
     // Handlers tray/menu globaux : chaque événement réveille l'UI via le
     // contexte partagé (fonctionne même fenêtre cachée, sans rendu).
@@ -1668,12 +1688,9 @@ pub fn run(
                 .options_mut(|options| options.reduce_texture_memory = true);
             #[cfg(target_os = "macos")]
             set_dock_visible(true);
-            Ok(Box::new(AbcomApp::new(
-                state,
-                identity_fingerprint,
-                psk_active,
-                channels,
-            )))
+            let mut app = AbcomApp::new(state, identity_fingerprint, psk_active, channels);
+            app.start_minimized = start_minimized;
+            Ok(Box::new(app))
         }),
     )
     .map_err(|e| {

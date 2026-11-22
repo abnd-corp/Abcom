@@ -25,6 +25,7 @@ Première release publiée sur GitHub : installateur et archive Windows, app mac
 - Les tailles de fichier s'affichent identiquement dans la conversation et dans l'onglet Stockage (unités décimales : ko, Mo, Go)
 - L'export d'une conversation horodate les messages à l'heure locale, comme l'interface, et non plus en UTC
 - Une instance secondaire (`ABCOM_INSTANCE`, `make run2`, tests) ne réécrit plus le démarrage automatique de l'instance principale : l'entrée système est unique
+- Le démarrage automatique lance `abcom --minimized` : l'application s'ouvre directement dans le tray au lieu d'afficher sa fenêtre à chaque ouverture de session (fenêtre affichée s'il n'y a pas de tray). Le chemin est mis entre guillemets sous Windows et Linux pour supporter les espaces
 
 ### Documentation
 - Cartes de partage GitHub EN/FR de 1280 × 640 px, sources SVG et PNG reproductibles avec la nouvelle identité ; procédure d’activation documentée
