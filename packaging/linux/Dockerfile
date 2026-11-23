@@ -1,5 +1,5 @@
 FROM rust:1.95-slim-bookworm AS toolchain
-FROM ubuntu:22.04
+FROM ubuntu:26.04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential ca-certificates pkg-config python3 file \
