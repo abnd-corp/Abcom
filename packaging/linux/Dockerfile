@@ -1,4 +1,4 @@
-FROM rust:1.95-slim-bookworm AS toolchain
+FROM rust:1.100-slim-bookworm AS toolchain
 FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
