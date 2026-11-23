@@ -29,7 +29,7 @@ impl AbcomApp {
         let my_name = self.state.lock_safe().my_username.clone();
 
         let mut jump_to: Option<(Option<String>, u64)> = None;
-        let modal = egui::Modal::new(egui::Id::new("search")).show(ctx, |ui| {
+        let modal = egui::Modal::new(egui::Id::unique("search")).show(ctx, |ui| {
             ui.set_width(520.0);
             ui.heading(title);
             ui.add_space(6.0);

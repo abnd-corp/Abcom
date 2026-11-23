@@ -152,6 +152,39 @@ impl AppState {
         }
     }
 
+    /// Supprime la conversation privée avec `peer` et, s'il est hors ligne, le contact : messages en
+    /// mémoire et en base, compteur de lecture, états annexes, file d'émission et épingle.
+    pub fn delete_private_conversation(&mut self, peer: &str) {
+        let me = self.my_username.clone();
+        self.messages.retain(|m| {
+            !((m.from == peer && m.to_user.as_deref() == Some(me.as_str()))
+                || (m.from == me && m.to_user.as_deref() == Some(peer)))
+        });
+        self.read_marks.remove(peer);
+        self.purge_stale_message_state();
+        for (hash, _) in self.outbox_for(peer) {
+            self.drop_from_outbox(hash);
+        }
+        self.persist(super::StorageCmd::DeleteConversation {
+            me,
+            conv: Some(peer.to_string()),
+        });
+        if self.selected_conversation.as_deref() == Some(peer) {
+            self.selected_conversation = None;
+        }
+        // Un contact hors ligne n'existe plus que par cet historique : il quitte la liste. Un contact
+        // connecté y reste, la découverte le rajouterait aussitôt.
+        let before = self.peers.len();
+        self.peers.retain(|p| p.username != peer || p.online);
+        if self.peers.len() != before {
+            self.bump_presence();
+        }
+        if self.is_pinned(peer) {
+            self.toggle_pinned(peer);
+        }
+        self.bump_content();
+    }
+
     pub fn clear_conversation_history(&mut self) {
         match &self.selected_conversation {
             None => self.messages.retain(|m| m.to_user.is_some()),

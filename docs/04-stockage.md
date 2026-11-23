@@ -1,5 +1,7 @@
 # 04 — Stockage local
 
+[English](en/04-storage.md) · **Français** · [Documentation](README.fr.md)
+
 ## Répertoire de données
 
 Toutes les données vivent dans le répertoire de données de la plateforme ([config.rs](../src/config.rs), via `dirs::data_dir()`) :
@@ -19,7 +21,11 @@ abcom/
 ├── abcom.db          # base SQLite : messages, groupes, pairs, préférences…
 ├── abcom.db-wal/-shm # fichiers du mode WAL
 ├── identity.key      # paire X25519 de la machine (0600)
-├── media/            # fichiers et images reçus ou envoyés
+├── media/            # pièces jointes reçues et ZIP de dossiers envoyés
+├── themes/           # thèmes personnels
+├── fonts/            # polices importées ou téléchargées
+├── scratch/          # pièces jointes texte temporaires
+├── logs/             # journaux
 └── *.json.bak        # anciens fichiers JSON, conservés après migration
 ```
 
@@ -27,7 +33,7 @@ abcom/
 
 Un seul fichier, `abcom.db`, ouvert en mode WAL avec `synchronous=NORMAL` (bon compromis durabilité/latence pour un chat local). Le crate est `rusqlite` en feature `bundled` : SQLite est embarqué dans le binaire, aucune dépendance système.
 
-**Le thread UI ne touche jamais le disque.** Toutes les écritures passent par un canal vers un thread de stockage dédié ([app/storage.rs](../src/app/storage.rs), commandes `StorageCmd`). L'ajout d'un message coûte un `INSERT` hors du thread de rendu ; un flush final est effectué à la fermeture de l'application.
+**Les écritures d’historique sont déportées du thread UI.** Les thèmes et polices ont leurs propres chemins de persistance ; toutes les écritures de la base passent par un canal vers un thread de stockage dédié ([app/storage.rs](../src/app/storage.rs), commandes `StorageCmd`). L'ajout d'un message coûte un `INSERT` hors du thread de rendu ; un flush final est effectué à la fermeture de l'application.
 
 **Une écriture qui échoue est remontée.** Le `Flush` ne se contente pas d'accuser le passage : il rend la dernière erreur d'écriture survenue depuis le flush précédent. Un disque plein ou une base en lecture seule est donc journalisé à la fermeture (`historique non sauvegardé`) au lieu de laisser l'utilisateur quitter en croyant ses messages enregistrés.
 
@@ -35,21 +41,21 @@ Un seul fichier, `abcom.db`, ouvert en mode WAL avec `synchronous=NORMAL` (bon c
 
 ### Schéma
 
-```sql
-messages (id INTEGER PRIMARY KEY, hash, from_user, to_user, content,
-          timestamp, ts_epoch, media, reply_to, nonce)
-  -- to_user : NULL = fil « Tous », "bob" = privé, "#equipe" = salon
-  -- hash    : identifiant réseau du message (FNV-1a), indexé
-  -- media   : descripteur JSON du média attaché, le cas échéant
-  -- reply_to: hash du message cité
+| Table | Contenu |
+|---|---|
+| `messages` | Hash réseau, expéditeur, destinataire, contenu, dates, média, réponse et nonce |
+| `messages_fts` | Index FTS5 de recherche, sans seconde copie du texte |
+| `reactions` | Hash du message, emoji et utilisateur |
+| `read_marks` | Hash « lu jusqu'à » par conversation, pas un compteur |
+| `groups` | JSON du groupe indexé par son ID immuable dans la colonne historique `name` |
+| `peers` | Pseudo, alias, avatar et clé publique épinglée |
+| `kv` | Préférences persistées |
+| `receipts` | Accusés nominatifs de livraison et lecture |
+| `outbox` | File durable des messages privés en attente |
+| `local_media` | Chemin d'origine des fichiers envoyés |
 
-reactions   (message_hash, emoji, username)      -- une ligne par réaction
-read_counts (username PRIMARY KEY, count)        -- position de lecture par conversation
-groups      (name PRIMARY KEY, data)             -- un groupe = son JSON complet
-peers       (username PRIMARY KEY, alias, avatar BLOB, pubkey BLOB)
-  -- avatar : PNG 256×256 ; pubkey : clé épinglée TOFU
-kv          (k PRIMARY KEY, v)                   -- préférences
-```
+`to_user` vaut `NULL` pour « Tous », un pseudo pour le privé et `#<id>` pour un salon. Le schéma exécutable est dans [storage.rs](../src/app/storage.rs).
+
 
 Les évolutions de schéma utilisent `PRAGMA user_version` et des migrations transactionnelles. Une migration échouée laisse la version et le schéma précédents intacts.
 
@@ -70,11 +76,16 @@ Si `abcom.db` n'existe pas au démarrage et que d'anciens fichiers JSON sont pr�
 
 ## Préférences (table `kv`)
 
-| Clé | Valeurs | Défaut |
-|---|---|---|
-| `notif_preview` | `1` aperçu du message / `0` discret | `1` |
-| `autostart` | `1` / `0` | `1`, posé au premier lancement d'un build release |
-| thème, langue, sourdines par conversation | — | selon réglages |
+| Clé ou réglage | Valeurs et comportement |
+|---|---|
+| `appearance` | Thème, mode clair/sombre/système, texte, polices et accord réseau |
+| `notif_preview` | `1` aperçu / `0` discret ; défaut `1` |
+| `autostart` | `1` / `0` ; activé au premier lancement release si absent |
+| `media_retention_days` | Âge pour la purge manuelle ; `0` nettoie seulement les déchets |
+| `media_purge_images` | Inclusion des images du fil dans cette purge |
+| Langue | Choix de session uniquement ; le démarrage utilise le français |
+
+Les thèmes personnels vivent dans `themes/`, les polices importées dans `fonts/`. Une police absente ou illisible retombe sur celle du thème avec un avis. Un dossier non inscriptible peut laisser une apparence appliquée seulement pour la session, avec un avertissement.
 
 ## Le dossier `media/`
 
@@ -108,3 +119,9 @@ Les GIF Klipy ne sont jamais stockés : ils voyagent par URL et chaque pair les 
 conversations effacées — et l'export texte de la conversation courante. Les
 sauvegardes `*.json.bak` de la migration JSON → SQLite sont supprimées au-delà
 de 30 jours.
+
+## Sauvegarde et restauration
+
+Quitter réellement Abcom par le menu du tray, puis copier le **répertoire de données complet**, avec l'identité, la base, les médias, les thèmes et les polices. Une copie de la seule base ouverte peut omettre les transactions présentes dans `abcom.db-wal`. Restaurer avec l'application arrêtée ; une identité différente provoquera des alertes de changement de clé chez les pairs.
+
+L'export texte n'est pas une sauvegarde complète. Les données et sauvegardes ne sont pas chiffrées au repos. Le mode SQLite `synchronous=NORMAL` et le flush à la fermeture ne donnent pas à un arrêt brutal ou à une coupure d'alimentation les mêmes garanties qu'à une sortie normale.

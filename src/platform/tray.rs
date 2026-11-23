@@ -17,6 +17,56 @@ use tray_icon::{Icon, TrayIcon, TrayIconBuilder, TrayIconEvent};
 #[cfg(feature = "tray")]
 use crate::util::MutexExt;
 
+/// Délai laissé à l'hôte de tray en démarrage réduit : à l'ouverture de session, il peut
+/// apparaître quelques secondes après le lancement des applications (extension GNOME).
+pub const LOGIN_HOST_WAIT: std::time::Duration = std::time::Duration::from_secs(20);
+
+/// Un hôte peut-il afficher notre icône ? Sous Linux, `tray-icon` lance KSNI avec
+/// `assume_sni_available(true)` : l'icône se crée même sans aucun hôte (GNOME standard)
+/// et la fenêtre repliée deviendrait injoignable. On exige donc un `StatusNotifierWatcher`
+/// avec un hôte enregistré, en l'attendant au plus `wait`. Ailleurs, le système en fournit un.
+pub async fn host_available(wait: std::time::Duration) -> bool {
+    #[cfg(all(feature = "tray", target_os = "linux"))]
+    {
+        let deadline = std::time::Instant::now() + wait;
+        loop {
+            if linux_sni_host_registered().await {
+                return true;
+            }
+            if std::time::Instant::now() >= deadline {
+                return false;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        }
+    }
+    #[cfg(not(all(feature = "tray", target_os = "linux")))]
+    {
+        let _ = wait;
+        true
+    }
+}
+
+#[cfg(all(feature = "tray", target_os = "linux"))]
+async fn linux_sni_host_registered() -> bool {
+    let Ok(connection) = zbus::Connection::session().await else {
+        return false;
+    };
+    let watcher = zbus::proxy::Builder::<zbus::Proxy>::new(&connection)
+        .destination("org.kde.StatusNotifierWatcher")
+        .path("/StatusNotifierWatcher")
+        .interface("org.kde.StatusNotifierWatcher")
+        .cache_properties(zbus::proxy::CacheProperties::No)
+        .build()
+        .await;
+    match watcher {
+        Ok(proxy) => proxy
+            .get_property::<bool>("IsStatusNotifierHostRegistered")
+            .await
+            .unwrap_or(false),
+        Err(_) => false,
+    }
+}
+
 /// Action utilisateur issue du tray, consommée par `AbcomApp::update`.
 ///
 /// Le type reste défini sans la feature `tray` — les appelants s'en servent
@@ -88,95 +138,16 @@ fn wake_native_event_loop() {
 
 #[cfg(feature = "tray")]
 pub(crate) struct Tray {
-    // Conservée en vie : la dropper retire l'icône du système. Sous Linux
-    // l'icône appartient au thread GTK, qui la garde en vie lui-même.
-    #[cfg(not(target_os = "linux"))]
+    // Conservée en vie : sa destruction retire l'icône et arrête le worker KSNI.
     #[allow(dead_code)]
     icon: TrayIcon,
-    #[cfg(not(target_os = "linux"))]
     normal: Icon,
-    #[cfg(not(target_os = "linux"))]
     badge: Icon,
     open_id: MenuId,
     quit_id: MenuId,
     badge_shown: bool,
-}
-
-/// Badge non-lus voulu par l'UI. Sous Linux, l'icône ne peut être touchée que
-/// depuis le thread GTK : l'UI publie ici son intention, le thread l'applique.
-#[cfg(all(feature = "tray", target_os = "linux"))]
-static UNREAD: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-
-/// Monte la boucle GTK et l'icône sur un thread dédié, et renvoie les
-/// identifiants des deux entrées de menu.
-///
-/// `tray-icon` impose sous Linux que l'icône soit créée sur un thread faisant
-/// tourner une boucle GTK ; winit n'en fournit pas. Sans cela, `Menu::new()`
-/// panique (« GTK has not been initialized ») avant même que le repli prévu
-/// par l'appelant ne puisse jouer.
-#[cfg(all(feature = "tray", target_os = "linux"))]
-fn spawn_gtk_thread(open_label: String, quit_label: String) -> Option<(MenuId, MenuId)> {
-    use std::sync::atomic::Ordering;
-
-    let (tx, rx) = std::sync::mpsc::channel();
-    std::thread::Builder::new()
-        .name("abcom-tray-gtk".into())
-        .spawn(move || {
-            // Chaque étape peut échouer sur un poste sans zone de
-            // notification : on prévient l'appelant plutôt que de paniquer.
-            let build = || -> Option<((MenuId, MenuId), TrayIcon, Icon, Icon)> {
-                gtk::init().ok()?;
-                let (normal, badge) = build_icons()?;
-                let menu = Menu::new();
-                let open_item = MenuItem::new(&open_label, true, None);
-                let quit_item = MenuItem::new(&quit_label, true, None);
-                menu.append(&open_item).ok()?;
-                menu.append(&PredefinedMenuItem::separator()).ok()?;
-                menu.append(&quit_item).ok()?;
-                let ids = (open_item.id().clone(), quit_item.id().clone());
-                let icon = TrayIconBuilder::new()
-                    .with_menu(Box::new(menu))
-                    .with_tooltip("Abcom")
-                    .with_icon(normal.clone())
-                    .with_menu_on_left_click(false)
-                    .build()
-                    .ok()?;
-                Some((ids, icon, normal, badge))
-            };
-
-            let Some((ids, icon, normal, badge)) = build() else {
-                let _ = tx.send(None);
-                return;
-            };
-            let _ = tx.send(Some(ids));
-
-            // L'UI ne peut pas toucher l'icône depuis son thread : on relit son
-            // intention ici. Au repos le drapeau ne bouge pas, ce réveil ne
-            // coûte donc qu'une comparaison cinq fois par seconde.
-            let mut applied = false;
-            gtk::glib::timeout_add_local(std::time::Duration::from_millis(200), move || {
-                let wanted = UNREAD.load(Ordering::Relaxed);
-                if wanted != applied {
-                    applied = wanted;
-                    let next = if wanted {
-                        badge.clone()
-                    } else {
-                        normal.clone()
-                    };
-                    let _ = icon.set_icon(Some(next));
-                }
-                gtk::glib::ControlFlow::Continue
-            });
-
-            gtk::main();
-        })
-        .ok()?;
-
-    // Le thread répond dès que l'icône est posée ; au-delà, on considère que
-    // le bureau n'offre pas de zone de notification.
-    rx.recv_timeout(std::time::Duration::from_secs(5))
-        .ok()
-        .flatten()
+    #[cfg(windows)]
+    pixel_size: u32,
 }
 
 #[cfg(feature = "tray")]
@@ -185,19 +156,9 @@ impl Tray {
     /// principal, event loop démarrée (premier `update()`). Renvoie `None`
     /// si le système n'offre pas de tray (l'appelant retombe alors sur le
     /// comportement « la croix quitte »).
-    #[cfg(target_os = "linux")]
     pub(crate) fn new(open_label: &str, quit_label: &str) -> Option<Self> {
-        let (open_id, quit_id) = spawn_gtk_thread(open_label.to_owned(), quit_label.to_owned())?;
-        Some(Self {
-            open_id,
-            quit_id,
-            badge_shown: false,
-        })
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    pub(crate) fn new(open_label: &str, quit_label: &str) -> Option<Self> {
-        let (normal, badge) = build_icons()?;
+        let pixel_size = tray_pixel_size();
+        let (normal, badge) = build_icons(pixel_size)?;
 
         let menu = Menu::new();
         let open_item = MenuItem::new(open_label, true, None);
@@ -210,16 +171,21 @@ impl Tray {
 
         let builder = TrayIconBuilder::new()
             .with_menu(Box::new(menu))
-            .with_tooltip("Abcom")
-            .with_icon(normal.clone());
+            .with_tooltip("Abcom");
         // macOS : le clic gauche ouvre le menu (convention barre de menus) ;
         // ailleurs, le clic gauche ouvre la fenêtre (géré via TrayIconEvent).
         #[cfg(target_os = "macos")]
-        let builder = builder.with_menu_on_left_click(true);
+        let builder = builder
+            .with_icon_templated(normal.clone())
+            .with_menu_on_left_click(true);
         #[cfg(not(target_os = "macos"))]
-        let builder = builder.with_menu_on_left_click(false);
+        let builder = builder
+            .with_icon(normal.clone())
+            .with_menu_on_left_click(false);
 
         let icon = builder.build().ok()?;
+        #[cfg(target_os = "macos")]
+        configure_macos_image(&icon);
         Some(Self {
             icon,
             normal,
@@ -227,22 +193,18 @@ impl Tray {
             open_id,
             quit_id,
             badge_shown: false,
+            #[cfg(windows)]
+            pixel_size,
         })
     }
 
     /// Dépile les événements tray reçus depuis la dernière frame.
     pub(crate) fn poll(&self) -> Vec<TrayAction> {
         PENDING
-            .lock()
-            .unwrap()
+            .lock_safe()
             .drain(..)
             .filter_map(|(raw, queued_at)| {
-                let action = match raw {
-                    RawEvent::Menu(id) if id == self.open_id => Some(TrayAction::Open),
-                    RawEvent::Menu(id) if id == self.quit_id => Some(TrayAction::Quit),
-                    RawEvent::Menu(_) => None,
-                    RawEvent::Click => Some(TrayAction::Open),
-                };
+                let action = action_for(raw, &self.open_id, &self.quit_id);
                 // Doit être de l'ordre de la milliseconde : au-delà, c'est que
                 // le réveil de l'interface n'a pas eu lieu et que l'action a
                 // attendu un autre événement pour être vue.
@@ -258,42 +220,112 @@ impl Tray {
             .collect()
     }
 
-    /// Affiche/retire la pastille non-lus sur l'icône.
-    ///
-    /// Sous Linux, l'icône appartient au thread GTK : on n'y publie qu'un
-    /// drapeau, appliqué par ce thread à son prochain réveil.
-    #[cfg(target_os = "linux")]
+    /// Affiche/retire la pastille non-lus sans boucle de scrutation.
     pub(crate) fn set_unread(&mut self, unread: bool) {
-        if unread == self.badge_shown {
+        #[cfg(windows)]
+        let pixel_size = tray_pixel_size();
+        #[cfg(windows)]
+        let resized = self.refresh_pixel_size(pixel_size);
+        #[cfg(not(windows))]
+        let resized = false;
+        if unread == self.badge_shown && !resized {
             return;
         }
-        self.badge_shown = unread;
-        UNREAD.store(unread, std::sync::atomic::Ordering::Relaxed);
-    }
-
-    /// Affiche/retire la pastille non-lus sur l'icône.
-    #[cfg(not(target_os = "linux"))]
-    pub(crate) fn set_unread(&mut self, unread: bool) {
-        if unread == self.badge_shown {
-            return;
-        }
-        self.badge_shown = unread;
         let icon = if unread {
             self.badge.clone()
         } else {
             self.normal.clone()
         };
-        let _ = self.icon.set_icon(Some(icon));
+        // Une mise à jour ordinaire perdrait le statut template sur macOS.
+        #[cfg(target_os = "macos")]
+        let result = self.icon.set_icon_templated(Some(icon));
+        #[cfg(not(target_os = "macos"))]
+        let result = self.icon.set_icon(Some(icon));
+        match result {
+            Ok(()) => {
+                self.badge_shown = unread;
+                #[cfg(windows)]
+                if resized {
+                    self.pixel_size = pixel_size;
+                }
+                #[cfg(target_os = "macos")]
+                configure_macos_image(&self.icon);
+            }
+            Err(error) => tracing::warn!(%error, "mise à jour du badge tray impossible"),
+        }
+    }
+
+    #[cfg(windows)]
+    fn refresh_pixel_size(&mut self, size: u32) -> bool {
+        if size == self.pixel_size {
+            return false;
+        }
+        if let Some((normal, badge)) = build_icons(size) {
+            self.normal = normal;
+            self.badge = badge;
+            return true;
+        }
+        false
     }
 }
 
-// ── Sans la feature `tray` ───────────────────────────────────────────────────
-//
-// `tray-icon` tire GTK3 et libappindicator sur Linux : sans en-têtes de
-// développement, la compilation échoue avant même d'atteindre notre code.
-// Ces bouchons gardent la même API pour que les appelants restent identiques ;
-// l'application se comporte alors comme sur un bureau sans zone de
-// notification — fermer la fenêtre quitte réellement.
+#[cfg(all(feature = "tray", target_os = "macos"))]
+const MACOS_TRAY_POINTS: f64 = 18.0;
+
+#[cfg(all(feature = "tray", target_os = "macos"))]
+pub(crate) fn configure_macos_image(icon: &TrayIcon) {
+    use objc2_foundation::NSCopying;
+    let Some(mtm) = objc2_foundation::MainThreadMarker::new() else {
+        return;
+    };
+    if let Some(item) = icon.ns_status_item() {
+        if let Some(button) = item.button(mtm) {
+            if let Some(original) = button.image() {
+                let image = original.copy();
+                // Le bitmap 36 px reste Retina ; sa taille AppKit est explicitement de 18 pt.
+                image.setSize(objc2_foundation::NSSize::new(
+                    MACOS_TRAY_POINTS,
+                    MACOS_TRAY_POINTS,
+                ));
+                image.setTemplate(true);
+                button.setImage(Some(&image));
+                item.setLength(objc2_app_kit::NSSquareStatusItemLength);
+                debug_assert_eq!(image.size().width, MACOS_TRAY_POINTS);
+                debug_assert_eq!(image.size().height, MACOS_TRAY_POINTS);
+            }
+        }
+    }
+    debug_assert!(icon.icon_is_template());
+}
+
+#[cfg(all(feature = "tray", target_os = "macos"))]
+fn tray_pixel_size() -> u32 {
+    36
+}
+
+#[cfg(all(feature = "tray", windows))]
+fn tray_pixel_size() -> u32 {
+    use windows_sys::Win32::UI::HiDpi::{GetDpiForSystem, GetDpiForWindow, GetSystemMetricsForDpi};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{FindWindowW, SM_CXSMICON};
+    let class: Vec<u16> = "Shell_TrayWnd\0".encode_utf16().collect();
+    // SAFETY : classe terminée par NUL ; les appels lisent uniquement les métriques système.
+    unsafe {
+        let taskbar = FindWindowW(class.as_ptr(), std::ptr::null());
+        let dpi = if taskbar.is_null() {
+            GetDpiForSystem()
+        } else {
+            GetDpiForWindow(taskbar)
+        };
+        GetSystemMetricsForDpi(SM_CXSMICON, dpi.max(96)).clamp(16, 128) as u32
+    }
+}
+
+#[cfg(all(feature = "tray", not(any(windows, target_os = "macos"))))]
+fn tray_pixel_size() -> u32 {
+    64
+}
+
+// Sans la feature tray, fermer la fenêtre quitte réellement.
 
 /// Sans tray, aucun handler global à poser.
 #[cfg(not(feature = "tray"))]
@@ -470,32 +502,76 @@ pub(crate) mod win {
     }
 }
 
-/// Taille de l'icône tray (points logiques ; les OS remettent à l'échelle).
+/// macOS reçoit un masque Retina ; les autres bureaux reçoivent l'icône couleur.
 #[cfg(feature = "tray")]
-const TRAY_PX: u32 = 32;
+fn build_icons(pixel_size: u32) -> Option<(Icon, Icon)> {
+    let (normal, badge) = tray_images(cfg!(target_os = "macos"), pixel_size)?;
+    Some((
+        Icon::from_rgba(normal.as_raw().clone(), normal.width(), normal.height()).ok()?,
+        Icon::from_rgba(badge.as_raw().clone(), badge.width(), badge.height()).ok()?,
+    ))
+}
 
-/// Construit les deux icônes (normale, avec pastille rouge) depuis l'icône
-/// de l'application embarquée.
 #[cfg(feature = "tray")]
-fn build_icons() -> Option<(Icon, Icon)> {
-    let data = include_bytes!("../../assets/app_icon.png");
-    let img = image::load_from_memory(data).ok()?;
-    let small = img
-        .resize_exact(TRAY_PX, TRAY_PX, image::imageops::FilterType::Lanczos3)
+pub(crate) fn tray_images(
+    templated: bool,
+    pixel_size: u32,
+) -> Option<(image::RgbaImage, image::RgbaImage)> {
+    let data: &[u8] = if templated {
+        include_bytes!("../../assets/branding/png/abcom-tray-template-36.png")
+    } else {
+        match pixel_size {
+            16 => include_bytes!("../../assets/branding/png/abcom-app-light-16.png"),
+            20 => include_bytes!("../../assets/branding/png/abcom-app-light-20.png"),
+            24 => include_bytes!("../../assets/branding/png/abcom-app-light-24.png"),
+            32 => include_bytes!("../../assets/branding/png/abcom-app-light-32.png"),
+            40 => include_bytes!("../../assets/branding/png/abcom-app-light-40.png"),
+            48 => include_bytes!("../../assets/branding/png/abcom-app-light-48.png"),
+            64 => include_bytes!("../../assets/branding/png/abcom-app-light-64.png"),
+            96 => include_bytes!("../../assets/branding/png/abcom-app-light-96.png"),
+            _ => include_bytes!("../../assets/branding/png/abcom-app-light-128.png"),
+        }
+    };
+    let source = image::load_from_memory(data).ok()?;
+    let normal = source
+        .resize_exact(
+            pixel_size,
+            pixel_size,
+            image::imageops::FilterType::Lanczos3,
+        )
         .to_rgba8();
-    let normal = Icon::from_rgba(small.as_raw().clone(), TRAY_PX, TRAY_PX).ok()?;
-
-    // Pastille rouge en haut à droite (badge non-lus).
-    let mut badged = small.clone();
-    let (cx, cy, r) = (TRAY_PX as i32 - 8, 8i32, 7i32);
-    for y in 0..TRAY_PX as i32 {
-        for x in 0..TRAY_PX as i32 {
+    let mut badged = normal.clone();
+    let r = (pixel_size as i32 * 5 / 64).max(2);
+    let gap = (pixel_size as i32 / 32).max(1);
+    let (cx, cy) = (pixel_size as i32 - r - gap - 1, r + gap);
+    let color = if templated {
+        [0, 0, 0, 255]
+    } else {
+        [255, 138, 96, 255]
+    };
+    for y in 0..normal.height() as i32 {
+        for x in 0..normal.width() as i32 {
             let (dx, dy) = (x - cx, y - cy);
             if dx * dx + dy * dy <= r * r {
-                badged.put_pixel(x as u32, y as u32, image::Rgba([220, 40, 60, 255]));
+                badged.put_pixel(x as u32, y as u32, image::Rgba(color));
+            } else if dx * dx + dy * dy <= (r + gap) * (r + gap) {
+                badged.put_pixel(x as u32, y as u32, image::Rgba([0, 0, 0, 0]));
             }
         }
     }
-    let badge = Icon::from_rgba(badged.into_raw(), TRAY_PX, TRAY_PX).ok()?;
-    Some((normal, badge))
+    Some((normal, badged))
 }
+
+#[cfg(feature = "tray")]
+fn action_for(raw: RawEvent, open: &MenuId, quit: &MenuId) -> Option<TrayAction> {
+    match raw {
+        RawEvent::Menu(id) if id == open => Some(TrayAction::Open),
+        RawEvent::Menu(id) if id == quit => Some(TrayAction::Quit),
+        RawEvent::Menu(_) => None,
+        RawEvent::Click => Some(TrayAction::Open),
+    }
+}
+
+#[cfg(test)]
+#[path = "../tests/test_platform_tray.rs"]
+mod tests;

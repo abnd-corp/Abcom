@@ -9,15 +9,16 @@ RUN apt-get update && apt-get install -y \
     libxcb-xfixes0-dev \
     libxkbcommon-dev \
     libasound2-dev \
-    libgtk-3-dev \
-    libayatana-appindicator3-dev \
-    libxdo-dev \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 COPY Cargo.toml Cargo.lock* ./
+COPY build.rs ./
+COPY LICENSE ./
 COPY src ./src
 COPY assets ./assets
+COPY examples ./examples
+COPY vendor ./vendor
 
 RUN cargo build --release --locked
 

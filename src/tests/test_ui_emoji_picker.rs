@@ -60,13 +60,15 @@ fn popup_opens_below_the_button_when_there_is_room() {
 }
 
 /// Régression : le picker des réactions s'ouvrait toujours sous le « + ». Sur
-/// un message du bas de la conversation — le cas courant — ses 340 px
-/// sortaient de la fenêtre et la grille arrivait tronquée.
+/// un message du bas de la conversation — le cas courant — sa hauteur sortait
+/// de la fenêtre et la grille arrivait tronquée.
 #[test]
 fn popup_flips_above_the_button_when_it_would_overflow() {
     let pos = popup_pos(screen(), button_at(120.0, 620.0), PICKER_SIZE);
-    // 620 - 6 (écart) - 340 (hauteur).
-    assert_eq!(pos.y, 274.0);
+    // Haut du bouton, moins l'écart, moins la hauteur de la popup. La hauteur
+    // est prise à la constante, jamais recopiée : c'est en la recopiant que la
+    // taille annoncée du picker avait fini par diverger de sa grille.
+    assert_eq!(pos.y, 620.0 - 6.0 - PICKER_SIZE.y);
     assert!(pos.y >= 8.0);
 }
 
@@ -88,4 +90,28 @@ fn popup_prefers_the_top_left_corner_on_a_tiny_window() {
     let tiny = egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(200.0, 200.0));
     let pos = popup_pos(tiny, button_at(60.0, 150.0), PICKER_SIZE);
     assert_eq!(pos, egui::pos2(8.0, 8.0));
+}
+
+#[test]
+fn reply_preview_uses_registered_emoji_images_and_stays_on_one_line() {
+    let map = crate::emoji_registry::EMOJI_DATA
+        .iter()
+        .enumerate()
+        .map(|(index, (text, _))| (text.to_string(), index))
+        .collect();
+    for width in [30.0, 250.0] {
+        let ctx = egui::Context::default();
+        let textures = crate::ui::EmojiTextures::default();
+        let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            ui.set_max_width(width);
+            let response =
+                super::render_preview(ui, "😀 Bonjour ❤️", &map, &textures, egui::TextStyle::Small);
+            assert!(response.rect.width() <= width);
+            assert!(response.rect.height() < 30.0);
+        });
+        assert!(output.shapes.iter().any(|shape| matches!(
+            &shape.shape, egui::epaint::Shape::Mesh(mesh) if mesh.texture_id != egui::TextureId::default()
+        )), "the visible emoji must use its PNG texture");
+        output.textures_delta.clear();
+    }
 }

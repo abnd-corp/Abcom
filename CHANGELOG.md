@@ -7,7 +7,47 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 
 ## [Non publié]
 
+## [1.0.0-beta.2] — 2026-11-22
+
+Première release publiée sur GitHub : installateur et archive Windows, app macOS et cask Homebrew, AppImage, Flatpak et archive Linux, manifeste WinGet, flake Nix. Binaires non signés, par décision ([ADR 0002](docs/adr/0002-no-code-signing.fr.md)).
+
+### Maintenance
+- Dock macOS : empêche eframe de remplacer l’ICNS du bundle par le PNG de fenêtre ; contrôle natif de l’icône après trois frames, avec contre-épreuve de l’ancien défaut
+- Tailles natives corrigées : tray macOS de 18 points avec cible de clic système, marges optiques du Dock, ICO Windows enrichi et tray adapté au DPI
+- Tray Linux migré vers KSNI sans GTK/AppIndicator, puis chaîne D-Bus migrée vers zbus 6 : plus aucune exception RustSec (issue #59 close), correctifs locaux documentés dans `vendor/`
+- Les tests unitaires tournent aussi sous Windows et macOS en CI, plus seulement `cargo check`
+- `chrono`, déclaré non maintenu (RUSTSEC-2026-0543), est remplacé par `jiff` : heure locale correcte sur les trois systèmes, formats et horodatages stockés inchangés
+- Tests e2e natifs (`scripts/e2e/`, `make e2e`) : l'application réelle sur l'hôte macOS et sur les VM du laboratoire local (Windows, GNOME avec et sans tray, KDE, XFCE), avec des binaires publiés par la CI
+- Mise à jour des dépendances directes et transitives, avec adaptation à egui 0.37 et ZIP 9 ; les vulnérabilités signalées sont corrigées
+
+### Corrigé
+- `abcom --help` et `--version` répondent sans démarrer l'application ; auparavant, `--help` était pris pour un pseudo et annoncé sur le réseau local, et toute option inconnue est désormais refusée
+- Les tailles de fichier s'affichent identiquement dans la conversation et dans l'onglet Stockage (unités décimales : ko, Mo, Go)
+- L'export d'une conversation horodate les messages à l'heure locale, comme l'interface, et non plus en UTC
+- Une instance secondaire (`ABCOM_INSTANCE`, `make run2`, tests) ne réécrit plus le démarrage automatique de l'instance principale : l'entrée système est unique
+- Le démarrage automatique lance `abcom --minimized` : l'application s'ouvre directement dans le tray au lieu d'afficher sa fenêtre à chaque ouverture de session (fenêtre affichée s'il n'y a pas de tray). Le chemin est mis entre guillemets sous Windows et Linux pour supporter les espaces
+- Sous Linux, le tray n'est utilisé que si un hôte peut l'afficher (`StatusNotifierWatcher` avec un hôte enregistré, attendu jusqu'à 20 s en démarrage réduit) : sous GNOME standard, la fenêtre ne disparaît plus dans un tray invisible
+- L'archive Linux signale les bibliothèques d'exécution manquantes (`abcom-install.sh`), désormais listées dans la doc d'installation
+- Sous Linux, le mode « système » suit vraiment le clair/sombre du bureau (portail XDG, puis réglages KDE, XFCE ou GTK), en direct et barre de titre comprise : l'application restait sombre sur un bureau clair, winit ne remontant pas ce thème
+- Sous Wayland (GNOME, KDE), le logo d'Abcom remplace l'icône générique « W » : l'application installe son entrée de menu `abcom.desktop` et son icône quand aucun paquet ne les fournit, et le script d'installation écrit la même entrée, sans terminal
+- Sous Windows, le démarrage automatique s'inscrit pour l'utilisateur (HKCU) et non plus pour toute la machine lorsque le compte est administrateur
+- Sous Windows, un arrêt du système avec Abcom ouvert n'est plus pris pour un plantage du pilote graphique : la session est jugée saine après 5 s, avec un réveil programmé même au repos ou dans le tray. Auparavant, la session suivante basculait vers Vulkan et ne démarrait pas sur un PC sans pilote Vulkan
+- Le texte d'aide du champ de saisie suit la langue de l'interface (il restait en anglais)
+
+### Documentation
+- Cartes de partage GitHub EN/FR de 1280 × 640 px, sources SVG et PNG reproductibles avec la nouvelle identité ; procédure d’activation documentée
+- Rangement de la racine, retrait des anciens plans et documents remplacés, conservation des décisions et du protocole de mesure dans les guides actuels
+- README courts en anglais et français, sommaires et guides bilingues, dépannage/FAQ et contrôle local des liens et des traductions
+
 ### Ajouté
+- **Variantes de polices** : vrais italiques et gras italiques lorsqu’ils existent, association des coupes des polices personnelles avec validation de famille/style et persistance ; Lexend conserve un italique simulé explicite. Le catalogue télécharge les variantes disponibles après consentement
+- Linux : AppImage et bundle Flatpak construits sans catalogue public, avec icônes, licences, empreintes et tests de fenêtre sous Xvfb ; téléchargements GitHub documentés en EN/FR
+- Distribution sans catalogue public : cask Homebrew local, installateur Windows par utilisateur et manifeste WinGet, flake Nix verrouillé ; recettes et empreintes produites depuis les artefacts réels de release
+- **Logos natifs** : nouvelle icône embarquée, masque adaptatif du tray macOS avec badge monochrome, Dock Retina et bundle `.app`, ICO intégré au binaire Windows et aux raccourcis, logo de lanceur Linux
+- **Identité visuelle** : symbole bicolore, variantes monochromes et au trait, logotype vectorisé, icônes clair/sombre et tray avec exports PNG jusqu’à 1024 px, aperçus et documentation EN/FR ; génération reproductible avec le moteur SVG existant
+- **Onglet Apparence** (Paramètres) : dix thèmes intégrés en clair et en sombre (Classique, Salon, Givre, Nocturne, Sable, Ardoise, Guimauve, Encre, Forêt, Lisible), tailles de texte séparées pour l'interface et pour les conversations avec une taille générale qui agrandit tout d'un coup, interligne et espacement des lettres des conversations, couleurs modifiables (quatre principales et section Avancé de vingt et un rôles) avec contraste WCAG en direct, aperçu, et thèmes personnels (copie d'un thème intégré, duplication, renommage, suppression). Les emojis ne changent jamais de taille
+- **Polices au choix**, pour l'interface et pour les conversations séparément : Noto Sans, Inter, Atkinson Hyperlegible, Lexend, OpenDyslexic, Literata, Nunito et JetBrains Mono (toutes sous licence OFL), chacune affichée dans sa propre police, ou un fichier importé (`.ttf`, `.otf`, `.ttc`, `.woff`, `.woff2`). Tout fichier est décodé et validé avant d'atteindre egui, qui panique sur une police illisible
+- **Catalogue de polices en ligne**, **désactivé par défaut** : une case autorise l'application à contacter `api.fontsource.org` et `cdn.jsdelivr.net` (qui voient l'adresse IP). Liste recherchable des polices OFL et Apache, mise en cache sept jours, téléchargement annulable. Voir [docs/03](docs/03-reseau-et-securite.md)
 - **Identifiant immuable pour les salons** : le nom d'un groupe devient un simple libellé, renommable sans rien casser. Auparavant le nom entrait dans le hash des messages, si bien qu'un renommage orphelinait d'un coup réactions, accusés et repère de lecture. Migration de base automatique ; **le protocole passe en version 3**, les pairs restés en version 2 ne se connectent plus
 - **Cahier de tests manuels** ([docs/10](docs/10-cahier-de-tests.md)) : fonctionnalités, régressions et spécificités par OS
 - **Recherche dans l'historique** (Cmd/Ctrl+F) : index FTS5 sans seconde copie des messages sur le disque, recherche au fil de la frappe, clic sur un résultat pour sauter au message
@@ -25,6 +65,16 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 - MSRV déclarée (`rust-version = "1.95"`) et vérifiée en CI ; `cargo audit` et `cargo deny` désormais exécutés sur `dev` comme sur `main`
 
 ### Corrigé
+- AppImage : le démarrage automatique vise le fichier durable ; Flatpak : identifiant de bureau cohérent et démarrage automatique signalé indisponible sans portail Background
+- Installation macOS : signature ad hoc complète du bundle et vérification d’intégrité ; distinction entre compilation locale et téléchargement en quarantaine
+- Démarrage automatique : réécrit le chemin d’une préférence active après déplacement ou mise à jour de l’application
+- Bouton GIF : conserve sa largeur et la position du texte au survol, y compris aux densités intermédiaires ; les marges tiennent compte de la bordure réellement dessinée
+- Paramètres : colonnes lisibles dans Stockage, Crédits et Général, actions de stockage adaptées aux petites fenêtres, défilement unique par onglet ; la licence suit la taille du texte et replie ses paragraphes à la largeur disponible
+- Le choix clair, sombre ou système **n'était pas conservé** : il revenait à « système » à chaque lancement
+- Les Paramètres faisaient 640 × 480 quelle que soit la fenêtre et en sortaient dans la plus petite : la boîte est bornée à la fenêtre, et tout l'onglet défile d'un bloc. Les libellés longs reviennent à la ligne
+- Les pastilles de réaction, le voile de survol et le surlignage d'un message étaient écrits en dur pour le thème sombre : ils suivent maintenant la palette
+- **Entrée envoyait le message au lieu d'aller à la ligne** après un aller-retour par un bouton d'action — joindre une image, notamment. egui active un bouton qui a le focus sur Entrée comme sur Espace : il suffisait qu'un clic ait laissé le focus sur « Envoyer » pour que la touche déclenche l'envoi, alors qu'Entrée insère une nouvelle ligne dans cette interface (l'envoi clavier étant Cmd/Ctrl+Entrée). Le bouton ignore désormais Entrée seule, Espace garde son rôle, et le focus revient au composeur dès qu'une pièce jointe s'ajoute — par le sélecteur comme par glisser-déposer
+- **Sélecteur d'emojis mal proportionné** : sa taille annoncée (310 × 340) et sa grille (8 colonnes de 36, 7 rangées visibles, soit 309 × 306) étaient écrites en dur chacune de son côté et avaient divergé — 34 points de hauteur réservés pour rien sous la dernière rangée, et aucune garantie que huit colonnes tiennent dans la largeur annoncée. La taille se déduit maintenant de la grille, colonnes, rangées, case et écart compris
 - **Arrêt brutal à l'ouverture d'un sélecteur de fichiers** (joindre un fichier, exporter, changer d'image de profil) : les boîtes de dialogue natives bloquantes démarrent une boucle d'événements imbriquée, dans laquelle winit se retrouve à traiter un événement alors qu'il en traite déjà un — et panique. L'application se fermait sans un mot, de façon intermittente selon les événements en vol. Les sélecteurs sont désormais asynchrones, le thread de rendu ne bloque plus
 - **Carrés vides à la place des caractères non latins** : les polices par défaut ne couvraient ni la coche `✓`, ni les flèches, ni surtout le moindre alphabet non latin — un message collé en chinois, en japonais ou en coréen était illisible d'un bout à l'autre. Une chaîne de polices remplace le choix unique : **Noto Sans** (texte), **Noto Sans Symbols 2** (symboles), **Inter** (flèches, déjà embarquée pour les noms d'auteur) puis **GNU Unifont** en dernier recours, qui couvre tout le plan multilingue de base. Chaque police n'est consultée que pour ce que les précédentes ne savent pas dessiner : le rendu tramé d'Unifont ne sert donc que là où le choix est entre « moche » et « rien ». Couverture du plan de base : 4 340 → 57 496 caractères
 - **Images BMP en vignette cassée** : l'extension était traitée comme une image sans que le décodeur correspondant soit compilé

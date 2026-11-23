@@ -61,7 +61,9 @@ impl AppState {
             name: name.clone(),
             owner: self.my_username.clone(),
             members: group_members,
-            created_at: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+            created_at: jiff::ZonedDateTime::now()
+                .strftime("%Y-%m-%d %H:%M:%S")
+                .to_string(),
         };
         self.groups.push(group.clone());
         self.save_groups();

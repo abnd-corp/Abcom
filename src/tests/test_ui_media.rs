@@ -59,7 +59,7 @@ fn media_id_sanitizes_and_keeps_extension() {
 #[test]
 fn media_id_starts_with_a_readable_date() {
     let id = media_id("rapport.pdf");
-    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let today = jiff::ZonedDateTime::now().strftime("%Y-%m-%d").to_string();
     assert!(
         id.starts_with(&today),
         "l'identifiant doit commencer par la date du jour : {id}"
@@ -100,4 +100,19 @@ fn unique_destination_avoids_collision() {
     let dest = unique_destination(&dir, "photo.png");
     assert_eq!(dest, dir.join("photo (1).png"));
     std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn elide_preserves_combined_emoji_and_accents() {
+    for cluster in ["😀", "❤️", "👍🏽", "👨‍👩‍👧‍👦", "🇫🇷", "e\u{301}"]
+    {
+        assert_eq!(
+            super::elide(&format!("A{cluster}BC"), 3),
+            format!("A{cluster}…")
+        );
+        assert_eq!(
+            super::elide(&format!("{cluster}B"), 2),
+            format!("{cluster}B")
+        );
+    }
 }

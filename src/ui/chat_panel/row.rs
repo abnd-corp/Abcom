@@ -1,12 +1,15 @@
 //! Rendu d'une ligne du fil : en-tête, corps, réactions, citations, accusés.
 
-use chrono::{Datelike, Local, NaiveDate, TimeZone};
 use eframe::egui;
+use jiff::civil::Date;
+
+use crate::util::local_time;
 
 use crate::message::{ChatMessage, ReactionEntry};
 
 use super::show_receipt;
 use crate::ui::i18n;
+use crate::ui::snapshot::ReceiptStatus;
 use crate::ui::UiLanguage;
 
 /// Diamètre de l'avatar affiché en tête de chaque groupe de messages.
@@ -99,22 +102,15 @@ const MONTHS_EN: [&str; 12] = [
 ];
 
 /// Jour local d'un message à partir de son instant Unix (`None` si absent).
-pub(crate) fn message_day(msg: &ChatMessage) -> Option<NaiveDate> {
-    let epoch = msg.timestamp_epoch?;
-    Local
-        .timestamp_opt(epoch as i64, 0)
-        .single()
-        .map(|dt| dt.date_naive())
+pub(crate) fn message_day(msg: &ChatMessage) -> Option<Date> {
+    local_time(msg.timestamp_epoch?).map(|zoned| zoned.date())
 }
 
 /// Heure d'en-tête au format 24 h, dérivée de l'instant Unix si présent,
 /// sinon repli sur la chaîne `timestamp` (anciens messages / pairs).
 pub(crate) fn header_time(msg: &ChatMessage) -> String {
-    match msg
-        .timestamp_epoch
-        .and_then(|e| Local.timestamp_opt(e as i64, 0).single())
-    {
-        Some(dt) => dt.format("%H:%M").to_string(),
+    match msg.timestamp_epoch.and_then(local_time) {
+        Some(zoned) => zoned.strftime("%H:%M").to_string(),
         None => msg.timestamp.clone(),
     }
 }
@@ -140,14 +136,14 @@ pub(crate) fn starts_new_group(
 
 /// Libellé localisé d'un séparateur de date (« Aujourd'hui », « Hier » ou date
 /// complète selon la langue).
-pub(crate) fn day_divider_label(date: NaiveDate, today: NaiveDate, language: UiLanguage) -> String {
+pub(crate) fn day_divider_label(date: Date, today: Date, language: UiLanguage) -> String {
     if date == today {
         return crate::ui::i18n::AUJOURD_HUI.get(language).to_string();
     }
-    if Some(date) == today.pred_opt() {
+    if today.yesterday().ok() == Some(date) {
         return crate::ui::i18n::HIER.get(language).to_string();
     }
-    let (day, month, year) = (date.day(), date.month0() as usize, date.year());
+    let (day, month, year) = (date.day(), (date.month() - 1) as usize, date.year());
     match language {
         UiLanguage::French => format!("{} {} {}", day, MONTHS_FR[month], year),
         UiLanguage::English => format!("{} {}, {}", MONTHS_EN[month], day, year),
@@ -208,7 +204,7 @@ pub(super) fn render_message_header(
     display_name: &str,
     timestamp: &str,
     name_color: egui::Color32,
-    receipt: Option<(bool, bool, bool)>,
+    receipt: Option<ReceiptStatus>,
     receipt_detail: Option<&crate::app::ReceiptDetail>,
     row_hash: u64,
     language: UiLanguage,
@@ -217,18 +213,21 @@ pub(super) fn render_message_header(
         ui.spacing_mut().item_spacing.x = 6.0;
         ui.label(
             egui::RichText::new(display_name)
+                .text_style(crate::ui::theme::msg_style())
                 .color(name_color)
-                .family(egui::FontFamily::Name(crate::ui::BOLD_FAMILY.into())),
+                .family(egui::FontFamily::Name(
+                    crate::ui::theme::MSG_BOLD_FAMILY.into(),
+                )),
         );
         ui.label(
             egui::RichText::new(timestamp)
-                .small()
+                .text_style(crate::ui::theme::msg_small_style())
                 .color(crate::ui::theme::palette(ui).text_muted),
         );
         if let Some(detail) = receipt_detail {
             show_receipt_detail_button(ui, detail, row_hash, language);
-        } else if let Some((delivered, read, failed)) = receipt {
-            show_receipt(ui, delivered, read, failed);
+        } else if let Some(status) = receipt {
+            show_receipt(ui, status, language);
         }
     });
 }
@@ -289,7 +288,7 @@ pub(super) fn show_receipt_detail_button(
     // Sans libellé, l'œil n'existe pas pour un lecteur d'écran — et le compte,
     // retiré de l'affichage, reste accessible au survol.
     let label = format!("{} {read}/{}", i18n::LU_PAR.get(language), detail.audience);
-    btn.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, &label));
+    btn.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, &label));
     let btn = btn
         .on_hover_text(label)
         .on_hover_cursor(egui::CursorIcon::PointingHand);
@@ -454,17 +453,18 @@ pub(super) fn render_reaction_pills(
             if !ui.is_rect_visible(rect) {
                 continue;
             }
+            let palette = crate::ui::theme::palette(ui);
             let fill = if mine {
-                egui::Color32::from_rgb(70, 90, 140)
+                palette.chip_mine
             } else if resp.hovered() {
                 ui.visuals().widgets.hovered.bg_fill
             } else {
-                egui::Color32::from_rgb(50, 52, 58)
+                palette.chip
             };
             let stroke = if mine {
-                egui::Stroke::new(1.0, egui::Color32::from_rgb(120, 150, 255))
+                egui::Stroke::new(1.0, palette.chip_mine_border)
             } else {
-                egui::Stroke::new(1.0, crate::ui::theme::palette(ui).surface_strong)
+                egui::Stroke::new(1.0, palette.surface_strong)
             };
             ui.painter()
                 .rect(rect, 6.0, fill, stroke, egui::StrokeKind::Inside);
@@ -510,6 +510,8 @@ pub(super) fn render_reply_quote(
     author_avatar: Option<&egui::TextureHandle>,
     media_texture: Option<&egui::TextureHandle>,
     not_found_label: &str,
+    emoji_map: &std::collections::HashMap<String, usize>,
+    emoji_textures: &crate::ui::EmojiTextures,
 ) -> bool {
     let mut clicked = false;
     ui.horizontal(|ui| {
@@ -533,9 +535,11 @@ pub(super) fn render_reply_quote(
                         );
                         ui.label(
                             egui::RichText::new(author_name)
-                                .small()
+                                .text_style(crate::ui::theme::msg_small_style())
                                 .color(author_color)
-                                .family(egui::FontFamily::Name(crate::ui::BOLD_FAMILY.into())),
+                                .family(egui::FontFamily::Name(
+                                    crate::ui::theme::MSG_BOLD_FAMILY.into(),
+                                )),
                         );
                         if orig.media.is_some() {
                             crate::ui::media::render_reply_thumb(
@@ -549,19 +553,18 @@ pub(super) fn render_reply_quote(
                         } else {
                             crate::ui::media::elide(&orig.content, 90)
                         };
-                        ui.add(
-                            egui::Label::new(
-                                egui::RichText::new(snippet)
-                                    .small()
-                                    .color(crate::ui::theme::palette(ui).text_muted),
-                            )
-                            .truncate(),
+                        crate::ui::emoji_picker::render_preview(
+                            ui,
+                            &snippet,
+                            emoji_map,
+                            emoji_textures,
+                            crate::ui::theme::msg_small_style(),
                         );
                     }
                     None => {
                         ui.label(
                             egui::RichText::new(not_found_label)
-                                .small()
+                                .text_style(crate::ui::theme::msg_small_style())
                                 .italics()
                                 .color(crate::ui::theme::palette(ui).text_muted),
                         );
@@ -606,7 +609,7 @@ pub(super) fn render_reply_quote(
             let hit = rect.expand2(egui::vec2(4.0, 2.0));
             let resp = ui.interact(
                 hit,
-                egui::Id::new(("reply_quote", row_index)),
+                egui::Id::unique(("reply_quote", row_index)),
                 egui::Sense::click(),
             );
             if resp.hovered() {

@@ -12,8 +12,8 @@ use crate::message::{
 };
 use crate::util::MutexExt;
 
-use super::chat_panel::format_bytes;
 use super::AbcomApp;
+use crate::util::human_bytes;
 
 /// Largeur maximale d'une vignette d'image dans le fil.
 const THUMB_MAX_WIDTH: f32 = 320.0;
@@ -65,12 +65,12 @@ pub(crate) fn refused_media_message(
     filename: &str,
     to_user: Option<String>,
 ) -> ChatMessage {
-    let now = chrono::Local::now();
+    let now = jiff::ZonedDateTime::now();
     ChatMessage {
         from: sender.to_string(),
         content: format!("Fichier refusé : {filename}"),
-        timestamp: now.format("%H:%M").to_string(),
-        timestamp_epoch: Some(now.timestamp() as u64),
+        timestamp: now.strftime("%H:%M").to_string(),
+        timestamp_epoch: Some(now.timestamp().as_second() as u64),
         to_user,
         media: None,
         reply_to: None,
@@ -89,9 +89,9 @@ pub(crate) fn refused_media_message(
 /// préfixe : deux fichiers envoyés dans la même seconde doivent rester
 /// distincts, et l'identifiant sert de clé au message.
 pub(crate) fn media_id(filename: &str) -> String {
-    let now = chrono::Local::now();
-    let stamp = now.format("%Y-%m-%d_%H%M%S");
-    let micros = now.timestamp_subsec_micros();
+    let now = jiff::ZonedDateTime::now();
+    let stamp = now.strftime("%Y-%m-%d_%H%M%S");
+    let micros = now.timestamp().subsec_microsecond();
     let safe: String = filename
         .chars()
         .map(|c| {
@@ -157,7 +157,7 @@ pub(crate) fn render_media_progress(
                     .strong(),
                 );
                 ui.label(
-                    egui::RichText::new(format_bytes(progress.total))
+                    egui::RichText::new(human_bytes(progress.total))
                         .small()
                         .color(crate::ui::theme::palette(ui).text_muted),
                 );
@@ -174,8 +174,8 @@ pub(crate) fn render_media_progress(
             ui.label(
                 egui::RichText::new(format!(
                     "{percent} %  |  {} / {}",
-                    format_bytes(progress.done),
-                    format_bytes(progress.total)
+                    human_bytes(progress.done),
+                    human_bytes(progress.total)
                 ))
                 .small()
                 .color(crate::ui::theme::palette(ui).text_muted),
@@ -297,7 +297,7 @@ fn file_card(
                         }
                     });
                     ui.label(
-                        egui::RichText::new(format_bytes(media.size_bytes))
+                        egui::RichText::new(human_bytes(media.size_bytes))
                             .small()
                             .color(palette.text_muted),
                     );
@@ -384,10 +384,14 @@ fn download_button(ui: &mut egui::Ui) -> bool {
 
 /// Raccourcit un texte trop long avec une ellipse finale.
 pub(crate) fn elide(text: &str, max_chars: usize) -> String {
-    if text.chars().count() <= max_chars {
+    use unicode_segmentation::UnicodeSegmentation;
+    if text.graphemes(true).count() <= max_chars {
         return text.to_string();
     }
-    let kept: String = text.chars().take(max_chars.saturating_sub(1)).collect();
+    let kept: String = text
+        .graphemes(true)
+        .take(max_chars.saturating_sub(1))
+        .collect();
     format!("{kept}…")
 }
 

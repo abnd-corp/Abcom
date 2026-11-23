@@ -609,6 +609,22 @@ fn export_renders_a_readable_transcript() {
 }
 
 #[test]
+fn export_uses_the_local_time_shown_in_the_interface() {
+    let dir = tmp_dir("export_local_time");
+    let storage = Storage::open(&dir).unwrap();
+    storage
+        .insert_message(&msg("alice", Some("moi"), "à l'heure", 1_700_000_000))
+        .unwrap();
+
+    let export = storage.export_conversation("moi", Some("alice")).unwrap();
+    let local = crate::util::local_time(1_700_000_000)
+        .unwrap()
+        .strftime("%Y-%m-%d %H:%M")
+        .to_string();
+    assert!(export.starts_with(&format!("[{local}]")), "{export}");
+}
+
+#[test]
 fn compaction_keeps_the_data_intact() {
     let dir = tmp_dir("vacuum");
     let storage = Storage::open(&dir).unwrap();

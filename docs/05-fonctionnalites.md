@@ -1,5 +1,7 @@
 # 05 — Fonctionnalités en détail
 
+[English](en/05-features.md) · **Français** · [Documentation](README.fr.md)
+
 Ce document décrit le comportement attendu de l'application, fonctionnalité par fonctionnalité. C'est la référence à consulter avant de modifier une règle métier.
 
 ## Conversations
@@ -10,7 +12,7 @@ Trois types de fils, distingués par le champ `to_user` du message :
 |---|---|---|
 | `None` | « Tous » | Tous les pairs en ligne (broadcast) |
 | `Some("bob")` | Privé | Le seul destinataire |
-| `Some("#equipe")` | Salon | Les membres en ligne du groupe, personne d'autre |
+| `Some("#<id>")` | Salon | Les membres en ligne du groupe, personne d'autre |
 
 Le préfixe `#` est réservé aux salons (les pseudos ne peuvent pas en contenir). Cette convention fait que stockage, pagination, réactions, réponses et Markdown fonctionnent à l'identique pour les trois cas — seul le filtrage par conversation les distingue.
 
@@ -58,7 +60,7 @@ Abcom étant sans serveur, il n'existe pas de « vérité centrale » d'un group
 
 ### Modèle
 
-Un groupe ([message/group.rs](../src/message/group.rs)) : un nom (identifiant **et** libellé, 1 à 50 caractères alphanumériques Unicode plus `-` et `_`, unicité insensible à la casse), un propriétaire, la liste des membres dans l'ordre d'arrivée, une date de création.
+Un groupe ([message/group.rs](../src/message/group.rs)) : un identifiant immuable, un nom affiché (non vide, au plus 50 octets, caractères alphanumériques Unicode plus `-` et `_`, doublons comparés sans tenir compte de la casse ASCII), un propriétaire, la liste des membres dans l'ordre d'arrivée, une date de création.
 
 ### Rôles
 
@@ -70,7 +72,7 @@ Un groupe ([message/group.rs](../src/message/group.rs)) : un nom (identifiant **
 | Quitter le groupe | ✔ (avec succession) | ✔ |
 | Supprimer le groupe | ✔ | ✘ |
 
-Ces règles sont vérifiées chez l'initiateur ; les récepteurs appliquent les événements reçus (le rôle n'est pas authentifié au niveau protocole — cohérent avec le modèle de menace).
+Ces règles sont vérifiées chez l'initiateur et à la réception selon l'auteur authentifié de la session et le propriétaire connu localement. Les événements n'ont pas de signature transférable hors de cette session.
 
 ### Synchronisation
 
@@ -115,9 +117,24 @@ Chaque utilisateur peut choisir un avatar (PNG/JPEG ; l'import SVG existe derri�
 
 - La croix et Cmd/Ctrl-W **cachent** la fenêtre au lieu de quitter ; sur macOS l'icône disparaît aussi du Dock (politique Accessory). On quitte par le menu du tray.
 - Menu du tray : « Ouvrir Abcom », « Quitter ». Sous Windows le clic gauche ouvre directement la fenêtre.
-- **Autostart** à l'ouverture de session : activé par défaut au premier lancement d'un build release (jamais en debug), interrupteur dans Paramètres → Général. Implémentation par plateforme : Launch Agent (macOS), clé de registre Run (Windows), `.desktop` (Linux).
+- **Autostart** à l'ouverture de session : activé par défaut au premier lancement d'un build release (jamais en debug), interrupteur dans Paramètres → Général. Implémentation par plateforme : Launch Agent (macOS), clé de registre Run (Windows), `.desktop` (Linux). L'entrée lance `abcom --minimized` : l'application démarre directement dans le tray, sans fenêtre ni icône dans le Dock. Sans tray, la fenêtre s'affiche. Seule l'instance principale gère cette entrée ; une instance secondaire (`ABCOM_INSTANCE`) n'y touche jamais.
 - Sous Linux sans tray disponible, la croix quitte normalement.
+- Sous Linux, hors Flatpak et sans paquet qui la fournit, l'application installe son entrée de menu `abcom.desktop` et son icône dans `~/.local/share` : sous Wayland, c'est ce qui permet à GNOME et KDE d'afficher son logo dans la barre de titre et la liste des fenêtres.
 
 ## Paramètres
 
-Thème clair/sombre/système, langue FR/EN, format des notifications, autostart, profil (pseudo, avatar, empreinte de clé, état de la passphrase de salon), crédits et licences.
+Langue FR/EN (choix de session, retour au français au démarrage), format des notifications, autostart, profil (pseudo, avatar, empreinte de clé, état de la passphrase de salon), stockage, apparence (ci-dessous), crédits et licences. La fenêtre garde la taille de la fenêtre de l'application au plus : trop petite, elle défile.
+
+### Apparence
+
+Quatre sous-onglets.
+
+- **Thèmes** : mode clair, sombre ou système (par défaut, conservé d'un lancement à l'autre ; sous Linux, le clair/sombre du bureau est lu via le portail XDG puis les réglages KDE, XFCE ou GTK, et suivi en direct, barre de titre comprise), galerie de dix thèmes (Classique, Salon, Givre, Nocturne, Sable, Ardoise, Guimauve, Encre, Forêt, Lisible), thèmes personnels. Classique est l'apparence d'origine, au bit près.
+- **Texte** : une **taille générale** (80 à 160 %) qui agrandit tout d'un coup, puis des réglages **séparés** pour l'interface et pour les conversations (corps des messages, saisie, noms d'auteur, heures, code), avec en plus l'interligne et l'espacement des lettres des conversations. Le facteur combiné est borné entre 0,7 et 2. **Les emojis ne suivent jamais ces réglages.**
+- **Couleurs** : fond, surfaces, texte et accent, plus une section Avancé (vingt et un rôles). Toucher une couleur d'un thème intégré en crée une copie « (perso) » : un thème intégré n'est jamais modifié. Chaque couleur se saisit en code `#RRGGBB` ou `#RGB`. Le contraste texte/fond est affiché en direct, avec un avertissement sous 4,5:1 qui prévient sans bloquer. On édite la variante du mode affiché.
+- **Polices** : une liste pour l'interface et une pour les conversations, chaque nom écrit dans sa propre police : Noto Sans, Inter, Atkinson Hyperlegible, Lexend, OpenDyslexic, Literata, Nunito, JetBrains Mono. On peut aussi **importer un fichier** (`.ttf`, `.otf`, `.ttc`, `.woff`, `.woff2`, 30 Mo au plus). Un fichier illisible, sans lettres latines, bitmap ou en couleur, ou dont la version décompressée dépasserait 60 Mo, est refusé avec la raison. Importer deux fois le même contenu sélectionne la police déjà importée.
+
+
+Les coupes **italique et gras italique** sont embarquées lorsqu'elles existent ; Lexend utilise une inclinaison simulée, signalée dans les réglages. Les messages reconnaissent aussi `***gras italique***`. Pour une police personnelle, ouvrir **Variantes** sous son nom dans Apparence → Polices, puis associer les fichiers gras, italique et gras italique de la même famille. La famille et le style du fichier sont vérifiés ; une association refusée conserve les anciens fichiers. Les variantes sont copiées dans les données et conservées après redémarrage. Un seul fichier reste suffisant : sans coupe grasse, Inter sert de repli ; sans italique, le texte est incliné. Les collections TTC utilisent leur première face ; les axes variables ne sont pas réglables. Une variante absente ou illisible au démarrage provoque le repli de la famille avec un avis.
+
+Le **catalogue en ligne** est décrit dans [03 — Réseau et sécurité](03-reseau-et-securite.md). Les préférences tiennent dans la clé `appearance` ; les thèmes personnels dans `themes/`, les polices importées dans `fonts/` du dossier des données. Une police absente ou illisible au démarrage retombe sur celle du thème, avec un avis. Si le dossier des données est en lecture seule, l'apparence s'applique pour la session et l'application le dit une fois.

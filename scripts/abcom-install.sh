@@ -6,6 +6,7 @@ BINARY_SOURCE="${1:-.}"
 BINARY_DIR="$HOME/.local/bin"
 DATA_DIR="$HOME/.local/share/abcom"
 APPS_DIR="$HOME/.local/share/applications"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "╔════════════════════════════════════╗"
 echo "║  Installation d'Abcom (v2)         ║"
@@ -32,6 +33,26 @@ fi
 echo "✓ Binaire trouvé: $BINARY_FILE"
 echo ""
 
+# ── Bibliothèques chargées au lancement ───────────────────────────────────────
+# winit les ouvre dynamiquement : `ldd` ne les voit pas, et leur absence fait échouer
+# le lancement (par exemple libxkbcommon-x11 sur un XFCE minimal).
+if command -v ldconfig >/dev/null 2>&1; then
+  missing=""
+  for lib in libxkbcommon.so.0 libxkbcommon-x11.so.0 libwayland-client.so.0 libwayland-cursor.so.0 \
+             libwayland-egl.so.1 libX11.so.6 libXcursor.so.1 libXi.so.6 libXrandr.so.2 libxcb.so.1 \
+             libvulkan.so.1 libasound.so.2; do
+    ldconfig -p 2>/dev/null | grep -q "$lib" || missing="$missing $lib"
+  done
+  if [ -n "$missing" ]; then
+    echo "⚠️  Bibliothèques système manquantes :$missing"
+    echo "   Debian/Ubuntu : sudo apt install libxkbcommon0 libxkbcommon-x11-0 libwayland-client0 libwayland-cursor0 libwayland-egl1 libx11-6 libxcursor1 libxi6 libxrandr2 libxcb1 libvulkan1 libasound2t64"
+    echo "   Fedora : sudo dnf install libxkbcommon libxkbcommon-x11 libwayland-client libwayland-cursor libwayland-egl libX11 libXcursor libXi libXrandr libxcb vulkan-loader alsa-lib"
+    echo "   Arch : sudo pacman -S libxkbcommon libxkbcommon-x11 wayland libx11 libxcursor libxi libxrandr libxcb vulkan-icd-loader alsa-lib"
+    echo "   (l'AppImage et le Flatpak embarquent déjà ces bibliothèques)"
+    echo ""
+  fi
+fi
+
 # ── Installation ──────────────────────────────────────────────────────────────
 echo "→ Installation..."
 
@@ -40,6 +61,17 @@ mkdir -p "$BINARY_DIR"
 cp "$BINARY_FILE" "$BINARY_DIR/abcom"
 chmod +x "$BINARY_DIR/abcom"
 echo "  ✓ Binaire → $BINARY_DIR/abcom"
+
+# Les archives de release et le dépôt fournissent la même icône de lanceur.
+ICON_NAME=chat
+for candidate in "$SCRIPT_DIR/../assets/app_icon.png" "$SCRIPT_DIR/assets/app_icon.png" "$(dirname "$BINARY_FILE")/assets/app_icon.png" "$SCRIPT_DIR/abcom-icon.png"; do
+  if [ -f "$candidate" ]; then
+    mkdir -p "$HOME/.local/share/icons/hicolor/512x512/apps"
+    cp "$candidate" "$HOME/.local/share/icons/hicolor/512x512/apps/abcom.png"
+    ICON_NAME=abcom
+    break
+  fi
+done
 
 # Dossier de données
 mkdir -p "$DATA_DIR"
@@ -51,20 +83,22 @@ echo "  ✓ Dossier de données → $DATA_DIR"
 # deux instances qui se disputaient les mêmes ports.
 
 # ── Raccourci Menu (Desktop file) ─────────────────────────────────────────────
+# Même entrée que celle que l'application génère : son nom (abcom.desktop) est l'app_id de
+# la fenêtre, ce qui permet à GNOME et KDE sous Wayland d'afficher le logo d'Abcom. La
+# marque X-Abcom-Generated laisse l'application la mettre à jour si le binaire est déplacé.
 mkdir -p "$APPS_DIR"
-# `%h` est un spécificateur systemd : dans un fichier .desktop il n'est pas
-# développé et le raccourci ne lance rien. On écrit le chemin absolu (heredoc
-# non quoté), en échappant `$username` qui doit rester pour le shell appelé.
 cat > "$APPS_DIR/abcom.desktop" << EOF
 [Desktop Entry]
 Type=Application
 Name=Abcom
-Comment=Chat LAN P2P et découverte automatique des pairs
-Exec=bash -c 'read -p "Ton pseudonyme: " username; "$BINARY_DIR/abcom" "\$username"'
-Icon=chat
-Terminal=true
-Categories=Network;Chat;
-Keywords=chat;lan;p2p;distributed;
+Comment=Encrypted LAN messenger
+Comment[fr]=Messagerie chiffrée pour le réseau local
+Exec="$BINARY_DIR/abcom" %U
+Icon=$ICON_NAME
+Terminal=false
+Categories=Network;Chat;InstantMessaging;
+StartupWMClass=abcom
+X-Abcom-Generated=true
 EOF
 echo "  ✓ Raccourci menu créé"
 
@@ -86,7 +120,8 @@ echo ""
 echo "🚀 Pour lancer Abcom:"
 echo ""
 echo "   Méthode 1 (Terminal):"
-echo "     $ abcom Alice"
+echo "     $ abcom            (pseudo = nom de l'utilisateur)"
+echo "     $ abcom Alice      (pseudo choisi)"
 echo ""
 echo "   Méthode 2 (Menu/Raccourci):"
 echo "     → Applications → Abcom"

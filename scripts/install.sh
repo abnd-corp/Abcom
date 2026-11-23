@@ -31,6 +31,8 @@ cargo build --release
 mkdir -p "$BINARY_DIR"
 cp target/release/abcom "$BINARY_DIR/abcom"
 chmod +x "$BINARY_DIR/abcom"
+mkdir -p "$HOME/.local/share/icons/hicolor/512x512/apps"
+cp assets/app_icon.png "$HOME/.local/share/icons/hicolor/512x512/apps/abcom.png"
 echo "✓ Binaire installé dans $BINARY_DIR/abcom"
 
 # Ajouter ~/.local/bin au PATH si absent

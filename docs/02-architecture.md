@@ -1,8 +1,10 @@
 # 02 — Architecture
 
+[English](en/02-architecture.md) · **Français** · [Documentation](README.fr.md)
+
 ## Vue d'ensemble
 
-Abcom est un binaire unique. Trois mondes cohabitent dans le processus :
+Abcom est un binaire unique. Plusieurs composants cohabitent dans le processus :
 
 - **le thread principal**, occupé par la boucle egui/eframe (rendu et interactions) ;
 - **un runtime tokio à 2 workers**, qui porte toutes les tâches réseau : découverte UDP, serveur TCP, expéditeurs, streaming des médias ;
@@ -31,6 +33,20 @@ La communication entre ces mondes passe par des canaux `mpsc` tokio. L'état app
                     └─────────────────────┘
 ```
 
+Le tray Linux utilise KSNI sur D-Bus. La bibliothèque gère ses workers ; le code applicatif conserve l'icône, publie les changements de badge directement et ne relit plus un drapeau toutes les 200 ms. Les menus natifs macOS/Windows gardent leur intégration.
+
+## Topologie réseau
+
+```mermaid
+flowchart LR
+    A[Abcom A] <-->|UDP 9001 découverte| B[Abcom B]
+    A <-->|TCP messages · Noise| B
+    A <-->|TCP médias · Noise| B
+    A --- DA[(SQLite A)]
+    B --- DB[(SQLite B)]
+```
+
+
 ## Carte des modules
 
 | Module | Rôle |
@@ -44,12 +60,12 @@ La communication entre ces mondes passe par des canaux `mpsc` tokio. L'état app
 | [network/](../src/network/mod.rs) | Transport chiffré : `secure.rs` (handshake Noise, TOFU, PSK), `pool.rs` (connexions persistantes par pair), `server.rs` (réception), `sender.rs` (expéditeurs par type de paquet), `media_stream.rs` (streaming des fichiers par tranches) |
 | [message/](../src/message/mod.rs) | Types échangés et événements internes : `ChatMessage`, `NetworkPacket` (enum taggé), `GroupAction`, réactions, accusés, avatars, médias, `AppEvent` |
 | [app/](../src/app/mod.rs) | État applicatif : messages et conversations, pairs et alias, groupes, réactions, accusés, transferts, frappe, avatars ; `storage.rs` (SQLite et son thread d'écriture) |
-| [ui/](../src/ui/mod.rs) | Interface : `chat_panel` (fil), `sidebar` (pairs et salons), `input_bar` et `composer/` (saisie), `markdown`, pickers emoji/GIF, `group_modal`, `settings`, `snapshot` (caches dérivés), `tray` (icône résidente), `media` (vignettes, visionneuse), `sound` |
-| [services/klipy.rs](../src/services/klipy.rs) | Client de l'API Klipy (GIF, mèmes, stickers) : recherche avec anti-rebond, pagination |
+| [ui/](../src/ui/mod.rs) | Interface : `chat_panel` (fil), `sidebar` (pairs et salons), `input_bar` et `composer/` (saisie), `markdown`, pickers emoji/GIF, `group_modal`, `settings`, `snapshot` (caches dérivés), `platform/tray` (icône résidente), `media` (vignettes, visionneuse), `sound` |
+| [services/mod.rs](../src/services/mod.rs) | Clients Klipy (GIF) et Fontsource (catalogue de polices sur accord) |
 | [archive.rs](../src/archive.rs) | Compression ZIP d'un dossier pour l'envoyer comme un fichier |
 | [platform/autostart.rs](../src/platform/autostart.rs) | Lancement à l'ouverture de session (Launch Agent, clé Run, `.desktop`) |
 | [emoji_registry.rs](../src/emoji_registry.rs) | 323 emojis PNG embarqués dans le binaire, décodés dans un thread au démarrage |
-| [tests/](../src/tests/) | 288 tests unitaires : un fichier par module testé, réseau testé sur de vraies sockets |
+| [tests/](../src/tests/) | Tests unitaires : un fichier par module testé, réseau testé sur de vraies sockets |
 | [tests/p2p_e2e.rs](../tests/p2p_e2e.rs) | Scénario d'intégration headless entre deux pairs authentifiés |
 
 ## Flux d'un message reçu
@@ -57,7 +73,8 @@ La communication entre ces mondes passe par des canaux `mpsc` tokio. L'état app
 1. Le serveur TCP accepte la connexion (ou réutilise la session Noise existante) et déchiffre une trame.
 2. Le JSON est désérialisé en `NetworkPacket`, converti en `AppEvent` et poussé dans le canal vers l'UI. L'envoi passe par `notify::UiSender`, qui appelle `request_repaint()` : l'UI se réveille immédiatement, il n'y a pas de polling.
 3. Au `update()` suivant, `process_events` dépile l'événement, met à jour `AppState`, incrémente le compteur de génération et envoie un `StorageCmd` au thread de stockage (l'insertion SQLite se fait hors du thread UI).
-4. La frame suivante détecte le changement de génération, reconstruit les caches dérivés concernés et affiche le message.
+4. Après commit, le stockage émet `MessagesPersisted` : c'est ce signal qui autorise l'accusé de livraison.
+5. La frame suivante détecte le changement de génération, reconstruit les caches dérivés concernés et affiche le message.
 
 ## Rendu : réveil par événement et caches dérivés
 
@@ -71,6 +88,8 @@ egui est un framework en mode immédiat : tout ce qui est affiché est reconstru
 - `SidebarCache` — pairs, alias, salons et compteurs non-lus ; dépend des deux générations.
 
 **Fenêtrage du fil.** Seuls les ~100 derniers messages sont rendus ; remonter près du haut charge les 100 précédents depuis SQLite (pagination keyset), avec compensation de l'offset de scroll pour éviter tout saut visuel — le comportement de Discord. L'historique complet vit en base, la RAM ne contient que la fenêtre affichée.
+
+**Apparence.** Les changements de thème, de texte et de police ont une révision dédiée : styles, polices et caches concernés sont réinstallés au changement. Les thèmes intégrés restent immuables ; une couleur modifiée crée un thème personnel.
 
 **Textures bornées.** Les images reçues sont réduites à 1024 px maximum avant création de texture (la pleine résolution est réservée à la visionneuse, libérée à sa fermeture) ; le cache de textures est un LRU de 32 entrées. Les GIF hors écran ne sont pas émis comme widgets (leur emplacement garde sa hauteur) : ils ne décodent rien et ne forcent aucun repaint ; leurs frames sont libérées (`forget_image`) quand ils sortent de la fenêtre chargée ou à la fermeture du picker.
 
