@@ -71,7 +71,7 @@ resvg = { version = "0.50.0", optional = true }
 # Un seul backend deflate : la feature `deflate` tire aussi zopfli, qui
 # n'est jamais exercé au niveau de compression par défaut.
 zip = { version = "9.5.1", default-features = false, features = ["deflate-flate2-zlib-rs"] }
-rusqlite = { version = "0.42.0", features = ["bundled"] }
+rusqlite = { version = "0.43.0", features = ["bundled"] }
 snow = "0.10.0"
 # Signature des annonces de découverte (clé dérivée de l'identité Noise).
 ed25519-dalek = "3.0.0"
