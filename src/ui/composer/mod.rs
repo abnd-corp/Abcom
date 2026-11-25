@@ -191,6 +191,15 @@ fn compute_caret_positions(
     points
 }
 
+/// Durée, en secondes, de chaque phase visible ou cachée du curseur.
+const CARET_BLINK_HALF_PERIOD: f64 = 0.5;
+
+/// Secondes jusqu'à la prochaine bascule du curseur (jamais zéro, pour ne pas redessiner en boucle).
+fn caret_blink_wait(time: f64) -> f32 {
+    let wait = CARET_BLINK_HALF_PERIOD - time.rem_euclid(CARET_BLINK_HALF_PERIOD);
+    wait.max(0.01) as f32
+}
+
 /// Hauteur maximale du composeur, en lignes : au-delà, il défile au lieu de
 /// grandir.
 const MAX_VISIBLE_LINES: usize = 10;
@@ -968,15 +977,12 @@ pub fn custom_composer_input(
     }
 
     if has_focus {
-        // Le clignotement a besoin d'une frame à chaque bascule (250 ms) ;
-        // sans ça le trait reste figé jusqu'au prochain repaint (jusqu'à 5 s
-        // au repos). Uniquement fenêtre au premier plan : en arrière-plan on
-        // garde le rythme quasi dormant.
+        // Une image par bascule du curseur, au premier plan seulement (sinon figé jusqu'à 5 s).
+        let time = ui.input(|i| i.time);
         if ui.input(|i| i.focused) {
-            ui.ctx()
-                .request_repaint_after(std::time::Duration::from_millis(250));
+            ui.ctx().request_repaint_after_secs(caret_blink_wait(time));
         }
-        let blink_on = ((ui.input(|i| i.time) * 2.0) as i64) % 2 == 0;
+        let blink_on = ((time / CARET_BLINK_HALF_PERIOD) as i64) % 2 == 0;
         if blink_on {
             let caret = caret_points
                 .get(*cursor_char)

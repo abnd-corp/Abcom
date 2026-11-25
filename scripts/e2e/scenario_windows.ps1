@@ -13,6 +13,11 @@ function Check([string]$Name, [scriptblock]$Condition) {
     if (& $Condition) { "PASS $Name" } else { "FAIL $Name"; $script:fails++ }
 }
 
+# Application graphique : un binaire console ouvrirait un terminal que l'utilisateur pourrait fermer.
+$bytes = [System.IO.File]::ReadAllBytes($Binary)
+$pe = [System.BitConverter]::ToInt32($bytes, 0x3C)
+Check 'sous-système graphique (sans console)' { [System.BitConverter]::ToUInt16($bytes, $pe + 24 + 68) -eq 2 }
+
 $dataRoot = $env:APPDATA
 foreach ($n in 91, 92) {
     if (Test-Path (Join-Path $dataRoot "abcom-$n")) {

@@ -1,6 +1,6 @@
 [package]
 name = "abcom"
-version = "1.0.0-beta.2"
+version = "1.0.0-beta.3"
 edition = "2021"
 # MSRV vérifiée en CI ; réévaluer avec les dépendances graphiques.
 rust-version = "1.95"
@@ -129,11 +129,13 @@ zbus = { version = "6.2.1", default-features = false, features = ["proxy"] }
 # Replier la fenêtre dans le tray sans la détruire : on la sort de l'écran et
 # de la barre des tâches (style « outil ») tout en la gardant « visible » pour
 # Windows, afin que la boucle egui continue de tourner (tray + notifications).
+# Console : l'aide et les erreurs rejoignent le terminal appelant (application graphique).
 windows-sys = { version = "0.61.2", features = [
     "Win32_Foundation",
     "Win32_UI_WindowsAndMessaging",
     "Win32_Graphics_Gdi",
     "Win32_UI_HiDpi",
+    "Win32_System_Console",
 ] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
