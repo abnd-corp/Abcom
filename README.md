@@ -23,7 +23,7 @@ Beta **1.0.0-beta.2** from [GitHub releases](https://github.com/abnd-corp/Abcom/
 | System | Command or release file |
 | --- | --- |
 | macOS · Homebrew | `brew tap abnd-corp/abcom https://github.com/abnd-corp/Abcom` then `brew install --cask abnd-corp/abcom/abcom` |
-| macOS · app | `abcom-macos-aarch64.tar.gz`: move `Abcom.app` to Applications |
+| macOS · app | `abcom-macos-aarch64.dmg`: open it, then drag Abcom to Applications (same app in `abcom-macos-aarch64.tar.gz`) |
 | Windows · WinGet | `winget install --manifest .\winget\Abnd.Abcom.yaml` from the release's `abcom-package-recipes.tar.gz` (local manifests enabled once by an administrator) |
 | Windows · installer | `abcom-windows-x86_64-setup.exe`, or the portable `abcom-windows-x86_64.zip` |
 | Linux · AppImage | `Abcom-1.0.0-beta.2-x86_64.AppImage`: `chmod +x`, then run it |
