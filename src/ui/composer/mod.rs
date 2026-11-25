@@ -977,10 +977,7 @@ pub fn custom_composer_input(
     }
 
     if has_focus {
-        // Le clignotement a besoin d'une image à chaque bascule, et d'une seule : le
-        // réveil vise la prochaine bascule. Sans lui, le trait resterait figé jusqu'au
-        // prochain repaint (jusqu'à 5 s au repos). Uniquement fenêtre au premier plan :
-        // en arrière-plan on garde le rythme quasi dormant.
+        // Une image par bascule du curseur, au premier plan seulement (sinon figé jusqu'à 5 s).
         let time = ui.input(|i| i.time);
         if ui.input(|i| i.focused) {
             ui.ctx().request_repaint_after_secs(caret_blink_wait(time));
