@@ -1,6 +1,4 @@
-// Application graphique sous Windows : aucune console ne s'ouvre avec la fenêtre, ni ne la ferme
-// avec elle. Les journaux vont dans le fichier du répertoire de données ; les builds de debug
-// gardent leur console pour le développement.
+// Application graphique sous Windows (journaux dans le fichier) ; le debug garde sa console.
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 use std::sync::{Arc, Mutex};
@@ -154,8 +152,7 @@ const USAGE: &str = concat!(
     "Sans PSEUDO, le nom de l'utilisateur du système est utilisé."
 );
 
-/// Sans console propre sous Windows, l'aide et les erreurs s'affichent dans le terminal appelant,
-/// s'il y en a un. Lancée depuis l'Explorateur ou l'ouverture de session, l'application n'en a pas.
+/// Sans console propre sous Windows, l'aide et les erreurs rejoignent le terminal appelant s'il existe.
 fn attach_parent_console() {
     #[cfg(windows)]
     // SAFETY: appel sans pointeur ; un échec signifie simplement qu'aucun terminal n'est attaché.
@@ -166,16 +163,13 @@ fn attach_parent_console() {
     }
 }
 
-fn main() -> std::process::ExitCode {
-    match run() {
-        Ok(()) => std::process::ExitCode::SUCCESS,
-        Err(err) => {
-            tracing::error!("arrêt sur erreur : {err:#}");
-            attach_parent_console();
-            eprintln!("Erreur : {err:?}");
-            std::process::ExitCode::FAILURE
-        }
+fn main() -> anyhow::Result<()> {
+    let result = run();
+    if let Err(err) = &result {
+        tracing::error!("arrêt sur erreur : {err:#}");
+        attach_parent_console();
     }
+    result
 }
 
 fn run() -> anyhow::Result<()> {
