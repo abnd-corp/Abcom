@@ -242,3 +242,9 @@ jobs:
           cargo build --locked
           python3 scripts/package_macos.py target/debug/abcom dist/Abcom.app
           codesign --verify --deep --strict dist/Abcom.app
+          bash scripts/package_dmg.sh dist/Abcom.app dist/abcom-macos-aarch64.dmg
+          mount=$(mktemp -d)
+          hdiutil attach -quiet -nobrowse -readonly -mountpoint "$mount" dist/abcom-macos-aarch64.dmg
+          codesign --verify --deep --strict "$mount/Abcom.app"
+          test -L "$mount/Applications"
+          hdiutil detach -quiet "$mount"

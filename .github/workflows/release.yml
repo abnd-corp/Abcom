@@ -75,6 +75,7 @@ jobs:
         run: |
           python3 scripts/package_macos.py target/${{ matrix.target }}/release/abcom dist/Abcom.app
           tar -czf ${{ matrix.archive }} -C dist Abcom.app
+          bash scripts/package_dmg.sh dist/Abcom.app abcom-macos-aarch64.dmg
 
       - name: Archive (Windows)
         if: runner.os == 'Windows'
@@ -94,6 +95,7 @@ jobs:
           path: |
             ${{ matrix.archive }}
             abcom-windows-x86_64-setup.exe
+            abcom-macos-aarch64.dmg
 
   linux-formats:
     uses: ./.github/workflows/linux-packages.yml
@@ -139,7 +141,7 @@ jobs:
           body: |
             Voir [CHANGELOG.md](https://github.com/abnd-corp/Abcom/blob/main/CHANGELOG.md).
 
-            Installation (WinGet, Homebrew, Nix, AppImage, Flatpak, installateur Windows) :
+            Installation (WinGet, Homebrew, Nix, AppImage, Flatpak, DMG macOS, installateur Windows) :
             voir le [README](https://github.com/abnd-corp/Abcom#installation).
 
             ⚠️ Binaires non signés, par choix ([ADR 0002](https://github.com/abnd-corp/Abcom/blob/main/docs/adr/0002-no-code-signing.md)) :
