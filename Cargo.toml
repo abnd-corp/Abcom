@@ -1,6 +1,6 @@
 [package]
 name = "abcom"
-version = "1.0.0-beta.2"
+version = "1.0.0-beta.3"
 edition = "2021"
 # MSRV vérifiée en CI ; réévaluer avec les dépendances graphiques.
 rust-version = "1.95"
