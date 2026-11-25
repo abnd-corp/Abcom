@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Dépendances système
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev dbus
@@ -28,7 +28,7 @@ jobs:
           components: rustfmt, clippy
 
       - name: Cache Cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -74,7 +74,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -103,7 +103,7 @@ jobs:
     name: Couverture de tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Dépendances système
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev dbus
@@ -123,7 +123,7 @@ jobs:
     name: MSRV (rust-version de Cargo.toml)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Dépendances système
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxkbcommon-dev dbus
@@ -143,7 +143,7 @@ jobs:
     name: Build minimal (sans GTK ni ALSA)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Volontairement aucune dépendance système : c'est tout l'intérêt du
       # test. Si `--no-default-features` réclamait encore GTK, libappindicator
@@ -181,7 +181,7 @@ jobs:
             built: abcom
             file: abcom-macos-aarch64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Dépendances système (Linux)
         if: runner.os == 'Linux'
@@ -205,7 +205,7 @@ jobs:
           ./scripts/package_windows.ps1 -BinaryPath target/release/abcom.exe
           Copy-Item dist/windows/abcom-windows-x86_64-setup.exe e2e/
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: e2e-${{ matrix.name }}
           path: e2e/
@@ -220,7 +220,7 @@ jobs:
       matrix:
         os: [macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo check --all-targets --all-features --locked
 
