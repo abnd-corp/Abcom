@@ -7,6 +7,9 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 
 ## [Non publié]
 
+### Corrigé
+- Windows : l'application ne s'ouvre plus avec un terminal ; le fermer quittait l'application et il affichait les journaux. Le binaire est une application graphique, contrôlée par la CI avant chaque release ; l'aide et les erreurs de ligne de commande s'affichent dans le terminal appelant
+
 ## [1.0.0-beta.2] — 2026-11-22
 
 Première release publiée sur GitHub : installateur et archive Windows, app macOS et cask Homebrew, AppImage, Flatpak et archive Linux, manifeste WinGet, flake Nix. Binaires non signés, par décision ([ADR 0002](docs/adr/0002-no-code-signing.fr.md)).

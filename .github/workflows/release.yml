@@ -84,6 +84,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          ./scripts/check_windows_gui.ps1 -BinaryPath target/${{ matrix.target }}/release/abcom.exe
           ./scripts/package_windows.ps1 -BinaryPath target/${{ matrix.target }}/release/abcom.exe
           Copy-Item dist/windows/abcom-windows-x86_64-setup.exe .
 

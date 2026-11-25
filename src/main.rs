@@ -1,3 +1,8 @@
+// Application graphique sous Windows : aucune console ne s'ouvre avec la fenêtre, ni ne la ferme
+// avec elle. Les journaux vont dans le fichier du répertoire de données ; les builds de debug
+// gardent leur console pour le développement.
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
@@ -149,14 +154,40 @@ const USAGE: &str = concat!(
     "Sans PSEUDO, le nom de l'utilisateur du système est utilisé."
 );
 
-fn main() -> anyhow::Result<()> {
+/// Sans console propre sous Windows, l'aide et les erreurs s'affichent dans le terminal appelant,
+/// s'il y en a un. Lancée depuis l'Explorateur ou l'ouverture de session, l'application n'en a pas.
+fn attach_parent_console() {
+    #[cfg(windows)]
+    // SAFETY: appel sans pointeur ; un échec signifie simplement qu'aucun terminal n'est attaché.
+    unsafe {
+        windows_sys::Win32::System::Console::AttachConsole(
+            windows_sys::Win32::System::Console::ATTACH_PARENT_PROCESS,
+        );
+    }
+}
+
+fn main() -> std::process::ExitCode {
+    match run() {
+        Ok(()) => std::process::ExitCode::SUCCESS,
+        Err(err) => {
+            tracing::error!("arrêt sur erreur : {err:#}");
+            attach_parent_console();
+            eprintln!("Erreur : {err:?}");
+            std::process::ExitCode::FAILURE
+        }
+    }
+}
+
+fn run() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let (requested_name, start_minimized) = match parse_cli(&args)? {
         CliRequest::Help => {
+            attach_parent_console();
             println!("{USAGE}");
             return Ok(());
         }
         CliRequest::Version => {
+            attach_parent_console();
             println!("abcom {}", env!("CARGO_PKG_VERSION"));
             return Ok(());
         }
