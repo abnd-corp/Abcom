@@ -9,6 +9,7 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 
 ### Corrigé
 - Windows : l'application ne s'ouvre plus avec un terminal ; le fermer quittait l'application et il affichait les journaux. Le binaire est une application graphique, contrôlée par la CI avant chaque release ; l'aide et les erreurs de ligne de commande s'affichent dans le terminal appelant
+- Le texte tapé s'affiche une image plus tôt : une seule image en file au lieu de deux (`SurfaceConfig::LOW_LATENCY` d'egui)
 
 ## [1.0.0-beta.2] — 2026-11-22
 
