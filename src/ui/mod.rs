@@ -1752,7 +1752,9 @@ pub mod shortcuts {
 /// Configuration wgpu privilégiant le GPU intégré : le défaut d'egui-wgpu est
 /// `HighPerformance`, ce qui réveille la carte dédiée pour une interface 2D.
 fn low_power_wgpu() -> eframe::egui_wgpu::WgpuConfiguration {
-    let mut options = eframe::egui_wgpu::WgpuConfiguration::default();
+    let mut options = eframe::egui_wgpu::WgpuConfiguration::default()
+        // Une image en file au lieu de deux : la frappe s'affiche une image plus tôt.
+        .with_surface_config(eframe::egui_wgpu::SurfaceConfig::LOW_LATENCY);
     if let eframe::egui_wgpu::WgpuSetup::CreateNew(setup) = &mut options.wgpu_setup {
         setup.power_preference = eframe::wgpu::PowerPreference::LowPower;
 
