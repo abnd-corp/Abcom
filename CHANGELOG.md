@@ -7,9 +7,11 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 
 ## [Non publié]
 
-## [1.0.0-beta.2] — 2026-11-22
+## [1.0.0-beta.3] — 2026-11-25
 
 Première release publiée sur GitHub : installateur et archive Windows, app macOS et cask Homebrew, AppImage, Flatpak et archive Linux, manifeste WinGet, flake Nix. Binaires non signés, par décision ([ADR 0002](docs/adr/0002-no-code-signing.fr.md)).
+
+Elle remplace la 1.0.0-beta.2 du 23 novembre, retirée : son installateur Windows ouvrait un terminal à côté de l'application, dont la fermeture quittait l'application.
 
 ### Maintenance
 - Dock macOS : empêche eframe de remplacer l’ICNS du bundle par le PNG de fenêtre ; contrôle natif de l’icône après trois frames, avec contre-épreuve de l’ancien défaut
@@ -21,6 +23,9 @@ Première release publiée sur GitHub : installateur et archive Windows, app mac
 - Mise à jour des dépendances directes et transitives, avec adaptation à egui 0.37 et ZIP 9 ; les vulnérabilités signalées sont corrigées
 
 ### Corrigé
+- Windows : l'application ne s'ouvre plus avec un terminal ; le fermer quittait l'application et il affichait les journaux. Le binaire est une application graphique, contrôlée par la CI avant chaque release ; l'aide et les erreurs de ligne de commande s'affichent dans le terminal appelant
+- Le texte tapé s'affiche une image plus tôt : une seule image en file au lieu de deux (`SurfaceConfig::LOW_LATENCY` d'egui)
+- Champ de saisie actif : le curseur clignotant ne redessine la fenêtre qu'à chaque bascule (2 images/s au lieu de 4), soit deux fois moins de calcul au repos, sensible avec un rendu logiciel (VM, absence de pilote graphique)
 - `abcom --help` et `--version` répondent sans démarrer l'application ; auparavant, `--help` était pris pour un pseudo et annoncé sur le réseau local, et toute option inconnue est désormais refusée
 - Les tailles de fichier s'affichent identiquement dans la conversation et dans l'onglet Stockage (unités décimales : ko, Mo, Go)
 - L'export d'une conversation horodate les messages à l'heure locale, comme l'interface, et non plus en UTC
@@ -40,6 +45,7 @@ Première release publiée sur GitHub : installateur et archive Windows, app mac
 - README courts en anglais et français, sommaires et guides bilingues, dépannage/FAQ et contrôle local des liens et des traductions
 
 ### Ajouté
+- Image disque `abcom-macos-aarch64.dmg` dans chaque release : l'ouvrir, puis glisser Abcom dans Applications. L'archive `.tar.gz` reste publiée pour le cask Homebrew
 - **Variantes de polices** : vrais italiques et gras italiques lorsqu’ils existent, association des coupes des polices personnelles avec validation de famille/style et persistance ; Lexend conserve un italique simulé explicite. Le catalogue télécharge les variantes disponibles après consentement
 - Linux : AppImage et bundle Flatpak construits sans catalogue public, avec icônes, licences, empreintes et tests de fenêtre sous Xvfb ; téléchargements GitHub documentés en EN/FR
 - Distribution sans catalogue public : cask Homebrew local, installateur Windows par utilisateur et manifeste WinGet, flake Nix verrouillé ; recettes et empreintes produites depuis les artefacts réels de release

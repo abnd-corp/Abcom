@@ -509,3 +509,13 @@ fn follow_caret_scroll_follows_caret_beyond_the_visible_height() {
     // Curseur déjà visible : le défilement molette est conservé.
     assert_eq!(follow_caret_scroll(2.0, 5.0, 12), 2.0);
 }
+
+#[test]
+fn caret_blink_wakes_once_per_toggle() {
+    // Une bascule toutes les 500 ms : le réveil vise la suivante, pas un rythme fixe plus rapide.
+    assert!((caret_blink_wait(0.0) - 0.5).abs() < 1e-6);
+    assert!((caret_blink_wait(0.2) - 0.3).abs() < 1e-6);
+    assert!((caret_blink_wait(10.75) - 0.25).abs() < 1e-6);
+    // Juste avant une bascule : réveil minimal, jamais nul (sinon repaint en boucle).
+    assert!(caret_blink_wait(0.4999999) >= 0.01);
+}

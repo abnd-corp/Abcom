@@ -196,10 +196,19 @@ jobs:
           mkdir -p e2e
           cp "target/release/${{ matrix.built }}" "e2e/${{ matrix.file }}"
 
+      # Le binaire publié est celui de l'installateur : application graphique, sans console.
+      - name: Installateur de release (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./scripts/check_windows_gui.ps1 -BinaryPath target/release/abcom.exe
+          ./scripts/package_windows.ps1 -BinaryPath target/release/abcom.exe
+          Copy-Item dist/windows/abcom-windows-x86_64-setup.exe e2e/
+
       - uses: actions/upload-artifact@v4
         with:
           name: e2e-${{ matrix.name }}
-          path: e2e/${{ matrix.file }}
+          path: e2e/
           retention-days: 7
           if-no-files-found: error
 
@@ -233,3 +242,9 @@ jobs:
           cargo build --locked
           python3 scripts/package_macos.py target/debug/abcom dist/Abcom.app
           codesign --verify --deep --strict dist/Abcom.app
+          bash scripts/package_dmg.sh dist/Abcom.app dist/abcom-macos-aarch64.dmg
+          mount=$(mktemp -d)
+          hdiutil attach -quiet -nobrowse -readonly -mountpoint "$mount" dist/abcom-macos-aarch64.dmg
+          codesign --verify --deep --strict "$mount/Abcom.app"
+          test -L "$mount/Applications"
+          hdiutil detach -quiet "$mount"

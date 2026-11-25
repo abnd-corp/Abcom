@@ -1,3 +1,6 @@
+// Application graphique sous Windows (journaux dans le fichier) ; le debug garde sa console.
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
@@ -149,14 +152,36 @@ const USAGE: &str = concat!(
     "Sans PSEUDO, le nom de l'utilisateur du système est utilisé."
 );
 
+/// Sans console propre sous Windows, l'aide et les erreurs rejoignent le terminal appelant s'il existe.
+fn attach_parent_console() {
+    #[cfg(windows)]
+    // SAFETY: appel sans pointeur ; un échec signifie simplement qu'aucun terminal n'est attaché.
+    unsafe {
+        windows_sys::Win32::System::Console::AttachConsole(
+            windows_sys::Win32::System::Console::ATTACH_PARENT_PROCESS,
+        );
+    }
+}
+
 fn main() -> anyhow::Result<()> {
+    let result = run();
+    if let Err(err) = &result {
+        tracing::error!("arrêt sur erreur : {err:#}");
+        attach_parent_console();
+    }
+    result
+}
+
+fn run() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let (requested_name, start_minimized) = match parse_cli(&args)? {
         CliRequest::Help => {
+            attach_parent_console();
             println!("{USAGE}");
             return Ok(());
         }
         CliRequest::Version => {
+            attach_parent_console();
             println!("abcom {}", env!("CARGO_PKG_VERSION"));
             return Ok(());
         }
