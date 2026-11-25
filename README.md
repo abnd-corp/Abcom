@@ -16,7 +16,7 @@ Built in Rust with a native egui interface for macOS, Windows and Linux.
 
 ## Installation
 
-Beta **1.0.0-beta.2** from [GitHub releases](https://github.com/abnd-corp/Abcom/releases): packages for macOS Apple silicon, Windows x86-64 (ARM64 through emulation) and Linux x86-64. Other systems use Nix or [the sources](#quick-start).
+Beta **1.0.0-beta.3** from [GitHub releases](https://github.com/abnd-corp/Abcom/releases): packages for macOS Apple silicon, Windows x86-64 (ARM64 through emulation) and Linux x86-64. Other systems use Nix or [the sources](#quick-start).
 
 > **Unsigned, by design:** no Apple Developer ID or notarization, no Authenticode, and none planned ([ADR 0002](docs/adr/0002-no-code-signing.md)). Check the file against the release's `SHA256SUMS.txt`, then authorize the first launch: on macOS, System Settings → Privacy & Security → **Open Anyway**; on Windows, SmartScreen → **More info** → **Run anyway**. Never disable Gatekeeper or SmartScreen globally.
 
@@ -26,9 +26,9 @@ Beta **1.0.0-beta.2** from [GitHub releases](https://github.com/abnd-corp/Abcom/
 | macOS · app | `abcom-macos-aarch64.dmg`: open it, then drag Abcom to Applications (same app in `abcom-macos-aarch64.tar.gz`) |
 | Windows · WinGet | `winget install --manifest .\winget\Abnd.Abcom.yaml` from the release's `abcom-package-recipes.tar.gz` (local manifests enabled once by an administrator) |
 | Windows · installer | `abcom-windows-x86_64-setup.exe`, or the portable `abcom-windows-x86_64.zip` |
-| Linux · AppImage | `Abcom-1.0.0-beta.2-x86_64.AppImage`: `chmod +x`, then run it |
-| Linux · Flatpak | `flatpak install --user ./Abcom-1.0.0-beta.2-x86_64.flatpak` |
-| Nix · Linux, macOS | `nix profile add github:abnd-corp/Abcom/v1.0.0-beta.2#abcom` (built from source) |
+| Linux · AppImage | `Abcom-1.0.0-beta.3-x86_64.AppImage`: `chmod +x`, then run it |
+| Linux · Flatpak | `flatpak install --user ./Abcom-1.0.0-beta.3-x86_64.flatpak` |
+| Nix · Linux, macOS | `nix profile add github:abnd-corp/Abcom/v1.0.0-beta.3#abcom` (built from source) |
 
 Download commands, checksum verification, updates and uninstallation for each format: [installation recipes](packaging/README.md).
 
