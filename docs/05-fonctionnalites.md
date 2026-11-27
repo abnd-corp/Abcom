@@ -108,10 +108,14 @@ Chaque utilisateur peut choisir un avatar (PNG/JPEG ; l'import SVG existe derri�
 
 ## Notifications et présence
 
-- Fenêtre visible : toast interne + son (thread audio unique, lancé au premier bip).
-- Fenêtre cachée ou minimisée : **notification système native** (macOS, Windows, Linux/D-Bus), avec deux formats réglables : aperçu (`Alice : début du message…`, défaut) ou discret (`Nouveau message de Alice`).
-- Badge non-lus sur l'icône du tray ; compteurs par conversation dans la barre latérale, remis à zéro à l'ouverture.
-- Sourdine par conversation (privée ou salon).
+Tout se règle dans Paramètres → Notifications ; chaque signal est actif par défaut.
+
+- Fenêtre active : toast interne, et un son si le message arrive dans une autre conversation que celle ouverte (thread audio unique, lancé au premier bip).
+- Fenêtre derrière une autre application, réduite ou repliée dans le tray : **notification système native** au nom d'Abcom (macOS, Windows, Linux/D-Bus), avec aperçu du message (`Alice` / `début du message…`, défaut) ou discrète (`Nouveau message`), et le son d'Abcom. Les notifications du système restent silencieuses : un seul son, celui qu'on règle.
+- Fenêtre au second plan ou réduite : la fenêtre **attire l'attention**, clignotement dans la barre des tâches (Windows, Linux) ou rebond de l'icône dans le Dock (macOS).
+- **Pastille** du nombre de non-lus sur l'icône de l'application : Dock (macOS), surimpression rouge sur le bouton de la barre des tâches (Windows), compteur des lanceurs compatibles (KDE Plasma, Ubuntu Dock, Dash to Dock), et pastille du tray. Compteurs par conversation dans la barre latérale, remis à zéro à l'ouverture.
+- Sourdine par conversation (privée, salon ou « Tous ») par clic droit, conservée au redémarrage : ni son, ni notification, ni clignotement.
+- « Envoyer une notification d'essai » vérifie que le système autorise les notifications d'Abcom.
 
 ## Mode résident
 
@@ -123,7 +127,7 @@ Chaque utilisateur peut choisir un avatar (PNG/JPEG ; l'import SVG existe derri�
 
 ## Paramètres
 
-Langue FR/EN (choix de session, retour au français au démarrage), format des notifications, autostart, profil (pseudo, avatar, empreinte de clé, état de la passphrase de salon), stockage, apparence (ci-dessous), crédits et licences. La fenêtre garde la taille de la fenêtre de l'application au plus : trop petite, elle défile.
+Langue FR/EN (choix de session, retour au français au démarrage), combinaison d'envoi des messages, notifications (onglet dédié), autostart, profil (pseudo, avatar, empreinte de clé, état de la passphrase de salon), stockage, apparence (ci-dessous), crédits et licences. La fenêtre garde la taille de la fenêtre de l'application au plus : trop petite, elle défile.
 
 ### Apparence
 

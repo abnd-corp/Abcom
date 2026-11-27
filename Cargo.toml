@@ -130,17 +130,20 @@ zbus = { version = "6.2.1", default-features = false, features = ["proxy"] }
 # de la barre des tâches (style « outil ») tout en la gardant « visible » pour
 # Windows, afin que la boucle egui continue de tourner (tray + notifications).
 # Console : l'aide et les erreurs rejoignent le terminal appelant (application graphique).
+# COM et registre : pastille de la barre des tâches, identité des notifications (HKCU).
 windows-sys = { version = "0.61.2", features = [
     "Win32_Foundation",
     "Win32_UI_WindowsAndMessaging",
     "Win32_Graphics_Gdi",
     "Win32_UI_HiDpi",
     "Win32_System_Console",
+    "Win32_System_Com",
+    "Win32_System_Registry",
 ] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-# Bascule Dock/Accessory quand la fenêtre est repliée dans la barre de menus
-# (versions alignées sur celles déjà présentes via tray-icon/winit).
+# Bascule Dock/Accessory quand la fenêtre est repliée dans la barre de menus, et pastille
+# du Dock (versions alignées sur celles déjà présentes via tray-icon/winit).
 objc2 = "0.6.5"
 objc2-foundation = { version = "0.3.2", features = ["NSThread", "NSData", "NSBundle"] }
 objc2-app-kit = { version = "0.3.2", features = [
@@ -154,6 +157,7 @@ objc2-app-kit = { version = "0.3.2", features = [
     "NSButton",
     "NSControl",
     "NSView",
+    "NSDockTile",
 ] }
 
 # Binaire compact et rapide : LTO inter-crates, une seule unité de codegen,

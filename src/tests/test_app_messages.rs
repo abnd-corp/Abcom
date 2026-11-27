@@ -44,6 +44,31 @@ fn test_unread_count_increments() {
 }
 
 #[test]
+fn total_unread_sums_conversations_like_unread_count() {
+    let mut s = state("alice");
+    s.messages.push(msg("bob", Some("alice"), "lu"));
+    s.mark_conversation_read("bob");
+    s.messages.push(msg("bob", Some("alice"), "1"));
+    s.messages.push(msg("carol", Some("alice"), "2"));
+    s.messages.push(msg("dave", Some("#salon"), "3"));
+    s.messages
+        .push(msg("alice", Some("bob"), "envoyé, jamais compté"));
+    s.messages.push(msg("bob", None, "« Tous », jamais compté"));
+    let by_conversation: usize = ["bob", "carol", "#salon"]
+        .iter()
+        .map(|conv| s.unread_count(conv))
+        .sum();
+    assert_eq!(s.total_unread(false), 3);
+    assert_eq!(s.total_unread(false), by_conversation);
+
+    // La conversation ouverte ne compte pas, comme dans la barre latérale…
+    s.selected_conversation = Some("carol".to_string());
+    assert_eq!(s.total_unread(false), 2);
+    // … sauf fenêtre au second plan : son message n'a pas été vu.
+    assert_eq!(s.total_unread(true), 3);
+}
+
+#[test]
 fn test_unread_count_zero_when_conversation_selected() {
     let mut s = state("alice");
     s.messages.push(msg("bob", Some("alice"), "hi"));

@@ -31,6 +31,7 @@ mod i18n;
 mod input_bar;
 mod markdown;
 mod media;
+mod notifications;
 mod online_fonts;
 mod outbound;
 mod picker;
@@ -78,6 +79,7 @@ pub(crate) enum UiLanguage {
 pub(crate) enum SettingsTab {
     Profile,
     General,
+    Notifications,
     Appearance,
     Storage,
     Credits,
@@ -146,6 +148,8 @@ pub struct UiRuntimeChannels {
     pub media_offer_rx: mpsc::Receiver<MediaStreamOffer>,
     /// Magasin TOFU partagé : l'UI n'y touche que pour le ré-appairage explicite.
     pub trust: Arc<crate::network::secure::TrustStore>,
+    /// Runtime des tâches de fond (pastille du lanceur Linux) ; absent dans les tests.
+    pub runtime: Option<tokio::runtime::Handle>,
 }
 
 /// Textures emoji décodées à la demande, indexées comme `emoji_registry::EMOJI_DATA`.
@@ -312,8 +316,15 @@ pub(crate) struct AbcomApp {
     /// Fermeture réelle demandée (menu tray « Quitter ») : laisse passer le
     /// close_requested au lieu de cacher.
     pub(crate) really_quit: bool,
-    /// Les notifications natives montrent un aperçu du message (persisté).
-    pub(crate) notif_preview: bool,
+    /// Réglages de l'onglet Notifications (persistés).
+    pub(crate) notifications: notifications::NotificationSettings,
+    /// Non-lus sur l'icône de l'application (Dock, barre des tâches, lanceur Linux).
+    pub(crate) app_badge: crate::platform::attention::AppBadge,
+    /// Total des non-lus et ce dont il dépend : recalculé seulement au changement.
+    pub(crate) unread_total: usize,
+    pub(crate) unread_total_key: Option<(u64, Option<String>, bool)>,
+    /// Clignotement demandé par un événement, émis à la passe suivante.
+    pub(crate) pending_attention: bool,
     /// Lancement au démarrage de session activé (persisté + état système).
     pub(crate) autostart_enabled: bool,
     pub(crate) net: NetworkChannels,
@@ -324,7 +335,6 @@ pub(crate) struct AbcomApp {
     /// juste au-dessus de lui comme celle des réactions au-dessus de leur « + ».
     pub(crate) emoji_btn_rect: egui::Rect,
     pub(crate) gif_picker: GifPickerState,
-    pub(crate) enable_sound_notifications: bool,
     pub(crate) last_notification: Option<String>,
     pub(crate) notification_time: std::time::Instant,
     pub(crate) has_unread: bool,
@@ -336,7 +346,7 @@ pub(crate) struct AbcomApp {
     /// (cf. `AppEvent::MessagesPersisted`), par hash.
     pub(crate) pending_acks: std::collections::HashMap<u64, Vec<NetworkSendRequest>>,
     pub(crate) last_retry_time: std::time::Instant,
-    pub(crate) muted_conversations: std::collections::HashSet<Option<String>>,
+    pub(crate) muted_conversations: notifications::MutedConversations,
     /// 0 = none, 1 = pick files, 2 = pick folder (deferred to next frame to avoid AppKit conflict)
     pub(crate) pending_picker: u8,
     pub(crate) ui_language: UiLanguage,
@@ -469,7 +479,8 @@ impl AbcomApp {
         let (picker_tx, picker_rx) = std::sync::mpsc::channel();
         // Préférences persistées (table kv).
         let (
-            notif_preview,
+            notifications,
+            muted_conversations,
             autostart_enabled,
             retention_days,
             purge_includes_images,
@@ -478,7 +489,8 @@ impl AbcomApp {
         ) = {
             let s = state.lock_safe();
             (
-                s.pref_bool("notif_preview", true),
+                notifications::NotificationSettings::load(&s),
+                notifications::load_muted(&s),
                 s.pref_bool("autostart", false) && crate::platform::autostart::is_supported(),
                 s.retention_days(),
                 s.purge_includes_images(),
@@ -543,7 +555,6 @@ impl AbcomApp {
                 last_input: std::time::Instant::now(),
                 was_open: false,
             },
-            enable_sound_notifications: true,
             last_notification: None,
             notification_time: std::time::Instant::now(),
             has_unread: false,
@@ -573,7 +584,7 @@ impl AbcomApp {
             last_typing_broadcast: std::time::Instant::now(),
             pending_acks: std::collections::HashMap::new(),
             last_retry_time: std::time::Instant::now(),
-            muted_conversations: std::collections::HashSet::new(),
+            muted_conversations,
             pending_picker: 0,
             ui_language: UiLanguage::French,
             appearance: saved_appearance.clone(),
@@ -617,7 +628,11 @@ impl AbcomApp {
             tray_host: true,
             window_hidden: false,
             really_quit: false,
-            notif_preview,
+            notifications,
+            app_badge: crate::platform::attention::AppBadge::new(channels.runtime.as_ref()),
+            unread_total: 0,
+            unread_total_key: None,
+            pending_attention: false,
             autostart_enabled,
             chat_cache: snapshot::ChatCache::default(),
             sidebar_cache: snapshot::SidebarCache::default(),
@@ -1063,28 +1078,73 @@ impl AbcomApp {
         }
     }
 
-    /// Notification système native (fenêtre cachée/minimisée). Envoyée d'un
-    /// thread détaché : l'appel peut bloquer selon l'OS.
-    pub(crate) fn notify_native(summary: String, body: String) {
-        std::thread::Builder::new()
-            .name("abcom-notify".into())
-            .spawn(move || {
-                let _ = notify_rust::Notification::new()
-                    .appname("Abcom")
-                    .summary(&summary)
-                    .body(&body)
-                    .show();
-            })
-            .ok();
+    /// État de la fenêtre à l'arrivée d'un événement : réduite compte comme arrière-plan.
+    fn window_presence(&self) -> notifications::WindowPresence {
+        if self.window_hidden {
+            notifications::WindowPresence::Hidden
+        } else if self.window_focused {
+            notifications::WindowPresence::Focused
+        } else {
+            notifications::WindowPresence::Background
+        }
     }
 
-    /// Corps de notification pour un message entrant, selon la préférence
-    /// « aperçu » (persistée).
-    pub(crate) fn native_body_for(&self, content: &str) -> String {
-        if self.notif_preview {
+    /// Notification système, son et clignotement d'un événement entrant, selon les réglages.
+    pub(crate) fn alert(
+        &mut self,
+        summary: String,
+        body: String,
+        conversation_open: bool,
+        muted: bool,
+    ) {
+        let alert = notifications::alert_for(
+            &self.notifications,
+            self.window_presence(),
+            conversation_open,
+            muted,
+        );
+        if alert.system {
+            crate::platform::attention::show_notification(summary, body);
+        }
+        if alert.sound {
+            sound::play_notification_sound();
+        }
+        self.pending_attention |= alert.attention;
+    }
+
+    /// Corps de notification pour un message entrant, selon le réglage « aperçu ».
+    pub(crate) fn notification_body(&self, content: &str) -> String {
+        if self.notifications.preview {
             media::elide(content, 120)
         } else {
             self.t(i18n::NOUVEAU_MESSAGE).to_string()
+        }
+    }
+}
+
+impl AbcomApp {
+    /// Pastilles de non-lus (icône de l'application et tray). Fenêtre au second plan, la
+    /// conversation ouverte compte aussi : ses nouveaux messages n'ont pas été vus.
+    fn refresh_unread_badges(&mut self) {
+        let shown = if self.notifications.badge {
+            let s = self.state.lock_safe();
+            let count_selected = !self.window_focused;
+            let key = (
+                s.content_generation,
+                s.selected_conversation.clone(),
+                count_selected,
+            );
+            if self.unread_total_key.as_ref() != Some(&key) {
+                self.unread_total = s.total_unread(count_selected);
+                self.unread_total_key = Some(key);
+            }
+            self.unread_total
+        } else {
+            0
+        };
+        self.app_badge.set(shown, self.t(i18n::MESSAGES_NON_LUS));
+        if let Some(tray) = &mut self.tray {
+            tray.set_unread(shown > 0);
         }
     }
 }
@@ -1161,11 +1221,12 @@ impl eframe::App for AbcomApp {
         self.process_media_offers();
         self.periodic_tasks();
 
-        // Badge non-lus sur l'icône résidente.
-        let unread = self.has_unread;
-        if let Some(t) = &mut self.tray {
-            t.set_unread(unread);
+        if std::mem::take(&mut self.pending_attention) {
+            ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
+                egui::UserAttentionType::Informational,
+            ));
         }
+        self.refresh_unread_badges();
 
         // Le backend graphique a tenu : la session compte comme saine, plus
         // rien à contourner au prochain lancement (cf.
@@ -1662,6 +1723,8 @@ pub fn run(
     tray::install_event_handlers(ui_ctx.clone());
     // Wayland : l'icône de fenêtre vient de l'entrée de menu dont le nom est l'app_id.
     crate::platform::desktop_entry::ensure();
+    // Notifications au nom d'Abcom plutôt que du Finder ou de PowerShell.
+    crate::platform::attention::init_notification_identity(&crate::config::data_dir());
 
     let mut viewport = egui::ViewportBuilder::default()
         .with_title("Abcom")

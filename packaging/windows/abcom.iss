@@ -38,10 +38,12 @@ LicenseFile=..\..\LICENSE
 Source: "{#BinaryPath}"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\Abcom"; Filename: "{app}\abcom.exe"; WorkingDir: "{app}"
+Name: "{autoprograms}\Abcom"; Filename: "{app}\abcom.exe"; WorkingDir: "{app}"; AppUserModelID: "corp.abnd.abcom"
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "Abcom"; Flags: uninsdeletevalue
+; Nom et icône des notifications, écrits par l'application au démarrage : retirés à la désinstallation.
+Root: HKCU; Subkey: "Software\Classes\AppUserModelId\corp.abnd.abcom"; Flags: uninsdeletekey
 
 [Run]
 Filename: "{app}\abcom.exe"; Description: "Launch Abcom"; Flags: nowait postinstall skipifsilent

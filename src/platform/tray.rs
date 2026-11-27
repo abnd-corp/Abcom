@@ -396,7 +396,7 @@ pub(crate) mod win {
         HANDLE.load(Ordering::Relaxed) != 0
     }
 
-    fn handle() -> Option<HWND> {
+    pub(crate) fn handle() -> Option<HWND> {
         let raw = HANDLE.load(Ordering::Relaxed);
         (raw != 0).then_some(raw as HWND)
     }

@@ -337,6 +337,7 @@ fn run() -> anyhow::Result<()> {
             send_media_tx,
             media_offer_rx,
             trust,
+            runtime: Some(rt.handle().clone()),
         },
         start_minimized,
         tray_host,

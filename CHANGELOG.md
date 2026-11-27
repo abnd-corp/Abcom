@@ -7,6 +7,16 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 
 ## [Non publié]
 
+### Ajouté
+- Paramètres → Notifications : notifications système, aperçu du message, son, pastille de non-lus et clignotement se règlent chacun, avec une notification d'essai. Tout est actif par défaut
+- Pastille du nombre de non-lus sur l'icône de l'application : Dock macOS, surimpression rouge sur la barre des tâches Windows, lanceurs Linux compatibles (KDE Plasma, Ubuntu Dock, Dash to Dock)
+- La fenêtre clignote dans la barre des tâches (rebond dans le Dock sous macOS) à l'arrivée d'un message quand elle est au second plan ou réduite
+
+### Corrigé
+- Les notifications système portent le nom et l'icône d'Abcom : macOS les attribuait au Finder, Windows à PowerShell
+- Une fenêtre ouverte mais derrière une autre application affiche aussi les notifications système ; seules la fenêtre repliée ou réduite le faisaient
+- Les sourdines et l'activation du son sont conservées au redémarrage
+
 ## [1.0.0-beta.3] — 2026-11-25
 
 Première release publiée sur GitHub : installateur et archive Windows, app macOS et cask Homebrew, AppImage, Flatpak et archive Linux, manifeste WinGet, flake Nix. Binaires non signés, par décision ([ADR 0002](docs/adr/0002-no-code-signing.fr.md)).

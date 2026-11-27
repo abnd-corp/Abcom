@@ -181,9 +181,9 @@ For 11.10, use a disposable copy of a real older database containing a group and
 | 12.4 | Set contact alias | Local and persistent | P2 |
 | 12.5 | Close with tray active | App stays running in tray | P0 |
 | 12.6 | Open from tray | Window and state restored | P0 |
-| 12.7 | Receive while hidden | Native notification | P1 |
-| 12.8 | Receive outside active conversation | Sound; silent for active conversation | P2 |
-| 12.9 | Unread messages | Tray badge | P2 |
+| 12.7 | Receive while hidden, then behind another app | System notification with Abcom's name and icon (not Finder or PowerShell) | P1 |
+| 12.8 | Receive outside active conversation, then in background | Sound plays once; silent for the open conversation in the active window | P2 |
+| 12.9 | Unread messages | Dock count, red taskbar overlay, compatible Linux launcher count, tray badge; all clear when read | P2 |
 | 12.10 | Enable startup, log out/in | App starts | P2 |
 | 12.11 | Resize narrow/wide | No overlap | P1 |
 | 12.12 | Choose dark, quit, restart | Dark mode retained | P1 |
@@ -209,6 +209,8 @@ For 11.10, use a disposable copy of a real older database containing a group and
 | 12.32 | License at 100/160%, scroll to end | Scaled text, natural wrapping, no horizontal clipping | P1 |
 | 12.33 | Every family, `*italic*` and `***bold italic***`, accents, light/dark themes | True styles where available; Lexend identifies its synthetic slant | P1 |
 | 12.34 | Import a font, associate bold/italic/bold italic via Font styles, restart and replace a style | Choices and styles persist; wrong family/style or invalid files leave existing styles intact | P1 |
+| 12.35 | Receive while minimized or behind another app | Taskbar flash or Dock bounce; stops on returning to the window | P2 |
+| 12.36 | Untick each Notifications setting, restart | Matching signal gone, setting kept; the test shows a notification | P1 |
 
 ## 13. Platform-specific checks
 

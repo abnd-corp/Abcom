@@ -127,6 +127,30 @@ impl AppState {
         unread
     }
 
+    /// Somme des non-lus de toutes les conversations, en un seul passage sur le fil, pour la
+    /// pastille de l'icône : même règle que [`Self::unread_count`], qui ignore la conversation
+    /// ouverte, sauf si `count_selected` (fenêtre au second plan, rien n'y a été vu).
+    pub fn total_unread(&self, count_selected: bool) -> usize {
+        let mut reached_mark = std::collections::HashSet::new();
+        let mut total = 0;
+        for msg in self.messages.iter().rev() {
+            let Some(conv) = self.incoming_key(msg) else {
+                continue;
+            };
+            let skipped_as_open =
+                !count_selected && self.selected_conversation.as_deref() == Some(conv.as_str());
+            if skipped_as_open || reached_mark.contains(&conv) {
+                continue;
+            }
+            if Some(Self::message_hash(msg)) == self.read_marks.get(&conv).copied() {
+                reached_mark.insert(conv);
+            } else {
+                total += 1;
+            }
+        }
+        total
+    }
+
     /// Ce message est-il déjà dans la fenêtre mémoire ?
     ///
     /// Un ACK perdu fait réémettre l'expéditeur jusqu'à cinq fois : sans ce

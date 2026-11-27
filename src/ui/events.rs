@@ -1,5 +1,5 @@
 use super::i18n;
-use super::{sound::play_notification_sound, AbcomApp};
+use super::AbcomApp;
 use crate::app::AppState;
 use crate::message::{
     AppEvent, AvatarRequest, ChatMessage, GroupAction, GroupEvent, MessageAck, MessageAckRequest,
@@ -68,11 +68,7 @@ impl AbcomApp {
                     let label = self.t(i18n::LA_CLE_D_IDENTITE_A_CHANGE);
                     self.last_notification = Some(format!("⚠️ {} : {}", username, label));
                     self.notification_time = std::time::Instant::now();
-                    if self.window_hidden {
-                        Self::notify_native(format!("⚠️ {username}"), label.to_string());
-                    } else if self.enable_sound_notifications {
-                        play_notification_sound();
-                    }
+                    self.alert(format!("⚠️ {username}"), label.to_string(), false, false);
                 }
                 AppEvent::SearchResults { query, messages } => {
                     // Résultat d'une frappe plus ancienne : la requête a changé
@@ -357,15 +353,8 @@ impl AbcomApp {
             };
             let already_in_conv = s.selected_conversation == source_conv;
             let conv_muted = self.muted_conversations.contains(&source_conv);
-            if self.window_hidden {
-                // Fenêtre repliée : notification système native
-                // (aperçu selon la préférence), pas de bip interne.
-                if !conv_muted {
-                    Self::notify_native(msg.from.clone(), self.native_body_for(&msg.content));
-                }
-            } else if self.enable_sound_notifications && !already_in_conv && !conv_muted {
-                play_notification_sound();
-            }
+            let body = self.notification_body(&msg.content);
+            self.alert(msg.from.clone(), body, already_in_conv, conv_muted);
         }
     }
 
@@ -454,11 +443,7 @@ impl AbcomApp {
             self.last_notification = Some(format!("{} {}", from, label));
             self.notification_time = std::time::Instant::now();
             self.has_unread = true;
-            if self.window_hidden {
-                Self::notify_native(from.clone(), label.to_string());
-            } else if self.enable_sound_notifications {
-                play_notification_sound();
-            }
+            self.alert(from.clone(), label.to_string(), false, false);
         }
     }
 
@@ -487,11 +472,7 @@ impl AbcomApp {
             self.last_notification = Some(format!("{} {}", offer.from, label));
             self.notification_time = std::time::Instant::now();
             self.has_unread = true;
-            if self.window_hidden {
-                Self::notify_native(offer.from.clone(), label.to_string());
-            } else if self.enable_sound_notifications {
-                play_notification_sound();
-            }
+            self.alert(offer.from.clone(), label.to_string(), false, false);
             self.media.pending_offers.push(offer);
         }
     }

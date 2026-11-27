@@ -217,9 +217,9 @@ salon garde son nom. Ensuite, appliquer 4.9 (renommage) : tout doit tenir.
 | 12.4 | Alias | Renommer un contact | Local, persistant | P2 |
 | 12.5 | Tray | Fermer la fenêtre | Repli dans le tray, l'app tourne | P0 |
 | 12.6 | Restauration | Cliquer l'icône du tray | Fenêtre restaurée, état intact | P0 |
-| 12.7 | Notification native | Message reçu fenêtre repliée | Notification système | P1 |
-| 12.8 | Son | Message reçu hors conversation active | Son joué ; silence si conversation ouverte | P2 |
-| 12.9 | Badge | Messages non lus | Badge sur l'icône du tray | P2 |
+| 12.7 | Notification native | Message reçu fenêtre repliée, puis derrière une autre application | Notification système au nom et avec l'icône d'Abcom (ni Finder, ni PowerShell) | P1 |
+| 12.8 | Son | Message reçu hors conversation active, puis fenêtre au second plan | Son joué une seule fois ; silence si conversation ouverte dans la fenêtre active | P2 |
+| 12.9 | Badge | Messages non lus | Nombre sur le Dock, pastille rouge sur la barre des tâches, compteur du lanceur Linux compatible, pastille du tray ; tout s'efface à la lecture | P2 |
 | 12.10 | Autostart | Activer, redémarrer la session | L'app démarre | P2 |
 | 12.11 | Redimensionnement | Fenêtre très étroite / très large | Pas de chevauchement | P1 |
 | 12.12 | Mode conservé | Choisir Sombre, quitter, relancer | Toujours sombre. Régression : retour à « système » | P1 |
@@ -245,6 +245,8 @@ salon garde son nom. Ensuite, appliquer 4.9 (renommage) : tout doit tenir.
 | 12.32 | Lecture de la licence | À 100 puis 160 %, lire le début puis défiler jusqu'au dernier paragraphe | Texte agrandi et replié à la largeur disponible, sans indentation excessive ni coupure horizontale | P1 |
 | 12.33 | Coupes italiques | Tester chaque famille, `*italique*` et `***gras italique***`, accents et thèmes clair/sombre | Vraies variantes lorsqu'elles existent ; Lexend annonce son italique simulé | P1 |
 | 12.34 | Variantes personnelles | Importer une police, associer gras/italique/gras italique via Variantes, redémarrer, remplacer une coupe | Choix et variantes conservés ; autre famille, mauvais style ou fichier invalide refusés sans perdre les anciens | P1 |
+| 12.35 | Attirer l'attention | Message reçu fenêtre réduite ou derrière une autre application | Clignotement dans la barre des tâches, rebond dans le Dock ; arrêt au retour dans la fenêtre | P2 |
+| 12.36 | Réglages des notifications | Décocher chaque case de Paramètres → Notifications, relancer | Le signal correspondant disparaît, le réglage est conservé ; l'essai affiche une notification | P1 |
 
 ---
 
