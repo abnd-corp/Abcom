@@ -44,19 +44,28 @@ pub fn media_port() -> u16 {
     chat_port() + 1
 }
 
-/// Clé API Klipy, lue une seule fois depuis `ABCOM_KLIPY_API_KEY`.
+/// Clé API Klipy, lue une seule fois : `ABCOM_KLIPY_API_KEY` à l'exécution,
+/// sinon la clé intégrée à la compilation par la CI de release.
 ///
-/// Renvoie `None` si la variable est absente ou vide : dans ce cas, le bouton
+/// Renvoie `None` si aucune des deux n'est renseignée : dans ce cas, le bouton
 /// GIF affiche une notification au lieu d'ouvrir le sélecteur.
 pub fn klipy_api_key() -> Option<String> {
     static KEY: OnceLock<Option<String>> = OnceLock::new();
     KEY.get_or_init(|| {
-        std::env::var("ABCOM_KLIPY_API_KEY")
-            .ok()
-            .map(|v| v.trim().to_string())
-            .filter(|v| !v.is_empty())
+        let runtime = std::env::var("ABCOM_KLIPY_API_KEY").ok();
+        resolve_klipy_key(runtime.as_deref(), option_env!("ABCOM_KLIPY_API_KEY"))
     })
     .clone()
+}
+
+/// Une variable vide ne masque pas la clé de release : seule une valeur réelle prime.
+fn resolve_klipy_key(runtime: Option<&str>, built_in: Option<&str>) -> Option<String> {
+    [runtime, built_in]
+        .into_iter()
+        .flatten()
+        .map(str::trim)
+        .find(|key| !key.is_empty())
+        .map(str::to_string)
 }
 
 /// Répertoire de données : `abcom` pour l'instance 0, `abcom-N` sinon.
@@ -282,7 +291,27 @@ pub fn purge_scratch() {
 
 #[cfg(test)]
 mod tests {
-    use super::{decide_gpu_backend, GpuBackend};
+    use super::{decide_gpu_backend, resolve_klipy_key, GpuBackend};
+
+    #[test]
+    fn klipy_key_prefers_runtime_value_then_built_in_one() {
+        assert_eq!(
+            resolve_klipy_key(Some(" dev "), Some("release")).as_deref(),
+            Some("dev")
+        );
+        assert_eq!(
+            resolve_klipy_key(None, Some("release")).as_deref(),
+            Some("release")
+        );
+        // Une variable vide (`.env` modèle) ne désactive pas la clé de release.
+        assert_eq!(
+            resolve_klipy_key(Some("  "), Some("release")).as_deref(),
+            Some("release")
+        );
+        // CI sans secret : la variable de compilation existe mais reste vide.
+        assert_eq!(resolve_klipy_key(None, Some("")), None);
+        assert_eq!(resolve_klipy_key(None, None), None);
+    }
 
     #[test]
     fn gpu_backend_round_trips_through_its_string_form() {

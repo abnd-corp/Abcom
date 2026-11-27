@@ -92,7 +92,7 @@ For documentation changes, update both languages and run the link checker. The [
 |---|---|
 | [ci-dev.yml](../../.github/workflows/ci-dev.yml) | Formatting, Clippy, release build, Linux tests, MSRV, minimal build, macOS/Windows checks, coverage and dependency audit |
 | [ci-main.yml](../../.github/workflows/ci-main.yml) | Delivery checks and P2P scenario |
-| [release.yml](../../.github/workflows/release.yml) | Linux x86-64, macOS arm64, Windows x86-64 archives and `SHA256SUMS.txt` on `v*` tags or manual dispatch |
+| [release.yml](../../.github/workflows/release.yml) | Linux x86-64, macOS arm64, Windows x86-64 archives and `SHA256SUMS.txt` on `v*` tags or manual dispatch. Builds run in the `release` GitHub environment (`v*` tags and `main` only), which provides the `ABCOM_KLIPY_API_KEY` secret; without it the release fails |
 | [dependencies.yml](../../.github/workflows/dependencies.yml) | Dependency monitoring |
 
 The MSRV comes from `rust-version`, not from whichever toolchain is currently stable. Compilation checks do not certify tray behavior, notifications, native pickers or accessibility on all three platforms.

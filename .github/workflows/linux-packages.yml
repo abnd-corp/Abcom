@@ -6,6 +6,10 @@ on:
       source-ref:
         type: string
         default: ""
+      # `release` pour la publication (clé Klipy de production) ; vide pour les PR.
+      environment:
+        type: string
+        default: ""
   workflow_dispatch:
   pull_request:
     branches: [dev]
@@ -29,6 +33,7 @@ permissions:
 jobs:
   packages:
     runs-on: ubuntu-22.04
+    environment: ${{ inputs.environment }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -41,13 +46,26 @@ jobs:
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
         with:
           toolchain: '1.95'
+      # Pas de cache en release : il conserverait un binaire contenant la clé de production.
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        if: inputs.environment != 'release'
         with:
           path: |
             ~/.cargo/registry
             target
           key: linux-formats-rust195-${{ hashFiles('Cargo.lock') }}
+      - name: Clé Klipy de production
+        if: inputs.environment == 'release'
+        env:
+          ABCOM_KLIPY_API_KEY: ${{ secrets.ABCOM_KLIPY_API_KEY }}
+        run: |
+          if [ -z "$ABCOM_KLIPY_API_KEY" ]; then
+            echo "::error::Secret ABCOM_KLIPY_API_KEY absent de l'environnement release : les GIF seraient indisponibles."
+            exit 1
+          fi
       - name: Construire les fichiers sans publication
+        env:
+          ABCOM_KLIPY_API_KEY: ${{ secrets.ABCOM_KLIPY_API_KEY }}
         run: |
           cargo build --release --locked
           python3 scripts/package_appimage.py target/release/abcom

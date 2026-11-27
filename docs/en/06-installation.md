@@ -67,7 +67,7 @@ Abcom reads these from the environment or a local `.env` in its working director
 | Variable | Purpose |
 |---|---|
 | `ABCOM_PASSPHRASE` | Shared room passphrase, required identically on all participating peers |
-| `ABCOM_KLIPY_API_KEY` | Optional Klipy GIF/meme/sticker API key |
+| `ABCOM_KLIPY_API_KEY` | Klipy GIF/meme/sticker API key. Published releases already embed the production key; the variable is for development and source builds (including Nix) and overrides the embedded key |
 | `ABCOM_INSTANCE` | Separate ports and data for local instances; bounded to the valid port range |
 
 Keep credentials out of commits, screenshots and issue reports. Neither a passphrase nor a Klipy key is required for ordinary local messaging. Online fonts are enabled separately in Settings, not by these variables.
