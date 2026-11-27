@@ -25,7 +25,7 @@ const SHIFT: egui::Modifiers = egui::Modifiers {
 #[test]
 fn enter_with_shortcode_menu_accepts_selection_instead_of_submit() {
     assert_eq!(
-        enter_key_action(true, egui::Modifiers::NONE),
+        enter_key_action(SendShortcut::CommandEnter, true, egui::Modifiers::NONE),
         EnterKeyAction::AcceptShortcode
     );
 }
@@ -33,31 +33,125 @@ fn enter_with_shortcode_menu_accepts_selection_instead_of_submit() {
 #[test]
 fn plain_enter_inserts_newline() {
     assert_eq!(
-        enter_key_action(false, egui::Modifiers::NONE),
+        enter_key_action(SendShortcut::CommandEnter, false, egui::Modifiers::NONE),
         EnterKeyAction::InsertNewline
     );
 }
 
 #[test]
 fn shift_enter_inserts_newline_even_when_shortcode_menu_is_open() {
-    assert_eq!(enter_key_action(true, SHIFT), EnterKeyAction::InsertNewline);
+    assert_eq!(
+        enter_key_action(SendShortcut::CommandEnter, true, SHIFT),
+        EnterKeyAction::InsertNewline
+    );
 }
 
 #[test]
 fn command_or_ctrl_enter_submits_message() {
     assert_eq!(
-        enter_key_action(false, egui::Modifiers::COMMAND),
+        enter_key_action(SendShortcut::CommandEnter, false, egui::Modifiers::COMMAND),
         EnterKeyAction::Submit
     );
     assert_eq!(
-        enter_key_action(false, egui::Modifiers::CTRL),
+        enter_key_action(SendShortcut::CommandEnter, false, egui::Modifiers::CTRL),
         EnterKeyAction::Submit
     );
     // Même menu ouvert : l'envoi explicite garde la priorité.
     assert_eq!(
-        enter_key_action(true, egui::Modifiers::COMMAND),
+        enter_key_action(SendShortcut::CommandEnter, true, egui::Modifiers::COMMAND),
         EnterKeyAction::Submit
     );
+}
+
+#[test]
+fn enter_shortcut_sends_on_enter_and_keeps_shift_enter_for_new_lines() {
+    let enter = SendShortcut::Enter;
+    assert_eq!(
+        enter_key_action(enter, false, egui::Modifiers::NONE),
+        EnterKeyAction::Submit
+    );
+    assert_eq!(
+        enter_key_action(enter, false, egui::Modifiers::COMMAND),
+        EnterKeyAction::Submit
+    );
+    assert_eq!(
+        enter_key_action(enter, false, SHIFT),
+        EnterKeyAction::InsertNewline
+    );
+    // Le menu de shortcodes garde la priorité sur Entrée seule.
+    assert_eq!(
+        enter_key_action(enter, true, egui::Modifiers::NONE),
+        EnterKeyAction::AcceptShortcode
+    );
+}
+
+#[test]
+fn shift_enter_shortcut_sends_only_on_shift_enter() {
+    let shift = SendShortcut::ShiftEnter;
+    assert_eq!(
+        enter_key_action(shift, false, SHIFT),
+        EnterKeyAction::Submit
+    );
+    assert_eq!(enter_key_action(shift, true, SHIFT), EnterKeyAction::Submit);
+    assert_eq!(
+        enter_key_action(shift, false, egui::Modifiers::NONE),
+        EnterKeyAction::InsertNewline
+    );
+    assert_eq!(
+        enter_key_action(shift, false, egui::Modifiers::COMMAND),
+        EnterKeyAction::InsertNewline
+    );
+}
+
+#[test]
+fn send_shortcut_round_trips_through_its_preference_and_defaults_to_enter() {
+    for shortcut in SendShortcut::ALL {
+        assert_eq!(
+            SendShortcut::from_pref(Some(shortcut.pref_value())),
+            shortcut
+        );
+    }
+    assert_eq!(SendShortcut::from_pref(None), SendShortcut::Enter);
+    assert_eq!(
+        SendShortcut::from_pref(Some("inconnu")),
+        SendShortcut::Enter
+    );
+}
+
+#[test]
+fn send_shortcut_labels_follow_the_language_and_the_system_command_key() {
+    use crate::ui::UiLanguage;
+    assert_eq!(SendShortcut::Enter.label(UiLanguage::French), "Entrée");
+    assert_eq!(
+        SendShortcut::ShiftEnter.label(UiLanguage::English),
+        "Shift + Enter"
+    );
+    let command = if cfg!(target_os = "macos") {
+        "Cmd"
+    } else {
+        "Ctrl"
+    };
+    assert_eq!(
+        SendShortcut::CommandEnter.label(UiLanguage::French),
+        format!("{command} + Entrée")
+    );
+}
+
+#[test]
+fn plain_enter_submits_with_the_default_shortcut_in_a_real_frame() {
+    let mut input = "hello".to_string();
+    let mut cursor = input.chars().count();
+
+    let (submitted, _) = run_composer_session(
+        &mut input,
+        &mut cursor,
+        vec![vec![key_event(egui::Key::Enter, egui::Modifiers::NONE)]],
+        false,
+        SendShortcut::Enter,
+    );
+
+    assert!(submitted);
+    assert_eq!(input, "hello");
 }
 
 #[test]
@@ -100,7 +194,7 @@ fn run_composer_frames(
     cursor: &mut usize,
     frames: Vec<Vec<egui::Event>>,
 ) -> bool {
-    run_composer_session(input, cursor, frames, false).0
+    run_composer_session(input, cursor, frames, false, SendShortcut::CommandEnter).0
 }
 
 /// Variante exposant le menu de shortcodes et le défilement final.
@@ -109,6 +203,7 @@ fn run_composer_session(
     cursor: &mut usize,
     frames: Vec<Vec<egui::Event>>,
     shortcode_menu_open: bool,
+    send_shortcut: SendShortcut,
 ) -> (bool, f32) {
     let ctx = egui::Context::default();
     let mut has_focus = true;
@@ -143,6 +238,7 @@ fn run_composer_session(
                     300.0,
                     &mut anchor,
                     "",
+                    send_shortcut,
                 );
                 submitted |= submit;
             });
@@ -447,6 +543,7 @@ fn enter_without_matching_shortcode_falls_back_to_newline() {
             vec![],
         ],
         true,
+        SendShortcut::Enter,
     );
 
     assert!(!submitted);
@@ -467,6 +564,7 @@ fn enter_with_matching_shortcode_still_accepts_it() {
             vec![],
         ],
         true,
+        SendShortcut::Enter,
     );
 
     assert!(!submitted);
@@ -487,6 +585,7 @@ fn creating_a_line_does_not_scroll_the_composer() {
         &mut cursor,
         vec![vec![key_event(egui::Key::Enter, SHIFT)]],
         false,
+        SendShortcut::Enter,
     );
 
     assert_eq!(input, "hello\n");

@@ -226,6 +226,8 @@ pub(crate) struct ComposerState {
     /// Texte non envoyé par conversation, restauré au changement d'onglet.
     pub(crate) drafts: std::collections::HashMap<Option<String>, String>,
     pub(crate) pending_attachments: Vec<PathBuf>,
+    /// Combinaison d'envoi, persistée (`send_shortcut`).
+    pub(crate) send_shortcut: composer::SendShortcut,
 }
 
 /// Recherche plein texte dans l'historique (Cmd/Ctrl+F).
@@ -475,6 +477,7 @@ impl AbcomApp {
             purge_includes_images,
             saved_appearance,
             themes_dir,
+            send_shortcut,
         ) = {
             let s = state.lock_safe();
             (
@@ -487,6 +490,7 @@ impl AbcomApp {
                     .parent()
                     .map(|data| data.join("themes"))
                     .unwrap_or_else(|| PathBuf::from("themes")),
+                composer::SendShortcut::from_pref(s.pref_str(composer::SendShortcut::PREF_KEY)),
             )
         };
         let themes = custom_themes::ThemeStore::load(&themes_dir);
@@ -523,6 +527,7 @@ impl AbcomApp {
                 scroll_lines: 0.0,
                 drafts: std::collections::HashMap::new(),
                 pending_attachments: Vec::new(),
+                send_shortcut,
             },
             show_attachment_menu: false,
             show_emoji_picker: false,

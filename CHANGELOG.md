@@ -7,6 +7,9 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 
 ## [Non publié]
 
+### Modifié
+- Envoi des messages : la combinaison se choisit dans Paramètres → Général (Entrée, Ctrl/Cmd+Entrée ou Maj+Entrée). Entrée envoie désormais par défaut, Maj+Entrée va à la ligne ; la zone de saisie rappelle la combinaison choisie
+
 ## [1.0.0-beta.3] — 2026-11-25
 
 Première release publiée sur GitHub : installateur et archive Windows, app macOS et cask Homebrew, AppImage, Flatpak et archive Linux, manifeste WinGet, flake Nix. Binaires non signés, par décision ([ADR 0002](docs/adr/0002-no-code-signing.fr.md)).

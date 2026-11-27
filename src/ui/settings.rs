@@ -4,6 +4,7 @@ use eframe::egui;
 use crate::util::{human_bytes, MutexExt};
 
 use super::avatar::show_avatar;
+use super::composer::SendShortcut;
 use super::{AbcomApp, SettingsTab, UiLanguage};
 
 /// Diamètre de l'aperçu d'avatar dans l'onglet Profil.
@@ -238,6 +239,29 @@ impl AbcomApp {
                         let v = if self.notif_preview { "1" } else { "0" };
                         self.state.lock_safe().set_pref("notif_preview", v);
                     }
+                });
+                ui.end_row();
+
+                ui.label(egui::RichText::new(self.t(i18n::ENVOI_DES_MESSAGES)).strong());
+                ui.vertical(|ui| {
+                    ui.horizontal_wrapped(|ui| {
+                        for shortcut in SendShortcut::ALL {
+                            let label = shortcut.label(self.ui_language);
+                            if ui
+                                .radio_value(&mut self.composer.send_shortcut, shortcut, label)
+                                .changed()
+                            {
+                                self.state
+                                    .lock_safe()
+                                    .set_pref(SendShortcut::PREF_KEY, shortcut.pref_value());
+                            }
+                        }
+                    });
+                    ui.label(
+                        egui::RichText::new(self.t(i18n::ENVOI_AUTRES_COMBINAISONS))
+                            .small()
+                            .weak(),
+                    );
                 });
                 ui.end_row();
 

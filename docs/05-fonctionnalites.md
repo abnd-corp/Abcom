@@ -29,10 +29,12 @@ Dans les fils multi-participants (« Tous » et salons), chaque auteur a une cou
 
 ### Raccourcis clavier de la zone de saisie
 
+La combinaison d'envoi se choisit dans Paramètres → Général → Envoi des messages : `Entrée` (par défaut), `Cmd+Entrée` (macOS) / `Ctrl+Entrée`, ou `Maj+Entrée`. Les autres combinaisons avec Entrée vont à la ligne. Le tableau décrit le réglage par défaut.
+
 | Raccourci | Action |
 |---|---|
-| `Entrée` ou `Maj+Entrée` | Nouvelle ligne |
-| `Cmd+Entrée` (macOS) / `Ctrl+Entrée` | Envoyer le message |
+| `Entrée` | Envoyer le message (par défaut) |
+| `Maj+Entrée` | Nouvelle ligne |
 | `Entrée` (menu de shortcodes ouvert) | Insérer l'emoji sélectionné |
 | `Tab` | Compléter le shortcode avec la première suggestion |
 | `↑` / `↓` (menu de shortcodes ouvert) | Naviguer dans les suggestions |
