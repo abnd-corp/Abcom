@@ -344,13 +344,14 @@ impl AbcomApp {
             .filter(|c| !c.starts_with('#'))
             .map(str::to_string);
 
-        let sound_text = if self.enable_sound_notifications {
+        let sound_text = if self.notifications.sound {
             self.t(i18n::DESACTIVER_TOUS_LES_SONS)
         } else {
             self.t(i18n::ACTIVER_TOUS_LES_SONS)
         };
         if ui.button(sound_text).clicked() {
-            self.enable_sound_notifications = !self.enable_sound_notifications;
+            self.notifications.sound = !self.notifications.sound;
+            self.notifications.save(&mut self.state.lock_safe());
             ui.close();
         }
         let is_muted = self.muted_conversations.contains(&conv);
@@ -365,6 +366,10 @@ impl AbcomApp {
             } else {
                 self.muted_conversations.insert(conv.clone());
             }
+            super::notifications::save_muted(
+                &mut self.state.lock_safe(),
+                &self.muted_conversations,
+            );
             ui.close();
         }
         if ui.button(self.t(i18n::VOIR_LES_PARTICIPANTS)).clicked() {

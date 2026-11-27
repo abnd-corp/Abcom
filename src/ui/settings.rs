@@ -38,6 +38,7 @@ impl AbcomApp {
         let profile_label = self.t(i18n::PROFIL);
         let appearance_label = self.t(i18n::APPARENCE);
         let general_label = self.t(i18n::GENERAL);
+        let notifications_label = self.t(i18n::NOTIFICATIONS);
         let storage_label = self.t(i18n::STOCKAGE);
         let credits_label = self.t(i18n::CREDITS);
         let license_label = self.t(i18n::LICENCE);
@@ -79,6 +80,7 @@ impl AbcomApp {
                         for (tab, label) in [
                             (SettingsTab::Profile, profile_label),
                             (SettingsTab::General, general_label),
+                            (SettingsTab::Notifications, notifications_label),
                             (SettingsTab::Appearance, appearance_label),
                             (SettingsTab::Storage, storage_label),
                             (SettingsTab::Credits, credits_label),
@@ -114,6 +116,7 @@ impl AbcomApp {
                             clear_avatar |= action.clear;
                         }
                         SettingsTab::General => self.render_general_tab(ui),
+                        SettingsTab::Notifications => self.render_notifications_tab(ui),
                         SettingsTab::Appearance => self.render_appearance_tab(ui),
                         SettingsTab::Storage => {
                             storage_tab(
@@ -231,16 +234,6 @@ impl AbcomApp {
                 });
                 ui.end_row();
 
-                ui.label(egui::RichText::new(self.t(i18n::NOTIFICATIONS)).strong());
-                ui.horizontal_wrapped(|ui| {
-                    let label = self.t(i18n::AFFICHER_UN_APERCU_DU_MESSAGE);
-                    if ui.checkbox(&mut self.notif_preview, label).changed() {
-                        let v = if self.notif_preview { "1" } else { "0" };
-                        self.state.lock_safe().set_pref("notif_preview", v);
-                    }
-                });
-                ui.end_row();
-
                 ui.label(egui::RichText::new(self.t(i18n::DEMARRAGE)).strong());
                 ui.horizontal_wrapped(|ui| {
                     let label = self.t(i18n::LANCER_ABCOM_A_L_OUVERTURE_DE);
@@ -304,6 +297,70 @@ impl AbcomApp {
                 });
                 ui.end_row();
             });
+    }
+
+    fn render_notifications_tab(&mut self, ui: &mut egui::Ui) {
+        let before = self.notifications;
+        let attention_label = if cfg!(target_os = "macos") {
+            i18n::NOTIF_ATTENTION_DOCK
+        } else {
+            i18n::NOTIF_ATTENTION_BARRE
+        };
+        let mut send_test = false;
+        egui::Grid::new("settings_notifications")
+            .max_col_width((ui.available_width() - 16.0) / 2.0)
+            .num_columns(2)
+            .spacing([16.0, 12.0])
+            .show(ui, |ui| {
+                ui.label(egui::RichText::new(self.t(i18n::NOTIF_SYSTEME_TITRE)).strong());
+                ui.vertical(|ui| {
+                    let label = self.t(i18n::NOTIF_SYSTEME);
+                    ui.checkbox(&mut self.notifications.system, label);
+                    let label = self.t(i18n::AFFICHER_UN_APERCU_DU_MESSAGE);
+                    let enabled = self.notifications.system;
+                    ui.add_enabled(
+                        enabled,
+                        egui::Checkbox::new(&mut self.notifications.preview, label),
+                    );
+                });
+                ui.end_row();
+
+                ui.label(egui::RichText::new(self.t(i18n::NOTIF_SON_TITRE)).strong());
+                let label = self.t(i18n::NOTIF_SON);
+                ui.checkbox(&mut self.notifications.sound, label);
+                ui.end_row();
+
+                ui.label(egui::RichText::new(self.t(i18n::NOTIF_PASTILLE_TITRE)).strong());
+                let label = self.t(i18n::NOTIF_PASTILLE);
+                ui.checkbox(&mut self.notifications.badge, label);
+                ui.end_row();
+
+                ui.label(egui::RichText::new(self.t(i18n::NOTIF_ATTENTION_TITRE)).strong());
+                let label = self.t(attention_label);
+                ui.checkbox(&mut self.notifications.attention, label);
+                ui.end_row();
+
+                ui.label(egui::RichText::new(self.t(i18n::NOTIF_SOURDINE_TITRE)).strong());
+                ui.label(egui::RichText::new(self.t(i18n::NOTIF_SOURDINE_AIDE)).weak());
+                ui.end_row();
+
+                ui.label("");
+                send_test = ui.button(self.t(i18n::NOTIF_ESSAYER)).clicked();
+                ui.end_row();
+            });
+        if self.notifications != before {
+            self.notifications.save(&mut self.state.lock_safe());
+        }
+        // L'essai ignore l'état de la fenêtre : il vérifie l'autorisation donnée par le système.
+        if send_test {
+            crate::platform::attention::show_notification(
+                "Abcom".to_string(),
+                self.t(i18n::NOTIF_ESSAI_TEXTE).to_string(),
+            );
+            if self.notifications.sound {
+                super::sound::play_notification_sound();
+            }
+        }
     }
 
     /// Applique les demandes de l'onglet Stockage. Hors de la closure de la

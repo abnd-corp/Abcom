@@ -1,6 +1,7 @@
 //! Intégration bureau, par nature spécifique au système : icône résidente,
 //! notifications natives et lancement au démarrage.
 
+pub(crate) mod attention;
 pub mod autostart;
 pub(crate) mod desktop_entry;
 pub(crate) mod icons;

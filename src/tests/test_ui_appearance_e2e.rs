@@ -50,6 +50,7 @@ pub(super) fn new_app_in(dir: &std::path::Path, pref: Option<&str>) -> AbcomApp 
             send_media_tx,
             media_offer_rx,
             trust: Arc::new(TrustStore::new(HashMap::new(), None)),
+            runtime: None,
         },
     )
 }

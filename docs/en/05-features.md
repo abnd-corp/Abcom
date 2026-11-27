@@ -72,7 +72,7 @@ Settings → Profile shows the identity fingerprint and room-passphrase status. 
 
 ## Notifications and resident mode
 
-Visible-window messages can produce an internal toast and sound. A hidden or minimized window uses native system notifications. Settings → General controls message previews and login startup. Conversations can be muted; unread badges appear in the sidebar and tray.
+Everything is set in Settings → Notifications; every signal is on by default. In the active window, a message shows an internal toast and plays a sound when it arrives outside the open conversation. When the window is behind another application, minimized or hidden in the tray, Abcom shows a native system notification under its own name, with or without a message preview, and plays its own sound (system notifications stay silent). A background or minimized window also asks for attention: it flashes in the taskbar (Windows, Linux) or bounces in the Dock (macOS). The unread count appears on the application icon: Dock badge (macOS), red overlay on the taskbar button (Windows), compatible launchers (KDE Plasma, Ubuntu Dock, Dash to Dock) and the tray. Right-click a conversation, a room or Everyone to mute it: it no longer sounds, notifies or flashes, and the choice survives restarts. “Send a test notification” checks that the system allows Abcom notifications. Settings → General controls login startup.
 
 With tray support, Close and Cmd/Ctrl+W hide the window. On macOS its Dock icon disappears too. Choose Open Abcom or Quit from the tray menu; on Windows, left-click opens the window. Without tray support, closing exits. Linux tray availability depends on the desktop environment. On Linux, outside Flatpak and without a package providing it, the application installs its `abcom.desktop` menu entry and icon under `~/.local/share`: on Wayland, this is how GNOME and KDE show its logo in the title bar and window list.
 
@@ -80,7 +80,7 @@ First release launch enables login startup if no setting exists; debug builds do
 
 ## Settings and appearance
 
-Settings contains Profile, General, Appearance, Storage, Credits and License. Each tab scrolls as one area and adapts to the window. The language selector switches the interface between French and English, but its choice is currently session-only.
+Settings contains Profile, General, Notifications, Appearance, Storage, Credits and License. Each tab scrolls as one area and adapts to the window. The language selector switches the interface between French and English, but its choice is currently session-only.
 
 Appearance has four sections:
 

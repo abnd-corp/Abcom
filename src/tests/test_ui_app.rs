@@ -76,6 +76,7 @@ fn test_app() -> AbcomApp {
             send_media_tx,
             media_offer_rx,
             trust: Arc::new(TrustStore::new(HashMap::new(), None)),
+            runtime: None,
         },
     )
 }
@@ -406,6 +407,7 @@ fn settings_window_fits_in_every_window_size_and_tab() {
             for tab in [
                 SettingsTab::Profile,
                 SettingsTab::General,
+                SettingsTab::Notifications,
                 SettingsTab::Appearance,
                 SettingsTab::Storage,
                 SettingsTab::Credits,
@@ -421,6 +423,7 @@ fn settings_window_fits_in_every_window_size_and_tab() {
                     match tab {
                         SettingsTab::Profile => "Profil",
                         SettingsTab::General => "Général",
+                        SettingsTab::Notifications => "Notifications",
                         SettingsTab::Appearance => "Apparence",
                         SettingsTab::Storage => "Stockage",
                         SettingsTab::Credits => "Crédits",
