@@ -22,6 +22,69 @@ fn normalize_paste(text: &str) -> String {
     text.replace("\r\n", "\n").replace('\r', "\n")
 }
 
+/// Combinaison d'envoi choisie dans les paramètres ; les autres variantes d'Entrée vont à la ligne.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum SendShortcut {
+    /// Entrée envoie (Ctrl/Cmd+Entrée aussi), Maj+Entrée va à la ligne.
+    #[default]
+    Enter,
+    /// Ctrl+Entrée, ou Cmd+Entrée sous macOS, envoie.
+    CommandEnter,
+    /// Maj+Entrée envoie.
+    ShiftEnter,
+}
+
+impl SendShortcut {
+    pub(crate) const ALL: [Self; 3] = [Self::Enter, Self::CommandEnter, Self::ShiftEnter];
+    pub(crate) const PREF_KEY: &'static str = "send_shortcut";
+
+    /// Valeur absente ou inconnue : Entrée, le choix par défaut.
+    pub(crate) fn from_pref(value: Option<&str>) -> Self {
+        match value {
+            Some("command_enter") => Self::CommandEnter,
+            Some("shift_enter") => Self::ShiftEnter,
+            _ => Self::Enter,
+        }
+    }
+
+    pub(crate) const fn pref_value(self) -> &'static str {
+        match self {
+            Self::Enter => "enter",
+            Self::CommandEnter => "command_enter",
+            Self::ShiftEnter => "shift_enter",
+        }
+    }
+
+    /// Vrai si Entrée, pressée avec ces modificateurs, envoie le message.
+    pub(crate) fn sends(self, modifiers: egui::Modifiers) -> bool {
+        let command = modifiers.command || modifiers.ctrl;
+        match self {
+            Self::Enter => !modifiers.shift,
+            Self::CommandEnter => command,
+            Self::ShiftEnter => modifiers.shift && !command,
+        }
+    }
+
+    /// Libellé affiché, avec la touche de commande du système (Cmd ou Ctrl).
+    pub(crate) fn label(self, language: crate::ui::UiLanguage) -> String {
+        let enter = crate::ui::i18n::TOUCHE_ENTREE.get(language);
+        match self {
+            Self::Enter => enter.to_string(),
+            Self::CommandEnter => {
+                let command = if cfg!(target_os = "macos") {
+                    "Cmd"
+                } else {
+                    "Ctrl"
+                };
+                format!("{command} + {enter}")
+            }
+            Self::ShiftEnter => {
+                format!("{} + {enter}", crate::ui::i18n::TOUCHE_MAJ.get(language))
+            }
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum EnterKeyAction {
     InsertNewline,
@@ -29,14 +92,18 @@ enum EnterKeyAction {
     Submit,
 }
 
-/// Entrée insère une nouvelle ligne (comme Shift+Entrée) ; l'envoi se fait par
-/// Cmd+Entrée (macOS) ou Ctrl+Entrée. Entrée seule valide le shortcode quand le
-/// menu de suggestions est ouvert.
-fn enter_key_action(shortcode_menu_open: bool, modifiers: egui::Modifiers) -> EnterKeyAction {
-    if modifiers.command || modifiers.ctrl {
-        EnterKeyAction::Submit
-    } else if shortcode_menu_open && !modifiers.shift {
+/// Entrée seule valide le shortcode quand le menu de suggestions est ouvert ;
+/// sinon la combinaison d'envoi envoie, et toute autre variante va à la ligne.
+fn enter_key_action(
+    send_shortcut: SendShortcut,
+    shortcode_menu_open: bool,
+    modifiers: egui::Modifiers,
+) -> EnterKeyAction {
+    let plain = !modifiers.shift && !(modifiers.command || modifiers.ctrl);
+    if shortcode_menu_open && plain {
         EnterKeyAction::AcceptShortcode
+    } else if send_shortcut.sends(modifiers) {
+        EnterKeyAction::Submit
     } else {
         EnterKeyAction::InsertNewline
     }
@@ -418,6 +485,7 @@ pub fn custom_composer_input(
     width: f32,
     selection_anchor: &mut Option<usize>,
     placeholder: &str,
+    send_shortcut: SendShortcut,
 ) -> (egui::Response, bool, bool, Option<String>) {
     let line_height = super::theme::text(ui).composer_line_height;
     let base_content_width = (width.max(120.0) - 12.0).max(20.0);
@@ -624,32 +692,34 @@ pub fn custom_composer_input(
                             clear_selection(selection_anchor);
                         }
                     }
-                    egui::Key::Enter => match enter_key_action(shortcode_menu_open, modifiers) {
-                        EnterKeyAction::InsertNewline => {
-                            insert_newline(input, cursor_char, selection_anchor);
-                            changed = true;
-                        }
-                        EnterKeyAction::AcceptShortcode => {
-                            // Le menu est considéré ouvert dès qu'un `:xyz`
-                            // précède le curseur, même sans correspondance : sans
-                            // ce repli, Entrée n'insérait alors plus rien du tout.
-                            if accept_selected_shortcode(
-                                input,
-                                cursor_char,
-                                emoji_alias_to_char,
-                                emoji_aliases,
-                                shortcode_selected,
-                            ) {
-                                changed = true;
-                            } else {
+                    egui::Key::Enter => {
+                        match enter_key_action(send_shortcut, shortcode_menu_open, modifiers) {
+                            EnterKeyAction::InsertNewline => {
                                 insert_newline(input, cursor_char, selection_anchor);
                                 changed = true;
                             }
+                            EnterKeyAction::AcceptShortcode => {
+                                // Le menu est considéré ouvert dès qu'un `:xyz`
+                                // précède le curseur, même sans correspondance : sans
+                                // ce repli, Entrée n'insérait alors plus rien du tout.
+                                if accept_selected_shortcode(
+                                    input,
+                                    cursor_char,
+                                    emoji_alias_to_char,
+                                    emoji_aliases,
+                                    shortcode_selected,
+                                ) {
+                                    changed = true;
+                                } else {
+                                    insert_newline(input, cursor_char, selection_anchor);
+                                    changed = true;
+                                }
+                            }
+                            EnterKeyAction::Submit => {
+                                submit = true;
+                            }
                         }
-                        EnterKeyAction::Submit => {
-                            submit = true;
-                        }
-                    },
+                    }
                     egui::Key::Tab => {
                         let suggestions = crate::ui::emoji_picker::shortcode_suggestions(
                             input,

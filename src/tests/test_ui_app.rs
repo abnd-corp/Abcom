@@ -310,6 +310,8 @@ fn enter_on_the_focused_send_button_goes_to_the_line_instead_of_sending() {
     }
     app.composer.text = "bonjour".to_string();
     app.composer.cursor_char = app.composer.text.chars().count();
+    // Envoi par Ctrl/Cmd+Entrée : Entrée seule doit rester un retour à la ligne.
+    app.composer.send_shortcut = crate::ui::composer::SendShortcut::CommandEnter;
 
     let ready = std::cell::Cell::new(false);
     let mut harness = egui_kittest::Harness::builder()

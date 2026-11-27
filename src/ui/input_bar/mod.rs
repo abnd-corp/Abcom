@@ -320,7 +320,10 @@ impl AbcomApp {
 
                             let available_w = ui.available_width();
 
-                            let placeholder = self.t(i18n::ECRIRE_UN_MESSAGE);
+                            let send_shortcut = self.composer.send_shortcut;
+                            let placeholder = self
+                                .t(i18n::ECRIRE_UN_MESSAGE_MODELE)
+                                .replace("{raccourci}", &send_shortcut.label(self.ui_language));
                             let (resp, mut pressed_enter, changed, overflow_paste) =
                                 composer::custom_composer_input(
                                     ui,
@@ -336,7 +339,8 @@ impl AbcomApp {
                                     self.emoji.shortcode_selected,
                                     available_w,
                                     &mut self.composer.selection_anchor,
-                                    placeholder,
+                                    &placeholder,
+                                    send_shortcut,
                                 );
 
                             // Collage au-delà du plafond : le texte devient une
@@ -380,22 +384,17 @@ impl AbcomApp {
                                             false,
                                             paint_send_icon,
                                         );
-                                        // Entrée insère une ligne dans le
-                                        // composeur : un bouton qui a le focus
-                                        // ne doit pas la détourner en envoi.
                                         // egui active un bouton focalisé sur
-                                        // Entrée comme sur Espace ; il suffit
-                                        // qu'un clic ait laissé le focus sur
-                                        // celui-ci — après une pièce jointe,
-                                        // par exemple — pour que la touche
-                                        // envoie au lieu d'aller à la ligne.
-                                        // Espace garde son rôle d'activation,
-                                        // et Cmd/Ctrl+Entrée reste l'envoi.
-                                        let plain_enter = ui.input(|i| {
+                                        // Entrée comme sur Espace : il suffit
+                                        // qu'un clic (pièce jointe…) y ait
+                                        // laissé le focus. Une combinaison qui
+                                        // va à la ligne ne doit pas envoyer ;
+                                        // Espace garde son rôle d'activation.
+                                        let newline_enter = ui.input(|i| {
                                             i.key_pressed(egui::Key::Enter)
-                                                && !(i.modifiers.command || i.modifiers.ctrl)
+                                                && !send_shortcut.sends(i.modifiers)
                                         });
-                                        if send_btn.clicked() && !plain_enter {
+                                        if send_btn.clicked() && !newline_enter {
                                             pressed_enter = true;
                                         }
 

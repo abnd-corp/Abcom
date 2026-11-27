@@ -14,10 +14,12 @@ Markdown supports bold, italic, strikethrough, inline/fenced code, quotes, lists
 
 The embedded emoji picker supports categories, search and `:shortcode:` completion. Emoji-only messages use larger artwork. Hover over a message to react or reply; click a reaction to toggle it. Replies quote the original author and text and let you navigate back to the message. Typing indicators are sent to the relevant peer or group members.
 
+The send combination is chosen in Settings → General → Sending messages: Enter (default), Cmd+Enter (macOS) / Ctrl+Enter, or Shift+Enter. Other combinations with Enter start a new line. The table shows the default setting.
+
 | Shortcut | Action |
 |---|---|
-| Enter or Shift+Enter | New line |
-| Cmd+Enter (macOS), Ctrl+Enter (other platforms) | Send |
+| Enter | Send (default) |
+| Shift+Enter | New line |
 | Enter with shortcode suggestions open | Insert selected emoji |
 | Tab with suggestions open | Complete with the first suggestion |
 | Up / Down with suggestions open | Select a suggestion |
