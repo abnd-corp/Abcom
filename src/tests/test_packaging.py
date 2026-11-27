@@ -18,17 +18,33 @@ class RecipeTests(unittest.TestCase):
             root = Path(directory)
             artifacts, output = root / "artifacts", root / "output"
             artifacts.mkdir()
-            for name in ["abcom-macos-aarch64.tar.gz", "abcom-windows-x86_64-setup.exe"]:
+            for name in ["abcom-macos-universal.tar.gz", "abcom-windows-x86_64-setup.exe"]:
                 (artifacts / name).write_bytes(name.encode())
             self.assertEqual(PACKAGES.generate(artifacts, output, "https://example.org/v1", "1.0.0-beta.1"), ["homebrew", "winget"])
             cask = (output / "homebrew/Casks/abcom.rb").read_text()
             manifest = (output / "winget/Abnd.Abcom.yaml").read_text()
-            self.assertIn(hashlib.sha256((artifacts / "abcom-macos-aarch64.tar.gz").read_bytes()).hexdigest(), cask)
+            self.assertIn(hashlib.sha256((artifacts / "abcom-macos-universal.tar.gz").read_bytes()).hexdigest(), cask)
             self.assertIn(hashlib.sha256((artifacts / "abcom-windows-x86_64-setup.exe").read_bytes()).hexdigest().upper(), manifest)
             self.assertIn('app "Abcom.app"', cask)
             self.assertIn("InstallerType: inno", manifest)
             self.assertNotIn("Application Support", cask)
             self.assertNotIn("zap", cask)
+            # Binaire universel : plus de restriction à Apple silicon.
+            self.assertNotIn("depends_on arch", cask)
+
+    def test_winget_lists_one_installer_per_published_architecture(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            artifacts, output = root / "artifacts", root / "output"
+            artifacts.mkdir()
+            for name in ["abcom-windows-x86_64-setup.exe", "abcom-windows-aarch64-setup.exe"]:
+                (artifacts / name).write_bytes(name.encode())
+            self.assertEqual(PACKAGES.generate(artifacts, output, "https://example.org/v1", "1.0.0"), ["winget"])
+            manifest = (output / "winget/Abnd.Abcom.yaml").read_text()
+            self.assertIn("Architecture: x64", manifest)
+            self.assertIn("Architecture: arm64", manifest)
+            self.assertIn('"https://example.org/v1/abcom-windows-aarch64-setup.exe"', manifest)
+            self.assertIn(hashlib.sha256(b"abcom-windows-aarch64-setup.exe").hexdigest().upper(), manifest)
 
     def test_missing_artifacts_do_not_produce_a_fictitious_package(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -51,7 +67,7 @@ class RecipeTests(unittest.TestCase):
     def test_remote_tap_matches_the_release_and_refuses_local_artifacts(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            (root / "abcom-macos-aarch64.tar.gz").write_bytes(b"published bundle")
+            (root / "abcom-macos-universal.tar.gz").write_bytes(b"published bundle")
             tap = root / "Casks"
             version = "1.0.0-beta.1"
             url = f"https://github.com/abnd-corp/Abcom/releases/download/v{version}"

@@ -11,6 +11,17 @@
 #ifndef OutputPath
   #error OutputPath is required
 #endif
+; x86_64 (default, also runs emulated on Windows ARM64) or aarch64 (native ARM64).
+#ifndef Arch
+  #define Arch "x86_64"
+#endif
+#if Arch == "aarch64"
+  #define WindowsArch "arm64"
+#elif Arch == "x86_64"
+  #define WindowsArch "x64compatible"
+#else
+  #error Arch must be x86_64 or aarch64
+#endif
 
 [Setup]
 AppId=corp.abnd.abcom
@@ -22,10 +33,10 @@ AppPublisherURL=https://github.com/abnd-corp/Abcom
 DefaultDirName={localappdata}\Programs\Abcom
 DefaultGroupName=Abcom
 PrivilegesRequired=lowest
-ArchitecturesAllowed=x64compatible
-ArchitecturesInstallIn64BitMode=x64compatible
+ArchitecturesAllowed={#WindowsArch}
+ArchitecturesInstallIn64BitMode={#WindowsArch}
 OutputDir={#OutputPath}
-OutputBaseFilename=abcom-windows-x86_64-setup
+OutputBaseFilename=abcom-windows-{#Arch}-setup
 Compression=lzma2
 SolidCompression=yes
 UninstallDisplayIcon={app}\abcom.exe

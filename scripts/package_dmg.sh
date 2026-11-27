@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Disk image holding Abcom.app and an Applications link, for drag-and-drop installation.
-# Usage: package_dmg.sh dist/Abcom.app abcom-macos-aarch64.dmg
+# Usage: package_dmg.sh dist/Abcom.app abcom-macos-universal.dmg
 set -euo pipefail
 app=$1
 out=$2

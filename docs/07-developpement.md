@@ -65,7 +65,7 @@ Un nouveau module reçoit son fichier de tests. Quelques modules historiques gar
 | `host` (macOS), `windows`, `linux-kde`, `linux-xfce`, `linux-gnome-tray` | présent : chaque instance s'enregistre |
 | `linux-gnome` (GNOME standard) | absent : l'application annonce que la croix la quittera au lieu de la cacher |
 
-Rien n'est compilé dans les VM. Le job CI « Binaire e2e » publie pour chaque exécution `abcom-linux-aarch64`, `abcom-windows-x86_64.exe` et `abcom-macos-aarch64`, conservés sept jours :
+Rien n'est compilé dans les VM. Le job CI « Binaire e2e » publie pour chaque exécution `abcom-linux-aarch64`, `abcom-windows-x86_64.exe`, `abcom-windows-aarch64.exe` (avec leurs installateurs) et `abcom-macos-aarch64`, conservés sept jours ; il vérifie aussi la construction du binaire macOS universel de la release :
 
 ```bash
 gh run download <id-du-run> -p 'e2e-*' -D e2e-artifacts
@@ -92,7 +92,7 @@ Pour la documentation : mettre à jour les deux langues et exécuter le contrôl
 |---|---|
 | [ci-dev.yml](../.github/workflows/ci-dev.yml) | Format, Clippy, release, tests Linux, MSRV, compilation minimale, checks macOS/Windows, couverture, audit |
 | [ci-main.yml](../.github/workflows/ci-main.yml) | Contrôles de livraison et scénario P2P |
-| [release.yml](../.github/workflows/release.yml) | Archives Linux x86-64, macOS arm64, Windows x86-64 et `SHA256SUMS.txt` sur tag `v*` ou lancement manuel |
+| [release.yml](../.github/workflows/release.yml) | Archives Linux x86-64 et ARM64 (glibc d'Ubuntu 22.04), app macOS universelle (Apple silicon et Intel), Windows x86-64 et ARM64 avec leurs installateurs, et `SHA256SUMS.txt` sur tag `v*` ou lancement manuel |
 | [dependencies.yml](../.github/workflows/dependencies.yml) | Veille des dépendances |
 
 La MSRV vient de `rust-version` dans `Cargo.toml`, pas du nom « stable ». Les contrôles de compilation CI ne certifient pas le tray, les notifications, les sélecteurs natifs ou l'accessibilité sur les trois OS.

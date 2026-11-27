@@ -2,6 +2,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$BinaryPath,
     [string]$OutputPath = "dist/windows",
+    [ValidateSet('x86_64', 'aarch64')][string]$Arch = 'x86_64',
     [string]$CompilerPath = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
 )
 $ErrorActionPreference = 'Stop'
@@ -17,6 +18,6 @@ if (-not $Version) { throw 'Package version not found' }
 $NumericVersion = ($Version -split '-')[0]
 New-Item -ItemType Directory -Path $OutputPath -Force | Out-Null
 & $CompilerPath "/DAppVersion=$Version" "/DAppNumericVersion=$NumericVersion" `
-    "/DBinaryPath=$BinaryPath" "/DOutputPath=$OutputPath" `
+    "/DBinaryPath=$BinaryPath" "/DOutputPath=$OutputPath" "/DArch=$Arch" `
     (Join-Path $RepoRoot 'packaging/windows/abcom.iss')
 if ($LASTEXITCODE -ne 0) { throw "ISCC failed: $LASTEXITCODE" }
