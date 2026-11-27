@@ -143,6 +143,8 @@ Le Docker existant à trois pairs reste un outil Linux/X11. Son contexte inclut 
 
 ### Mise à jour du tap à chaque release
 
+Chaque fichier de la release a aussi sa signature minisign (`.minisig`), vérifiable avec la clé publique du dépôt : `minisign -Vm <fichier> -p assets/update/release.pub`. C'est elle qui protège les mises à jour automatiques, même si la release elle-même était modifiée.
+
 Le workflow de release calcule les recettes et `SHA256SUMS.txt` depuis les fichiers produits, puis publie les archives, le bundle Flatpak et les recettes ensemble. Le job `update-tap` télécharge ensuite le binaire macOS réellement publié, génère `Casks/abcom.rb` avec la version et le hash, et propose une PR `feature/homebrew-v…` vers `dev`. Le flux `dev` → `staging` → `main` reste obligatoire ; le tap ne change qu’après cette promotion. Aucun binaire n’est ajouté à Git et aucune soumission externe n’est lancée. Ne pas modifier ou remplacer les fichiers d’une release déjà publiée.
 
 GitHub doit autoriser Actions à créer des PR dans les paramètres du dépôt. Le jeton automatique ne déclenche pas la CI d’une PR créée par le workflow : un mainteneur doit fermer puis rouvrir la PR pour lancer ses contrôles avant fusion. Un échec du job de mise à jour du tap ne retire pas la release déjà publiée. Pour reprendre manuellement dans une branche `feature/…`, télécharger l’archive macOS de cette release dans `dist/tap-artifacts`, puis :
