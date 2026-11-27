@@ -10,6 +10,13 @@ import tomllib
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parent.parent
+# Archive du .app universel (Apple silicon et Intel), celle du cask.
+MACOS_ARCHIVE = "abcom-macos-universal.tar.gz"
+# Installateurs Inno par architecture WinGet : x64 tourne aussi en émulation sous ARM64.
+WINDOWS_INSTALLERS = [
+    ("abcom-windows-x86_64-setup.exe", "x64"),
+    ("abcom-windows-aarch64-setup.exe", "arm64"),
+]
 
 
 def generate(artifacts, output, base_url, version, tap_output=None):
@@ -26,37 +33,29 @@ def generate(artifacts, output, base_url, version, tap_output=None):
         raise ValueError("HTTP is only allowed for local tests")
     if parsed.query or parsed.fragment or any(character in base_url for character in ['"', "'", "\\", "{", "}", "\n", "\r"]):
         raise ValueError("URL characters must be percent-encoded")
-    if parsed.scheme == "file" and (artifacts / "abcom-windows-x86_64-setup.exe").is_file():
+    if parsed.scheme == "file" and any((artifacts / name).is_file() for name, _ in WINDOWS_INSTALLERS):
         raise ValueError("WinGet needs an HTTPS or local HTTP artifact URL, not file://")
     if tap_output is not None:
         if (parsed.scheme != "https" or
                 not re.fullmatch(r"https://github.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/releases/download/v" + re.escape(version), base_url)):
             raise ValueError("the remote tap requires a versioned GitHub release URL matching the package version")
-        if not (artifacts / "abcom-macos-aarch64.tar.gz").is_file():
+        if not (artifacts / MACOS_ARCHIVE).is_file():
             raise ValueError("the remote tap requires the macOS release artifact")
     output.mkdir(parents=True, exist_ok=True)
+    base = base_url.rstrip("/")
     generated = []
-    for filename, kind in [
-        ("abcom-macos-aarch64.tar.gz", "homebrew"),
-        ("abcom-windows-x86_64-setup.exe", "winget"),
-    ]:
-        artifact = artifacts / filename
-        if not artifact.is_file():
-            continue
-        digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
-        url = f"{base_url.rstrip('/')}/{filename}"
-        if kind == "homebrew":
-            target = output / "homebrew/Casks/abcom.rb"
-            text = f'''cask "abcom" do
+
+    archive = artifacts / MACOS_ARCHIVE
+    if archive.is_file():
+        digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+        text = f'''cask "abcom" do
   version {json.dumps(version)}
   sha256 {json.dumps(digest)}
 
-  url {json.dumps(url)}
+  url {json.dumps(f"{base}/{MACOS_ARCHIVE}")}
   name "Abcom"
   desc "Encrypted peer-to-peer LAN messenger"
   homepage "https://github.com/abnd-corp/Abcom"
-
-  depends_on arch: :arm64
 
   app "Abcom.app"
 
@@ -65,9 +64,25 @@ def generate(artifacts, output, base_url, version, tap_output=None):
             delete: "~/Library/LaunchAgents/Abcom.plist"
 end
 '''
-        else:
-            target = output / "winget/Abnd.Abcom.yaml"
-            text = f'''# yaml-language-server: $schema=https://aka.ms/winget-manifest.singleton.1.10.0.schema.json
+        target = output / "homebrew/Casks/abcom.rb"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding="utf-8")
+        if tap_output is not None:
+            tap_output.mkdir(parents=True, exist_ok=True)
+            (tap_output / "abcom.rb").write_text(text, encoding="utf-8")
+        generated.append("homebrew")
+
+    installers = ""
+    for filename, architecture in WINDOWS_INSTALLERS:
+        installer = artifacts / filename
+        if installer.is_file():
+            digest = hashlib.sha256(installer.read_bytes()).hexdigest().upper()
+            installers += f'''  - Architecture: {architecture}
+    InstallerUrl: {json.dumps(f"{base}/{filename}")}
+    InstallerSha256: {digest}
+'''
+    if installers:
+        text = f'''# yaml-language-server: $schema=https://aka.ms/winget-manifest.singleton.1.10.0.schema.json
 PackageIdentifier: Abnd.Abcom
 PackageVersion: {json.dumps(version)}
 PackageLocale: en-US
@@ -82,18 +97,14 @@ Scope: user
 UpgradeBehavior: install
 ProductCode: corp.abnd.abcom_is1
 Installers:
-  - Architecture: x64
-    InstallerUrl: {json.dumps(url)}
-    InstallerSha256: {digest.upper()}
-ManifestType: singleton
+{installers}ManifestType: singleton
 ManifestVersion: 1.10.0
 '''
+        target = output / "winget/Abnd.Abcom.yaml"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(text, encoding="utf-8")
-        if kind == "homebrew" and tap_output is not None:
-            tap_output.mkdir(parents=True, exist_ok=True)
-            (tap_output / "abcom.rb").write_text(text, encoding="utf-8")
-        generated.append(kind)
+        generated.append("winget")
+
     if not generated:
         raise ValueError("no supported artifacts found; build the macOS bundle or Windows installer first")
     return generated

@@ -21,21 +21,36 @@ env:
 
 jobs:
   build:
-    name: Build ${{ matrix.target }}
+    name: Build ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          # Ubuntu 22.04 : la glibc la plus ancienne des runners, donc les binaires les plus portables.
+          - os: ubuntu-22.04
+            name: linux-x86_64
             target: x86_64-unknown-linux-gnu
             archive: abcom-linux-x86_64.tar.gz
+          - os: ubuntu-22.04-arm
+            name: linux-aarch64
+            target: aarch64-unknown-linux-gnu
+            archive: abcom-linux-aarch64.tar.gz
+          # Un seul .app universel (Apple silicon et Intel) : un seul fichier à choisir et à mettre à jour.
           - os: macos-latest
-            target: aarch64-apple-darwin
-            archive: abcom-macos-aarch64.tar.gz
+            name: macos-universal
+            archive: abcom-macos-universal.tar.gz
           - os: windows-latest
+            name: windows-x86_64
             target: x86_64-pc-windows-msvc
+            arch: x86_64
             archive: abcom-windows-x86_64.zip
+          # Compilé depuis x64 : les outils MSVC ARM64 et Inno Setup sont sur l'image Windows.
+          - os: windows-latest
+            name: windows-aarch64
+            target: aarch64-pc-windows-msvc
+            arch: aarch64
+            archive: abcom-windows-aarch64.zip
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -64,18 +79,20 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Build release
+        if: runner.os != 'macOS'
         run: cargo build --release --locked --target ${{ matrix.target }}
 
       - name: Archive (Linux)
         if: runner.os == 'Linux'
         run: tar -czf ${{ matrix.archive }} -C target/${{ matrix.target }}/release abcom -C "$GITHUB_WORKSPACE" assets/app_icon.png scripts/abcom-install.sh
 
-      - name: Application et archive (macOS)
+      - name: Application universelle et archive (macOS)
         if: runner.os == 'macOS'
         run: |
-          python3 scripts/package_macos.py target/${{ matrix.target }}/release/abcom dist/Abcom.app
+          bash scripts/build_macos_universal.sh dist/universal/abcom
+          python3 scripts/package_macos.py dist/universal/abcom dist/Abcom.app
           tar -czf ${{ matrix.archive }} -C dist Abcom.app
-          bash scripts/package_dmg.sh dist/Abcom.app abcom-macos-aarch64.dmg
+          bash scripts/package_dmg.sh dist/Abcom.app abcom-macos-universal.dmg
 
       - name: Archive (Windows)
         if: runner.os == 'Windows'
@@ -86,16 +103,16 @@ jobs:
         shell: pwsh
         run: |
           ./scripts/check_windows_gui.ps1 -BinaryPath target/${{ matrix.target }}/release/abcom.exe
-          ./scripts/package_windows.ps1 -BinaryPath target/${{ matrix.target }}/release/abcom.exe
-          Copy-Item dist/windows/abcom-windows-x86_64-setup.exe .
+          ./scripts/package_windows.ps1 -BinaryPath target/${{ matrix.target }}/release/abcom.exe -Arch ${{ matrix.arch }}
+          Copy-Item dist/windows/abcom-windows-${{ matrix.arch }}-setup.exe .
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ${{ matrix.archive }}
           path: |
             ${{ matrix.archive }}
-            abcom-windows-x86_64-setup.exe
-            abcom-macos-aarch64.dmg
+            abcom-windows-*-setup.exe
+            abcom-macos-universal.dmg
 
   linux-formats:
     uses: ./.github/workflows/linux-packages.yml
@@ -167,7 +184,7 @@ jobs:
           fetch-depth: 0
       - name: Télécharger la release et générer le tap
         run: |
-          gh release download "$RELEASE_TAG" --pattern abcom-macos-aarch64.tar.gz --dir dist/tap-artifacts
+          gh release download "$RELEASE_TAG" --pattern abcom-macos-universal.tar.gz --dir dist/tap-artifacts
           python3 scripts/prepare_packages.py --artifacts dist/tap-artifacts --output dist/tap-recipes --version "${RELEASE_TAG#v}" --base-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}" --tap-output Casks
       - name: Proposer la mise à jour par PR
         run: |

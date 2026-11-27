@@ -83,7 +83,7 @@ For a **build compiled on your own Mac**, prepare and test the cask from the rep
 cargo build --release --locked
 python3 scripts/package_macos.py target/release/abcom dist/Abcom.app
 mkdir -p dist/packages/artifacts
-tar -czf dist/packages/artifacts/abcom-macos-aarch64.tar.gz -C dist Abcom.app
+tar -czf dist/packages/artifacts/abcom-macos-universal.tar.gz -C dist Abcom.app
 python3 scripts/prepare_packages.py --artifacts dist/packages/artifacts
 bash scripts/install-homebrew.sh dist/packages/homebrew/Casks/abcom.rb --local-build
 open /Applications/Abcom.app

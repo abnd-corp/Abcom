@@ -65,7 +65,7 @@ New modules get their own test file. A few historical modules retain inline test
 | `host` (macOS), `windows`, `linux-kde`, `linux-xfce`, `linux-gnome-tray` | present: each instance registers |
 | `linux-gnome` (stock GNOME) | absent: the application reports that the close button will quit instead of hiding it |
 
-Nothing is compiled inside the VMs. The "Binaire e2e" CI job publishes `abcom-linux-aarch64`, `abcom-windows-x86_64.exe` and `abcom-macos-aarch64` for every run, kept for seven days:
+Nothing is compiled inside the VMs. The "Binaire e2e" CI job publishes `abcom-linux-aarch64`, `abcom-windows-x86_64.exe`, `abcom-windows-aarch64.exe` (with their installers) and `abcom-macos-aarch64` for every run, kept for seven days; it also checks that the release's universal macOS binary builds:
 
 ```bash
 gh run download <run-id> -p 'e2e-*' -D e2e-artifacts
@@ -92,7 +92,7 @@ For documentation changes, update both languages and run the link checker. The [
 |---|---|
 | [ci-dev.yml](../../.github/workflows/ci-dev.yml) | Formatting, Clippy, release build, Linux tests, MSRV, minimal build, macOS/Windows checks, coverage and dependency audit |
 | [ci-main.yml](../../.github/workflows/ci-main.yml) | Delivery checks and P2P scenario |
-| [release.yml](../../.github/workflows/release.yml) | Linux x86-64, macOS arm64, Windows x86-64 archives and `SHA256SUMS.txt` on `v*` tags or manual dispatch |
+| [release.yml](../../.github/workflows/release.yml) | Linux x86-64 and ARM64 archives (Ubuntu 22.04 glibc), universal macOS app (Apple silicon and Intel), Windows x86-64 and ARM64 with their installers, and `SHA256SUMS.txt` on `v*` tags or manual dispatch |
 | [dependencies.yml](../../.github/workflows/dependencies.yml) | Dependency monitoring |
 
 The MSRV comes from `rust-version`, not from whichever toolchain is currently stable. Compilation checks do not certify tray behavior, notifications, native pickers or accessibility on all three platforms.

@@ -7,6 +7,10 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 
 ## [Non publié]
 
+### Ajouté
+- Release pour toutes les architectures : Windows ARM64 natif (archive et installateur), app macOS universelle (Apple silicon et Intel, DMG et archive `abcom-macos-universal`), archive Linux ARM64. Le cask Homebrew n'est plus réservé à Apple silicon et le manifeste WinGet propose x64 et ARM64
+- Binaires Linux compilés sur Ubuntu 22.04 : ils tournent sur des distributions plus anciennes qu'avec l'image `ubuntu-latest`
+
 ## [1.0.0-beta.3] — 2026-11-25
 
 Première release publiée sur GitHub : installateur et archive Windows, app macOS et cask Homebrew, AppImage, Flatpak et archive Linux, manifeste WinGet, flake Nix. Binaires non signés, par décision ([ADR 0002](docs/adr/0002-no-code-signing.fr.md)).
