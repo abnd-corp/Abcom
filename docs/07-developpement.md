@@ -107,6 +107,12 @@ cargo deny --locked check advisories
 
 `Cargo.lock` est versionné. Justifier les nouvelles dépendances, limiter leurs fonctionnalités et ne pas monter leurs versions dans un correctif sans rapport. Le [relevé du 11 novembre](08-historique-et-audits.md) signale des avis RustSec non résolus ; les tests applicatifs verts ne rendent pas cet audit vert.
 
+### Signature des releases
+
+Chaque fichier de release est signé avec [minisign](https://jedisct1.github.io/minisign/) par le job de publication (`scripts/sign_release.sh`). Le commentaire de confiance `abcom <version> <fichier>` lie le fichier à sa version : la mise à jour automatique refuse un ancien artefact signé resservi comme nouveau. La clé secrète n'existe que dans le secret `ABCOM_UPDATE_SIGNING_KEY` de l'environnement GitHub `release`, réservé aux tags `v*` et à `main`. La publication échoue si le tag ne désigne pas un commit de `main`, si le secret manque ou si une signature ne se vérifie pas avec `assets/update/release.pub`.
+
+Création, une seule fois et par un dirigeant (R18) : `scripts/create_update_keys.sh`. Le script envoie la clé de release dans le secret sans l'afficher, crée une clé de secours protégée par mot de passe à garder hors ligne, et écrit les deux clés publiques dans `assets/update/`. L'application fait confiance aux deux : si la clé de release est perdue ou compromise, une nouvelle clé signée par la release suivante, publiée avec la clé de secours, prend le relais sans casser les installations.
+
 Le rendu utilise eframe/egui **0.37** avec **wgpu**. Ne pas réactiver les features par défaut d'eframe qui introduiraient le renderer Glow. Sur macOS, la chaîne actuelle ne doit pas relier Glow ; ailleurs wgpu peut tirer sa propre dépendance GLES de repli.
 
 Le profil release utilise LTO thin, une unité de codegen, suppression des symboles et `panic = "abort"`. Les mesures de temps et de mémoire destinées à une publication doivent être faites en release et datées.

@@ -107,6 +107,12 @@ cargo deny --locked check advisories
 
 `Cargo.lock` is versioned. Justify new dependencies, enable only the necessary features, and keep unrelated dependency upgrades separate. The [11 November audit](08-history-and-audits.md) records unresolved RustSec advisories; passing application tests does not make that audit pass.
 
+### Release signatures
+
+The publish job signs every release file with [minisign](https://jedisct1.github.io/minisign/) (`scripts/sign_release.sh`). The trusted comment `abcom <version> <file>` binds each file to its version, so automatic updates reject an old signed artefact served as a new one. The secret key only exists in the `ABCOM_UPDATE_SIGNING_KEY` secret of the `release` GitHub environment, limited to `v*` tags and `main`. Publishing fails if the tag is not on `main`, if the secret is missing or if a signature does not verify with `assets/update/release.pub`.
+
+Key creation happens once, by a maintainer (R18): `scripts/create_update_keys.sh` sends the release key straight into the secret without displaying it, creates a password-protected backup key to keep offline, and writes both public keys to `assets/update/`. The application trusts both: if the release key is lost or compromised, the next release, published with the backup key, can introduce a new key without breaking installations.
+
 The renderer uses eframe/egui **0.37** with **wgpu**. Do not restore eframe's default features and accidentally add its Glow renderer. On macOS the current graph should not link Glow; on other systems wgpu can include its own GLES fallback dependency.
 
 Release builds use thin LTO, one codegen unit, stripped symbols and `panic = "abort"`. Publish timing and memory measurements with their date and release-build environment.

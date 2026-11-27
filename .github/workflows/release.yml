@@ -108,12 +108,23 @@ jobs:
     name: Publier la Release
     needs: [build, linux-formats]
     runs-on: ubuntu-latest
+    # Détient la clé de signature des mises à jour, réservée aux tags `v*` et à `main`.
+    environment: release
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Le tag désigne un commit de main
+        run: |
+          git fetch --quiet origin main
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::Le tag ne pointe pas sur un commit de main : release et signature refusées."
+            exit 1
+          fi
 
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -133,6 +144,14 @@ jobs:
           python3 scripts/write_checksums.py artifacts
           cat artifacts/SHA256SUMS.txt
 
+      - name: Signatures des mises à jour (minisign)
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          SIGNING_KEY: ${{ secrets.ABCOM_UPDATE_SIGNING_KEY }}
+        run: |
+          sudo apt-get install -y minisign
+          bash scripts/sign_release.sh artifacts "${RELEASE_TAG#v}" assets/update/release.pub
+
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
@@ -147,7 +166,8 @@ jobs:
             ⚠️ Binaires non signés, par choix ([ADR 0002](https://github.com/abnd-corp/Abcom/blob/main/docs/adr/0002-no-code-signing.md)) :
             ni Developer ID ni notarisation Apple, ni Authenticode. Vérifier le fichier avec
             `SHA256SUMS.txt`, puis autoriser le premier lancement (Confidentialité et sécurité
-            sous macOS, SmartScreen sous Windows).
+            sous macOS, SmartScreen sous Windows). Chaque fichier a sa signature minisign
+            (`.minisig`), vérifiable avec la clé publique `assets/update/release.pub` du dépôt.
           files: artifacts/*
 
   update-tap:

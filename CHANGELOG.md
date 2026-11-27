@@ -7,6 +7,9 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 
 ## [Non publié]
 
+### Sécurité
+- Chaque fichier de release est signé avec minisign par une clé réservée à la CI de release ; la publication échoue si le tag n'est pas sur `main` ou si une signature ne se vérifie pas. Base de la mise à jour automatique
+
 ## [1.0.0-beta.3] — 2026-11-25
 
 Première release publiée sur GitHub : installateur et archive Windows, app macOS et cask Homebrew, AppImage, Flatpak et archive Linux, manifeste WinGet, flake Nix. Binaires non signés, par décision ([ADR 0002](docs/adr/0002-no-code-signing.fr.md)).

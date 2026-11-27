@@ -143,6 +143,8 @@ Docker's existing three-peer setup remains a Linux/X11 tool. Its build context n
 
 ### Updating the tap for each release
 
+Every release file also has a minisign signature (`.minisig`), verifiable with the repository's public key: `minisign -Vm <file> -p assets/update/release.pub`. It protects automatic updates even if the release itself were modified.
+
 The release workflow computes recipes and `SHA256SUMS.txt` from actual build outputs, then publishes the archives, Flatpak bundle and recipes together. Its `update-tap` job downloads the published macOS binary, generates `Casks/abcom.rb` with the version and hash, and proposes a `feature/homebrew-v…` PR to `dev`. The `dev` → `staging` → `main` flow remains required; the tap changes only after promotion. No binary enters Git and no external catalogue submission runs. Do not modify or replace files in an already published release.
 
 GitHub must allow Actions to create PRs in the repository settings. The automatic token does not trigger CI for a workflow-created PR: a maintainer must close and reopen that PR to trigger its checks before merging. A failed tap update does not remove the already published release. To recover manually on a `feature/…` branch, download that release's macOS archive to `dist/tap-artifacts`, then run:
