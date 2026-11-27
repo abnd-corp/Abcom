@@ -100,7 +100,7 @@ Création par le `+` de la barre latérale (validation du nom en direct, cases �
 - **Envoi** : fichier ou dossier (compressé en ZIP à la volée, [archive.rs](../src/archive.rs)), vers un pair ou les membres d'un salon. Streaming par tranches de 60 Ko, jusqu'à 2 Gio par transfert.
 - **Acceptation** : au-delà de 50 Mo, le destinataire reçoit une proposition qu'il accepte ou refuse (sans réponse sous 120 s, le transfert est abandonné) ; en deçà, la réception est automatique — le seuil borne ce qu'un pair peut écrire sur le disque sans accord explicite. Progression affichée des deux côtés. Le fichier reçu est rangé par l'application dans son dossier `media/` ; depuis la visionneuse, le bouton « ⬇ Télécharger » en dépose une copie dans le dossier Téléchargements du système.
 - **Images** : vignette dans le fil (360×300 max, ratio préservé), visionneuse plein écran au clic.
-- **GIF, mèmes, stickers** : sélecteur Klipy à trois onglets (recherche avec anti-rebond de 300 ms, scroll infini). Le GIF est transmis **par URL** : chaque pair le charge depuis le CDN Klipy. Nécessite la clé `ABCOM_KLIPY_API_KEY` ; sans elle, le bouton GIF affiche une notification au lieu du sélecteur. Attribution « Powered by KLIPY » dans le pied du sélecteur, crédits détaillés dans Paramètres.
+- **GIF, mèmes, stickers** : sélecteur Klipy à trois onglets (recherche avec anti-rebond de 300 ms, scroll infini). Le GIF est transmis **par URL** : chaque pair le charge depuis le CDN Klipy. Les releases intègrent la clé Klipy ; un build depuis les sources lit `ABCOM_KLIPY_API_KEY`, et sans clé, le bouton GIF affiche une notification au lieu du sélecteur. Attribution « Powered by KLIPY » dans le pied du sélecteur, crédits détaillés dans Paramètres.
 
 ## Avatars et alias
 

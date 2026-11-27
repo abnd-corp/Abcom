@@ -77,7 +77,7 @@ Lues depuis l'environnement ou un fichier `.env` à la racine du répertoire cou
 | Variable | Rôle |
 |---|---|
 | `ABCOM_PASSPHRASE` | Passphrase de salon : seules les machines partageant la même valeur peuvent se connecter entre elles (handshake `XXpsk3`) |
-| `ABCOM_KLIPY_API_KEY` | Clé API Klipy — nécessaire au sélecteur GIF/mèmes/stickers |
+| `ABCOM_KLIPY_API_KEY` | Clé API Klipy du sélecteur GIF/mèmes/stickers. Les releases publiées intègrent déjà la clé de production ; la variable sert au développement, aux builds depuis les sources (Nix compris) et prime sur la clé intégrée |
 | `ABCOM_INSTANCE` | Numéro d'instance pour lancer plusieurs Abcom sur la même machine (ports et données séparés). Plafonné à ce que la plage de ports permet : une valeur trop grande est ramenée au maximum au lieu de déborder sur des ports déjà attribués |
 
 La messagerie locale ne nécessite ni clé Klipy ni passphrase. Ne pas versionner de secret ; les polices en ligne exigent un accord distinct dans les paramètres.

@@ -7,6 +7,9 @@ Format basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/), versi
 
 ## [Non publié]
 
+### Corrigé
+- GIF, mèmes et stickers disponibles dans toutes les releases (Windows, macOS, Linux, AppImage, Flatpak) : la clé Klipy de production est intégrée à la compilation par la CI de release, qui échoue si elle manque. `ABCOM_KLIPY_API_KEY` reste prioritaire à l'exécution
+
 ## [1.0.0-beta.3] — 2026-11-25
 
 Première release publiée sur GitHub : installateur et archive Windows, app macOS et cask Homebrew, AppImage, Flatpak et archive Linux, manifeste WinGet, flake Nix. Binaires non signés, par décision ([ADR 0002](docs/adr/0002-no-code-signing.fr.md)).

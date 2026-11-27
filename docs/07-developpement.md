@@ -92,7 +92,7 @@ Pour la documentation : mettre à jour les deux langues et exécuter le contrôl
 |---|---|
 | [ci-dev.yml](../.github/workflows/ci-dev.yml) | Format, Clippy, release, tests Linux, MSRV, compilation minimale, checks macOS/Windows, couverture, audit |
 | [ci-main.yml](../.github/workflows/ci-main.yml) | Contrôles de livraison et scénario P2P |
-| [release.yml](../.github/workflows/release.yml) | Archives Linux x86-64, macOS arm64, Windows x86-64 et `SHA256SUMS.txt` sur tag `v*` ou lancement manuel |
+| [release.yml](../.github/workflows/release.yml) | Archives Linux x86-64, macOS arm64, Windows x86-64 et `SHA256SUMS.txt` sur tag `v*` ou lancement manuel. Les builds tournent dans l'environnement GitHub `release` (tags `v*` et `main` seulement), qui fournit le secret `ABCOM_KLIPY_API_KEY` : sans lui, la release échoue |
 | [dependencies.yml](../.github/workflows/dependencies.yml) | Veille des dépendances |
 
 La MSRV vient de `rust-version` dans `Cargo.toml`, pas du nom « stable ». Les contrôles de compilation CI ne certifient pas le tray, les notifications, les sélecteurs natifs ou l'accessibilité sur les trois OS.
